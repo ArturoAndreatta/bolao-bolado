@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+// Comentário teste commit
 class ParticipantsTable extends StatelessWidget {
   final bool loading;
   final double heightTable;
