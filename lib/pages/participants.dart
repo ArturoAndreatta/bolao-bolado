@@ -1,10 +1,9 @@
+import 'package:bolao_bolado/components/Default/default_layout.dart';
 import 'package:bolao_bolado/components/back_screen_button.dart';
-import 'package:bolao_bolado/components/gradient_decoration.dart';
 import 'package:bolao_bolado/components/participants_table.dart';
 import 'package:bolao_bolado/models/bet.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:bolao_bolado/components/footer.dart';
 import 'package:bolao_bolado/components/logo.dart';
 
 class Participants extends StatefulWidget {
@@ -28,7 +27,7 @@ class _ParticipantsState extends State<Participants> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final dataBets = await getBets();
-
+    await Future.delayed(Duration(seconds: 3));
     setState(() {
       _rowsData = dataBets;
       _loading = false;
@@ -44,57 +43,49 @@ class _ParticipantsState extends State<Participants> {
     const widthCotas = 60.0;
     const widthPremio = 90.0;
 
-    return Container(
-      decoration: GradientDecoration.backgroundGradient(),
-      child: Scaffold(
-        bottomNavigationBar: Footer(),
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            padding: EdgeInsets.fromLTRB(0, 20, 0, 0),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 520),
-                child: Stack(
-                  children: [
-                    Card(
-                      elevation: 20,
-                      color: Color(0xFFFEFEFE),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Logo(),
-                          SizedBox(height: 20),
-                          SizedBox(
-                            height: heightTable,
-                            child: _loading
-                                ? Center(child: CircularProgressIndicator())
-                                : SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: SingleChildScrollView(
-                                      child: ParticipantsTable(
-                                        loading: _loading,
-                                        heightTable: heightTable,
-                                        widthNome: widthNome,
-                                        widthValor: widthValor,
-                                        widthCotas: widthCotas,
-                                        widthPremio: widthPremio,
-                                        rowsData: _rowsData,
-                                      ),
-                                    ),
-                                  ),
+    return DefaultLayout(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 508),
+        child: Stack(
+          children: [
+            Card(
+              elevation: 20,
+              color: Color(0xFFFEFEFE),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Logo(),
+                  SizedBox(height: 20),
+                  SizedBox(
+                    height: heightTable,
+                    child: _loading
+                        ? Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 5,
+                              color: Color(0xFF7CC8B5),
+                            ),
+                          )
+                        : SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: SingleChildScrollView(
+                              child: ParticipantsTable(
+                                loading: _loading,
+                                heightTable: heightTable,
+                                widthNome: widthNome,
+                                widthValor: widthValor,
+                                widthCotas: widthCotas,
+                                widthPremio: widthPremio,
+                                rowsData: _rowsData,
+                              ),
+                            ),
                           ),
-                          SizedBox(height: 30),
-                        ],
-                      ),
-                    ),
-                    BackScreenButton(),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: 30),
+                ],
               ),
             ),
-          ),
+            BackScreenButton(),
+          ],
         ),
       ),
     );

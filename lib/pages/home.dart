@@ -1,7 +1,6 @@
 import 'dart:math';
+import 'package:bolao_bolado/components/Default/default_layout.dart';
 import 'package:bolao_bolado/components/buttons.dart';
-import 'package:bolao_bolado/components/footer.dart';
-import 'package:bolao_bolado/components/gradient_decoration.dart';
 import 'package:bolao_bolado/components/logo.dart';
 import 'package:bolao_bolado/pages/login.dart';
 import 'package:bolao_bolado/pages/participants.dart';
@@ -52,93 +51,78 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: GradientDecoration.backgroundGradient(),
-      child: Scaffold(
-        bottomNavigationBar: Footer(),
-        backgroundColor: Colors.transparent,
-        body: Center(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(0, 20, 0, 0),
-            child: Column(
-              children: [
-                SingleChildScrollView(
-                  child: Card(
-                    elevation: 20,
-                    color: Color(0xFFFEFEFE),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Logo(),
-                        SizedBox(height: 20),
-                        ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: 420),
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: 'Bem-vindo',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                TextSpan(
-                                  text: ' ao Bolão Bolado!',
-                                  style: TextStyle(fontWeight: FontWeight.w500),
-                                ),
-                                TextSpan(
-                                  text: '\n$frase',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    fontStyle: FontStyle.italic,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 25),
-                            softWrap: true,
+    return DefaultLayout(
+      child: Column(
+        children: [
+          SingleChildScrollView(
+            child: Card(
+              elevation: 20,
+              color: Color(0xFFFEFEFE),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Logo(),
+                  SizedBox(height: 20),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 420),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Bem-vindo',
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                        ),
-                        SizedBox(height: 20),
-                        PrimaryButton(
-                          text: 'Participar',
-                          onTap: () {
-                            // DateTime now = DateTime.now();
-                            // firestore
-                            //     .collection('Coleção')
-                            //     .doc('Documento $now')
-                            //     .set({'Funcionou': true});
-                            Navigator.of(context).push(
-                              PageRouteBuilder(
-                                transitionDuration: Duration.zero,
-                                reverseTransitionDuration: Duration.zero,
-                                pageBuilder: (_, _, _) => Login(),
-                              ),
-                            );
-                          },
-                        ),
-                        SizedBox(height: 20),
-                        SecondaryButton(
-                          text: 'Visualizar',
-                          onTap: () {
-                            Navigator.of(context).push(
-                              PageRouteBuilder(
-                                transitionDuration: Duration.zero,
-                                reverseTransitionDuration: Duration.zero,
-                                pageBuilder: (_, _, _) => Participants(),
-                              ),
-                            );
-                          },
-                        ),
-                        SizedBox(height: 30),
-                      ],
+                          TextSpan(
+                            text: ' ao Bolão Bolado!',
+                            style: TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          TextSpan(
+                            text: '\n$frase',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontStyle: FontStyle.italic,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 25),
+                      softWrap: true,
                     ),
                   ),
-                ),
-              ],
+                  SizedBox(height: 20),
+                  PrimaryButton(
+                    text: 'Participar',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        PageRouteBuilder(
+                          transitionDuration: Duration.zero,
+                          reverseTransitionDuration: Duration.zero,
+                          pageBuilder: (_, _, _) => Login(),
+                        ),
+                      );
+                    },
+                  ),
+                  SizedBox(height: 20),
+                  SecondaryButton(
+                    text: 'Visualizar',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        PageRouteBuilder(
+                          transitionDuration: Duration.zero,
+                          reverseTransitionDuration: Duration.zero,
+                          pageBuilder: (_, _, _) => Participants(),
+                        ),
+                      );
+                    },
+                  ),
+                  SizedBox(height: 30),
+                ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
