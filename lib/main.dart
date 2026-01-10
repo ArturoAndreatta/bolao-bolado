@@ -1,4 +1,4 @@
-import 'package:bolao_bolado/pages/home.dart';
+import 'package:bolao_bolado/bolao_bolado.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -18,6 +18,8 @@ import 'firebase_options.dart';
 //
 // [BOTÃO SALVAR] [BOTÃO EXCLUIR] [BOTÃO CANCELAR]
 //
+// Deve ser possível que o criador da sala possa remover pessoas da sala
+//
 // X minutos ou horas depois da data/hora do sorteio, notificar (por e-mail)
 // o criador da sala para ele informar os números sorteados na sala criada,
 // assim que ele informar e confirmar, será enviado um e-mail/mensagem para
@@ -34,6 +36,11 @@ import 'firebase_options.dart';
 // Ao clicar em "Consultar Salas", irá mostrar uma consulta com todas as salas
 // existentes, deve ter filtros para facilitar a pesquisa, a sala oficial do
 // Bolão Bolado sempre será a primeira em destaque
+// Botão "Entrar com código" que é gerado na criação da sala
+//
+//
+//
+// Chat dentro da sala?
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

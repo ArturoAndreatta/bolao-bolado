@@ -27,7 +27,6 @@ class _ParticipantsState extends State<Participants> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final dataBets = await getBets();
-    await Future.delayed(Duration(seconds: 3));
     setState(() {
       _rowsData = dataBets;
       _loading = false;

@@ -2,30 +2,10 @@ import 'dart:math';
 import 'package:bolao_bolado/components/Default/default_layout.dart';
 import 'package:bolao_bolado/components/buttons.dart';
 import 'package:bolao_bolado/components/logo.dart';
-import 'package:bolao_bolado/pages/login.dart';
+import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/participants.dart';
-import 'package:bolao_bolado/phrases.dart';
-// import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bolao_bolado/components/phrases.dart';
 import 'package:flutter/material.dart';
-
-class BolaoBolado extends StatefulWidget {
-  const BolaoBolado({super.key});
-
-  @override
-  State<BolaoBolado> createState() => _BolaoBoladoState();
-}
-
-class _BolaoBoladoState extends State<BolaoBolado> {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Bolão Bolado',
-      home: HomePage(),
-      theme: ThemeData(useMaterial3: true),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});

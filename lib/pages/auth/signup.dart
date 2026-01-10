@@ -1,0 +1,170 @@
+import 'package:bolao_bolado/components/Default/default_layout.dart';
+import 'package:bolao_bolado/components/buttons.dart';
+import 'package:bolao_bolado/components/fields.dart';
+import 'package:bolao_bolado/components/logo.dart';
+import 'package:bolao_bolado/pages/informar_aposta.dart'; // se tu usar essa como "home", pode remover depois
+// import 'package:bolao_bolado/pages/register.dart'; // <- quando criar
+import 'package:flutter/material.dart';
+
+class Signup extends StatefulWidget {
+  const Signup({super.key});
+
+  @override
+  State<Signup> createState() => _SignupState();
+}
+
+class _SignupState extends State<Signup> {
+  final emailController = TextEditingController();
+  final senhaController = TextEditingController();
+
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    senhaController.dispose();
+    super.dispose();
+  }
+
+  InputDecoration _inputDecoration({
+    required String hint,
+    IconData? icon,
+    Widget? suffix,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      prefixIcon: icon != null ? Icon(icon) : null,
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: const Color(0xFFF3F4F6),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultLayout(
+      child: Column(
+        children: [
+          SingleChildScrollView(
+            child: Card(
+              elevation: 20,
+              color: const Color(0xFFFEFEFE),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 10,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Logo(),
+                    const SizedBox(height: 10),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: const Text(
+                        'Acesse sua conta',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 25,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        softWrap: true,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Column(
+                        children: [
+                          // CustomField(
+                          //   hint: 'E-mail',
+                          //   icon: Icons.alternate_email,
+                          //   isNumeric: false,
+                          //   keyboardType: TextInputType.emailAddress,
+                          //   controller: emailController,
+                          // ),
+                          TextField(
+                            controller: emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            decoration: _inputDecoration(
+                              hint: 'E-mail',
+                              icon: Icons.alternate_email,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          TextField(
+                            controller: senhaController,
+                            obscureText: _obscure,
+                            textInputAction: TextInputAction.done,
+                            decoration: _inputDecoration(
+                              hint: 'Senha',
+                              icon: Icons.lock_outline,
+                              suffix: IconButton(
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {},
+                              child: const Text('Esqueci minha senha'),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          PrimaryButton(
+                            text: 'Logar',
+                            onTap: () {
+                              // aqui tu faz a validação + auth
+                              // por enquanto, só navega pra tua tela de login (ou home após login)
+                              Navigator.of(context).push(
+                                PageRouteBuilder(
+                                  transitionDuration: Duration.zero,
+                                  reverseTransitionDuration: Duration.zero,
+                                  pageBuilder: (_, _, _) => Login(),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          SecondaryButton(
+                            text: 'Cadastrar',
+                            onTap: () {
+                              // Troca isso quando criar a tela de cadastro:
+                              // pageBuilder: (_, _, _) => Register(),
+                              Navigator.of(context).push(
+                                PageRouteBuilder(
+                                  transitionDuration: Duration.zero,
+                                  reverseTransitionDuration: Duration.zero,
+                                  pageBuilder: (_, _, _) => Login(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

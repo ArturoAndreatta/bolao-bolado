@@ -5,6 +5,7 @@ class CustomField extends StatelessWidget {
   final String hint;
   final IconData icon;
   final bool isNumeric;
+  final TextInputType? keyboardType;
   final TextEditingController controller;
 
   const CustomField({
@@ -12,6 +13,7 @@ class CustomField extends StatelessWidget {
     required this.hint,
     required this.icon,
     required this.isNumeric,
+    required this.keyboardType,
     required this.controller,
   });
 
@@ -20,14 +22,12 @@ class CustomField extends StatelessWidget {
     const double radius = 14;
     BorderRadius borderRadius = BorderRadius.circular(radius);
 
-    return SizedBox(
-      width: 300,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 300),
       child: Form(
         child: TextFormField(
           controller: controller,
-          keyboardType: isNumeric
-              ? TextInputType.numberWithOptions(decimal: false)
-              : null,
+          keyboardType: keyboardType,
           inputFormatters: isNumeric
               ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
               : null,
@@ -43,7 +43,7 @@ class CustomField extends StatelessWidget {
                   if (number % 6 != 0) {
                     return 'O número deve ser divisível por 6';
                   }
-                  return null; // válido
+                  return null;
                 }
               : null,
           autovalidateMode: AutovalidateMode.onUserInteraction,
