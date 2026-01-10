@@ -3,6 +3,33 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
+// Implementações:
+// Cadastrar com e-mail/número e senha
+// Criação do perfil preenchendo nome e sobrenome
+// Possibilidade de criar salas de apostas. Com os campos:
+// - Nome da sala
+// - Descrição
+// - Sorteio (Mega sena, loto fácil, etc)
+// - Data/Hora do sorteio
+// - Prêmio do sorteio
+// - Números apostados
+// - Números sorteados
+// - Pix
+//
+// [BOTÃO CRIAR] [BOTÃO EXCLUIR] [BOTÃO CANCELAR]
+//
+// X minutos ou horas depois da data/hora do sorteio, notificar o criador da
+// sala para ele informar os números sorteados na sala criada, assim que ele
+// informar e confirmar, será enviado um e-mail/mensagem para todos os
+// participantes, informando os números sorteados, um anexo com os números
+// apostados e um link que irá redirecionar para a sala da aposta
+//
+// Na tela inicial:
+// - Criar conta
+// - Logar
+// Após criar conta/logar:
+// Criar Sala
+// Entrar na Sala
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
