@@ -50,21 +50,29 @@ class CustomField extends StatelessWidget {
           style: TextStyle(color: Color(0xFF1F2937), fontSize: 18),
           decoration: InputDecoration(
             labelText: hint,
-            hintStyle: TextStyle(color: Colors.grey),
-            floatingLabelStyle: TextStyle(color: Colors.grey),
-            prefixIcon: Icon(icon, color: Colors.grey),
-            fillColor: Color(0xFFF6F6F6),
+            floatingLabelStyle: TextStyle(color: Colors.black),
+            prefixIcon: Icon(icon),
+            filled: true,
+            fillColor: const Color(0xFFF3F4F6),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
             enabledBorder: OutlineInputBorder(
               borderRadius: borderRadius,
-              borderSide: BorderSide(color: Color(0xFFDDDDDD), width: 1),
+              borderSide: BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: borderRadius,
-              borderSide: BorderSide(color: Color(0xFFCCCCCC), width: 2.5),
+              borderSide: BorderSide(color: Color(0xFFCCCCCC), width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: borderRadius,
-              borderSide: BorderSide(color: Colors.red, width: 1),
+              borderSide: BorderSide(color: Colors.red, width: 1.5),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: borderRadius,

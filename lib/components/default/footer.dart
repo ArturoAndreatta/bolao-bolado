@@ -13,7 +13,7 @@ class Footer extends StatelessWidget {
           child: Text(
             'Feito com ❤️ por Arturo Andreatta',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 14,
               color: Color(0xFF1F2937),
               fontWeight: .w500,
               shadows: [

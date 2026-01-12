@@ -1,5 +1,6 @@
 import 'package:bolao_bolado/components/default/footer.dart';
 import 'package:bolao_bolado/components/default/gradient_decoration.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class DefaultLayout extends StatelessWidget {
@@ -12,7 +13,7 @@ class DefaultLayout extends StatelessWidget {
       decoration: GradientDecoration.backgroundGradient(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        bottomNavigationBar: const Footer(),
+        bottomNavigationBar: kIsWeb ? const Footer() : null,
         body: SingleChildScrollView(
           scrollDirection: Axis.vertical,
           padding: EdgeInsets.fromLTRB(0, 20, 0, 0),
