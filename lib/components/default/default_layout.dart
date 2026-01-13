@@ -9,14 +9,16 @@ class DefaultLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktopWeb = kIsWeb && width >= 900;
+
     return Container(
       decoration: GradientDecoration.backgroundGradient(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        bottomNavigationBar: kIsWeb ? const Footer() : null,
+        bottomNavigationBar: isDesktopWeb ? const Footer() : null,
         body: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          padding: EdgeInsets.fromLTRB(0, 20, 0, 0),
+          padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
           child: Center(child: child),
         ),
       ),
