@@ -43,6 +43,8 @@ class _LoginState extends State<Login> {
                           isNumeric: false,
                           keyboardType: null,
                           controller: nameController,
+                          textInputAction: null,
+                          obscure: false,
                         ),
                         SizedBox(height: 20),
                         CustomField(
@@ -51,6 +53,8 @@ class _LoginState extends State<Login> {
                           isNumeric: true,
                           keyboardType: null,
                           controller: valueController,
+                          textInputAction: null,
+                          obscure: false,
                         ),
                         SizedBox(height: 20),
                         PrimaryButton(
@@ -58,7 +62,9 @@ class _LoginState extends State<Login> {
                           onTap: () async {
                             final nome = nameController.text.trim();
                             final valor = valueController.text.trim();
-                            if (nome.isEmpty || valor.isEmpty) {
+                            if (nome.isEmpty ||
+                                valor.isEmpty ||
+                                (double.parse(valor) % 6 != 0)) {
                               showDialog(
                                 context: context,
                                 barrierDismissible: false,
@@ -126,7 +132,7 @@ class _LoginState extends State<Login> {
                                             SizedBox(width: 12),
                                             Expanded(
                                               child: Text(
-                                                'Ops! Faltou preencher',
+                                                'Ops, um problema foi encontrado!',
                                                 style: TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w800,
@@ -136,12 +142,13 @@ class _LoginState extends State<Login> {
                                             ),
                                           ],
                                         ),
-
                                         SizedBox(height: 12),
-
                                         // Mensagem
                                         Text(
-                                          'Preencha o nome e o valor antes de confirmar.',
+                                          (valor.isNotEmpty &&
+                                                  double.parse(valor) % 6 != 0)
+                                              ? "O número deve ser divisível por 6!"
+                                              : 'Preencha o nome e o valor antes de confirmar.',
                                           textAlign: TextAlign.left,
                                           style: TextStyle(
                                             height: 1.3,
@@ -150,7 +157,6 @@ class _LoginState extends State<Login> {
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
-
                                         SizedBox(height: 14),
                                       ],
                                     ),
@@ -166,7 +172,7 @@ class _LoginState extends State<Login> {
                               PageRouteBuilder(
                                 transitionDuration: Duration.zero,
                                 reverseTransitionDuration: Duration.zero,
-                                pageBuilder: (_, __, ___) => Participants(),
+                                pageBuilder: (_, _, _) => Participants(),
                               ),
                             );
                           },

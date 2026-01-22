@@ -7,14 +7,22 @@ class CustomField extends StatelessWidget {
   final bool isNumeric;
   final TextInputType? keyboardType;
   final TextEditingController controller;
+  final TextInputAction? textInputAction;
+  final double? maxWidth;
+  final Widget? suffix;
+  final bool obscure;
 
   const CustomField({
     super.key,
     required this.hint,
     required this.icon,
     required this.isNumeric,
-    required this.keyboardType,
     required this.controller,
+    required this.textInputAction,
+    required this.obscure,
+    this.keyboardType,
+    this.maxWidth,
+    this.suffix,
   });
 
   @override
@@ -23,11 +31,18 @@ class CustomField extends StatelessWidget {
     BorderRadius borderRadius = BorderRadius.circular(radius);
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 300),
+      constraints: maxWidth != null
+          ? BoxConstraints(maxWidth: maxWidth!)
+          : const BoxConstraints(maxWidth: 300),
       child: Form(
         child: TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          style: TextStyle(color: Color(0xFF1F2937), fontSize: 18),
+          obscureText: obscure,
+          enableInteractiveSelection: true,
           inputFormatters: isNumeric
               ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
               : null,
@@ -46,14 +61,13 @@ class CustomField extends StatelessWidget {
                   return null;
                 }
               : null,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          style: TextStyle(color: Color(0xFF1F2937), fontSize: 18),
           decoration: InputDecoration(
             labelText: hint,
             floatingLabelStyle: TextStyle(color: Colors.black),
             prefixIcon: Icon(icon),
             filled: true,
             fillColor: const Color(0xFFF3F4F6),
+            suffixIcon: suffix,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,

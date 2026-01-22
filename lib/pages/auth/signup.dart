@@ -91,38 +91,32 @@ class _SignupState extends State<Signup> {
                         constraints: const BoxConstraints(maxWidth: 420),
                         child: Column(
                           children: [
-                            // CustomField(
-                            //   hint: 'E-mail',
-                            //   icon: Icons.alternate_email,
-                            //   isNumeric: false,
-                            //   keyboardType: TextInputType.emailAddress,
-                            //   controller: emailController,
-                            // ),
-                            TextField(
-                              controller: emailController,
+                            CustomField(
+                              hint: 'E-mail',
+                              icon: Icons.alternate_email,
+                              isNumeric: false,
                               keyboardType: TextInputType.emailAddress,
+                              controller: emailController,
                               textInputAction: TextInputAction.next,
-                              decoration: _inputDecoration(
-                                hint: 'E-mail',
-                                icon: Icons.alternate_email,
-                              ),
+                              maxWidth: 500,
+                              obscure: false,
                             ),
                             const SizedBox(height: 14),
-                            TextField(
+                            CustomField(
+                              hint: 'Senha',
+                              icon: Icons.lock_outline,
+                              isNumeric: false,
                               controller: senhaController,
-                              obscureText: _obscure,
                               textInputAction: TextInputAction.done,
-                              decoration: _inputDecoration(
-                                hint: 'Senha',
-                                icon: Icons.lock_outline,
-                                suffix: IconButton(
-                                  onPressed: () =>
-                                      setState(() => _obscure = !_obscure),
-                                  icon: Icon(
-                                    _obscure
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                  ),
+                              maxWidth: 500,
+                              obscure: _obscure,
+                              suffix: IconButton(
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
                                 ),
                               ),
                             ),
@@ -137,8 +131,8 @@ class _SignupState extends State<Signup> {
                             PrimaryButton(
                               text: 'Logar',
                               onTap: () {
-                                // aqui tu faz a validação + auth
-                                // por enquanto, só navega pra tua tela de login (ou home após login)
+                                // aqui fazer a validação + auth
+                                // por enquanto, só navegar pra tela de login (ou home após login)
                                 Navigator.of(context).push(
                                   PageRouteBuilder(
                                     transitionDuration: Duration.zero,
