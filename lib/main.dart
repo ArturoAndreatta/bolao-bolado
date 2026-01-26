@@ -14,6 +14,7 @@ import 'firebase_options.dart';
 // - Prêmio do sorteio
 // - Números apostados
 // - Números sorteados
+// - Opção para colocar um valor máximo de aposta (por pessoa)
 // - Pix (Gerar um QR Code a partir da chave pix para facilitar o pagamento)
 //
 // [BOTÃO SALVAR] [BOTÃO EXCLUIR] [BOTÃO CANCELAR]

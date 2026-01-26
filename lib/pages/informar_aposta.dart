@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/components/Default/default_layout.dart';
 import 'package:bolao_bolado/components/back_screen_button.dart';
 import 'package:bolao_bolado/components/buttons.dart';
+import 'package:bolao_bolado/components/default/drawer.dart';
 import 'package:bolao_bolado/components/fields.dart';
 import 'package:bolao_bolado/components/logo.dart';
 import 'package:bolao_bolado/pages/participants.dart';
@@ -22,10 +23,10 @@ class _LoginState extends State<Login> {
   @override
   Widget build(BuildContext context) {
     return DefaultLayout(
+      drawer: AppDrawer(),
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          SingleChildScrollView(
             child: Stack(
               children: [
                 Card(
@@ -101,9 +102,7 @@ class _LoginState extends State<Login> {
                                               width: 44,
                                               height: 44,
                                               decoration: BoxDecoration(
-                                                color: Color(
-                                                  0xFFFFF3C7,
-                                                ), // amarelinho "alerta"
+                                                color: Color(0xFFFFF3C7),
                                                 borderRadius:
                                                     BorderRadius.circular(14),
                                                 boxShadow: [
@@ -143,7 +142,6 @@ class _LoginState extends State<Login> {
                                           ],
                                         ),
                                         SizedBox(height: 12),
-                                        // Mensagem
                                         Text(
                                           (valor.isNotEmpty &&
                                                   double.parse(valor) % 6 != 0)
