@@ -40,67 +40,70 @@ class _HomePageState extends State<HomePage> {
             child: Card(
               elevation: 20,
               color: Color(0xFFFEFEFE),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Logo(),
-                  SizedBox(height: 20),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 420),
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Bem-vindo',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          TextSpan(
-                            text: ' ao Bolão Bolado!',
-                            style: TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                          TextSpan(
-                            text: '\n$frase',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              fontStyle: FontStyle.italic,
-                              color: Color(0xFF6B7280),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Logo(),
+                    SizedBox(height: 20),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: 420),
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Bem-vindo',
+                              style: TextStyle(fontWeight: FontWeight.bold),
                             ),
-                          ),
-                        ],
+                            TextSpan(
+                              text: ' ao Bolão Bolado!',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            TextSpan(
+                              text: '\n$frase',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontStyle: FontStyle.italic,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 25),
+                        softWrap: true,
                       ),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 25),
-                      softWrap: true,
                     ),
-                  ),
-                  SizedBox(height: 20),
-                  PrimaryButton(
-                    text: 'Participar',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        PageRouteBuilder(
-                          transitionDuration: Duration.zero,
-                          reverseTransitionDuration: Duration.zero,
-                          pageBuilder: (_, _, _) => Login(),
-                        ),
-                      );
-                    },
-                  ),
-                  SizedBox(height: 20),
-                  SecondaryButton(
-                    text: 'Visualizar',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        PageRouteBuilder(
-                          transitionDuration: Duration.zero,
-                          reverseTransitionDuration: Duration.zero,
-                          pageBuilder: (_, _, _) => Participants(),
-                        ),
-                      );
-                    },
-                  ),
-                  SizedBox(height: 30),
-                ],
+                    SizedBox(height: 20),
+                    PrimaryButton(
+                      text: 'Participar',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          PageRouteBuilder(
+                            transitionDuration: Duration.zero,
+                            reverseTransitionDuration: Duration.zero,
+                            pageBuilder: (_, _, _) => Login(),
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(height: 20),
+                    SecondaryButton(
+                      text: 'Visualizar',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          PageRouteBuilder(
+                            transitionDuration: Duration.zero,
+                            reverseTransitionDuration: Duration.zero,
+                            pageBuilder: (_, _, _) => Participants(),
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(height: 30),
+                  ],
+                ),
               ),
             ),
           ),

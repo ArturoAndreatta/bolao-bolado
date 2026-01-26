@@ -1,5 +1,6 @@
 import 'package:bolao_bolado/components/Default/default_layout.dart';
 import 'package:bolao_bolado/components/buttons.dart';
+import 'package:bolao_bolado/components/default/drawer.dart';
 import 'package:bolao_bolado/components/fields.dart';
 import 'package:bolao_bolado/components/logo.dart';
 import 'package:bolao_bolado/pages/informar_aposta.dart'; // se tu usar essa como "home", pode remover depois
@@ -63,6 +64,7 @@ class _SignupState extends State<Signup> {
   @override
   Widget build(BuildContext context) {
     return DefaultLayout(
+      drawer: AppDrawer(),
       child: Column(
         children: [
           SizedBox(
