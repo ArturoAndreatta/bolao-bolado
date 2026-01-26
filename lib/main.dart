@@ -38,9 +38,12 @@ import 'firebase_options.dart';
 // Bolão Bolado sempre será a primeira em destaque
 // Botão "Entrar com código" que é gerado na criação da sala
 //
+// Chat dentro da sala
+//
+// Perguntar em algum momento se o usuário gostaria de receber um e-mail quando
+// um novo sorteio fosse iniciado (ex: mega da virada)
 //
 //
-// Chat dentro da sala?
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

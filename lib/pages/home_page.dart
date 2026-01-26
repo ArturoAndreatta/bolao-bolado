@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:bolao_bolado/components/Default/default_layout.dart';
 import 'package:bolao_bolado/components/buttons.dart';
+import 'package:bolao_bolado/components/default/drawer.dart';
 import 'package:bolao_bolado/components/logo.dart';
 import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/participants.dart';
@@ -32,6 +33,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return DefaultLayout(
+      drawer: AppDrawer(),
       child: Column(
         children: [
           SingleChildScrollView(

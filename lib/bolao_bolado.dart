@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/pages/auth/signup.dart';
+import 'package:bolao_bolado/pages/home_page.dart';
 import 'package:flutter/material.dart';
 
 class BolaoBolado extends StatefulWidget {
@@ -13,7 +14,7 @@ class _BolaoBoladoState extends State<BolaoBolado> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Bolão Bolado',
-      home: Signup(),
+      home: HomePage(), //Signup(),
       theme: ThemeData(useMaterial3: true),
       debugShowCheckedModeBanner: false,
     );

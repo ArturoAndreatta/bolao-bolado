@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 
 class DefaultLayout extends StatelessWidget {
   final Widget child;
-  const DefaultLayout({super.key, required this.child});
+  final Widget? drawer;
+  const DefaultLayout({super.key, required this.child, this.drawer});
 
   @override
   Widget build(BuildContext context) {
@@ -15,11 +16,30 @@ class DefaultLayout extends StatelessWidget {
     return Container(
       decoration: GradientDecoration.backgroundGradient(),
       child: Scaffold(
+        drawer: drawer,
         backgroundColor: Colors.transparent,
         bottomNavigationBar: isDesktopWeb ? const Footer() : null,
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
-          child: Center(child: child),
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
+              child: Center(child: child),
+            ),
+            if (drawer != null)
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu, size: 28),
+                    color: Colors.black,
+                    onPressed: () {
+                      Scaffold.of(context).openDrawer();
+                    },
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
