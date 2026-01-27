@@ -25,20 +25,19 @@ class DefaultLayout extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
               child: Center(child: child),
             ),
-            if (drawer != null)
-              Positioned(
-                top: 12,
-                left: 12,
-                child: Builder(
-                  builder: (context) => IconButton(
-                    icon: const Icon(Icons.menu, size: 28),
-                    color: Colors.black,
-                    onPressed: () {
-                      Scaffold.of(context).openDrawer();
-                    },
-                  ),
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu, size: 28),
+                  color: Colors.black,
+                  onPressed: () {
+                    Scaffold.of(context).openDrawer();
+                  },
                 ),
               ),
+            ),
           ],
         ),
       ),
