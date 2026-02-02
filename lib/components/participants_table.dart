@@ -82,13 +82,16 @@ class ParticipantsTable extends StatelessWidget {
                   ),
                   border: TableBorder.symmetric(
                     inside: BorderSide(color: Colors.grey.shade300, width: 0.5),
-                    outside: BorderSide(color: Colors.grey.shade300, width: 1),
+                    outside: BorderSide(
+                      color: Colors.grey.shade300,
+                      width: 1.5,
+                    ),
                   ),
                   headingTextStyle: const TextStyle(
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF374151),
                   ),
-                  columnSpacing: 24,
+                  columnSpacing: 5,
                   columns: [
                     DataColumn(
                       label: SizedBox(
@@ -99,19 +102,19 @@ class ParticipantsTable extends StatelessWidget {
                     DataColumn(
                       label: SizedBox(
                         width: widthValor,
-                        child: const Text('Valor'),
+                        child: const Text('Valor', textAlign: TextAlign.end),
                       ),
                     ),
                     DataColumn(
                       label: SizedBox(
                         width: widthCotas,
-                        child: const Text('Cotas'),
+                        child: const Text('Cotas', textAlign: TextAlign.end),
                       ),
                     ),
                     DataColumn(
                       label: SizedBox(
                         width: widthPremio,
-                        child: const Text('Prêmio'),
+                        child: const Text('Prêmio', textAlign: TextAlign.end),
                       ),
                     ),
                   ],

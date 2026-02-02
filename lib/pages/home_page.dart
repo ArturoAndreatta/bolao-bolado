@@ -1,11 +1,14 @@
 import 'dart:math';
 import 'package:bolao_bolado/components/Default/default_layout.dart';
 import 'package:bolao_bolado/components/buttons.dart';
+import 'package:bolao_bolado/components/custom_card.dart';
 import 'package:bolao_bolado/components/default/drawer.dart';
 import 'package:bolao_bolado/components/logo.dart';
 import 'package:bolao_bolado/pages/informar_aposta.dart';
+import 'package:bolao_bolado/pages/pages.dart';
 import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/components/phrases.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
@@ -32,86 +35,92 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultLayout(
-      drawer: AppDrawer(),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-            child: SingleChildScrollView(
-              child: Card(
-                elevation: 20,
-                color: Color(0xFFFEFEFE),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Logo(),
-                      SizedBox(height: 20),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: 420),
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: 'Bem-vindo',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              TextSpan(
-                                text: ' ao Bolão Bolado!',
-                                style: TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                              TextSpan(
-                                text: '\n$frase',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontStyle: FontStyle.italic,
-                                  color: Color(0xFF6B7280),
-                                ),
-                              ),
-                            ],
-                          ),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 25),
-                          softWrap: true,
-                        ),
+    final width = MediaQuery.of(context).size.width;
+    final isDesktopWeb = kIsWeb && width >= 900;
+    return Stack(
+      children: [
+        DefaultLayout(
+          drawer: AppDrawer(),
+          child: CustomCard(
+            children: [
+              Logo(),
+              SizedBox(height: 20),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'Bem-vindo',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    TextSpan(
+                      text: ' ao Bolão Bolado!',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    TextSpan(
+                      text: '\n$frase',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontStyle: FontStyle.italic,
+                        color: Color(0xFF6B7280),
                       ),
-                      SizedBox(height: 20),
-                      PrimaryButton(
-                        text: 'Participar',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            PageRouteBuilder(
-                              transitionDuration: Duration.zero,
-                              reverseTransitionDuration: Duration.zero,
-                              pageBuilder: (_, _, _) => Login(),
-                            ),
-                          );
-                        },
-                      ),
-                      SizedBox(height: 20),
-                      SecondaryButton(
-                        text: 'Visualizar',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            PageRouteBuilder(
-                              transitionDuration: Duration.zero,
-                              reverseTransitionDuration: Duration.zero,
-                              pageBuilder: (_, _, _) => Participants(),
-                            ),
-                          );
-                        },
-                      ),
-                      SizedBox(height: 30),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 25),
+                softWrap: true,
               ),
+              SizedBox(height: 20),
+              PrimaryButton(
+                text: 'Participar',
+                onTap: () {
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      transitionDuration: Duration.zero,
+                      reverseTransitionDuration: Duration.zero,
+                      pageBuilder: (_, _, _) => Login(),
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 20),
+              SecondaryButton(
+                text: 'Visualizar',
+                onTap: () {
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      transitionDuration: Duration.zero,
+                      reverseTransitionDuration: Duration.zero,
+                      pageBuilder: (_, _, _) => Participants(),
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 30),
+            ],
+          ),
+        ),
+        Positioned(
+          top: 900,
+          left: isDesktopWeb ? 1200 : 270,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(30),
+              onTap: () {
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                    pageBuilder: (_, _, _) => Pages(),
+                  ),
+                );
+              },
+              child: Container(padding: EdgeInsets.all(20)),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

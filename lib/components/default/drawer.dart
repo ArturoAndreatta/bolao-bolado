@@ -9,7 +9,6 @@ class AppDrawer extends StatelessWidget {
       backgroundColor: Colors.blueGrey,
       child: Column(
         children: [
-          // HEADER
           Container(
             width: double.infinity,
             padding: const EdgeInsets.only(
