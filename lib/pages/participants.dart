@@ -1,5 +1,6 @@
 import 'package:bolao_bolado/components/Default/default_layout.dart';
 import 'package:bolao_bolado/components/back_screen_button.dart';
+import 'package:bolao_bolado/components/custom_card.dart';
 import 'package:bolao_bolado/components/default/drawer.dart';
 import 'package:bolao_bolado/components/participants_table.dart';
 import 'package:bolao_bolado/models/bet.dart';
@@ -45,59 +46,41 @@ class _ParticipantsState extends State<Participants> {
 
     return DefaultLayout(
       drawer: AppDrawer(),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 572),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-              child: Stack(
-                children: [
-                  Card(
-                    elevation: 20,
-                    color: Color(0xFFFEFEFE),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Logo(),
-                          SizedBox(height: 20),
-                          SizedBox(
-                            height: heightTable,
-                            child: _loading
-                                ? Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 5,
-                                      color: Color(0xFF7CC8B5),
-                                    ),
-                                  )
-                                : SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: SingleChildScrollView(
-                                      child: ParticipantsTable(
-                                        loading: _loading,
-                                        heightTable: heightTable,
-                                        widthNome: widthNome,
-                                        widthValor: widthValor,
-                                        widthCotas: widthCotas,
-                                        widthPremio: widthPremio,
-                                        rowsData: _rowsData,
-                                      ),
-                                    ),
-                                  ),
+      child: Stack(
+        children: [
+          CustomCard(
+            children: [
+              Logo(),
+              SizedBox(height: 20),
+              SizedBox(
+                height: heightTable,
+                child: _loading
+                    ? Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 5,
+                          color: Color(0xFF7CC8B5),
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SingleChildScrollView(
+                          child: ParticipantsTable(
+                            loading: _loading,
+                            heightTable: heightTable,
+                            widthNome: widthNome,
+                            widthValor: widthValor,
+                            widthCotas: widthCotas,
+                            widthPremio: widthPremio,
+                            rowsData: _rowsData,
                           ),
-                          SizedBox(height: 30),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                  BackScreenButton(),
-                ],
               ),
-            ),
-          ],
-        ),
+              SizedBox(height: 30),
+            ],
+          ),
+          BackScreenButton(),
+        ],
       ),
     );
   }

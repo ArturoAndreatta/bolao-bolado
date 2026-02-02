@@ -7,7 +7,7 @@ class BackScreenButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned(
       top: 20,
-      left: 20,
+      left: 36,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

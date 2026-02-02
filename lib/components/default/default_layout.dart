@@ -23,7 +23,7 @@ class DefaultLayout extends StatelessWidget {
           children: [
             SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
-              child: Center(child: child),
+              child: Center(child: Column(children: [child])),
             ),
             Positioned(
               top: 12,
