@@ -37,11 +37,11 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final isDesktopWeb = kIsWeb && width >= 900;
-    return Stack(
-      children: [
-        DefaultLayout(
-          drawer: AppDrawer(),
-          child: CustomCard(
+    return DefaultLayout(
+      drawer: AppDrawer(),
+      child: Stack(
+        children: [
+          CustomCard(
             children: [
               Logo(),
               SizedBox(height: 20),
@@ -99,28 +99,28 @@ class _HomePageState extends State<HomePage> {
               SizedBox(height: 30),
             ],
           ),
-        ),
-        Positioned(
-          top: 900,
-          left: isDesktopWeb ? 1200 : 270,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(30),
-              onTap: () {
-                Navigator.of(context).push(
-                  PageRouteBuilder(
-                    transitionDuration: Duration.zero,
-                    reverseTransitionDuration: Duration.zero,
-                    pageBuilder: (_, _, _) => Pages(),
-                  ),
-                );
-              },
-              child: Container(padding: EdgeInsets.all(20)),
+          Positioned(
+            top: 10,
+            left: isDesktopWeb ? 500 : 250,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(30),
+                onTap: () {
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      transitionDuration: Duration.zero,
+                      reverseTransitionDuration: Duration.zero,
+                      pageBuilder: (_, _, _) => Pages(),
+                    ),
+                  );
+                },
+                child: Container(padding: EdgeInsets.all(20)),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
