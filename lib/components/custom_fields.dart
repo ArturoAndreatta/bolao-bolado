@@ -106,11 +106,10 @@ class CustomField extends StatelessWidget {
 
 class CustomDropdownField<T> extends StatelessWidget {
   final String hint;
-  final IconData icon;
-  final T? value; // renomeei de initialValue -> value (mais correto)
+  final IconData? icon;
+  final T? value;
   final List<DropdownMenuItem<T>> items;
   final ValueChanged<T?> onChanged;
-
   final double? maxWidth;
   final Widget? suffix;
   final String? Function(T?)? validator;
@@ -119,10 +118,10 @@ class CustomDropdownField<T> extends StatelessWidget {
   const CustomDropdownField({
     super.key,
     required this.hint,
-    required this.icon,
     required this.value,
     required this.items,
     required this.onChanged,
+    this.icon,
     this.maxWidth,
     this.suffix,
     this.validator,
@@ -158,7 +157,6 @@ class CustomDropdownField<T> extends StatelessWidget {
             prefixIcon: Icon(icon),
             filled: true,
             fillColor: const Color(0xFFF3F4F6),
-            suffixIcon: suffix,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,

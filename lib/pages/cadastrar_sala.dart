@@ -21,8 +21,11 @@ class _CadastrarSalaState extends State<CadastrarSala> {
   FirebaseFirestore firestore = .instance;
   TextEditingController nameController = .new();
   TextEditingController valueController = .new();
-  String? sorteio;
+  TextEditingController descriptionController = .new();
+  final TextEditingController horaController = TextEditingController();
   final TextEditingController dataController = TextEditingController();
+  TimeOfDay? horaSelecionada;
+  String? sorteio;
 
   @override
   Widget build(BuildContext context) {
@@ -40,14 +43,15 @@ class _CadastrarSalaState extends State<CadastrarSala> {
                   SizedBox(height: 20),
                   CustomField(
                     hint: 'Nome da Sala',
-                    // icon: Icons.groups,
+                    icon: Icons.groups_2_outlined,
                     controller: nameController,
                     maxWidth: 500,
                   ),
                   SizedBox(height: 20),
                   CustomField(
                     hint: 'Descrição',
-                    controller: nameController,
+                    icon: Icons.speaker_notes_outlined,
+                    controller: descriptionController,
                     maxWidth: 500,
                   ),
                   SizedBox(height: 20),
@@ -64,26 +68,52 @@ class _CadastrarSalaState extends State<CadastrarSala> {
                     ],
                   ),
                   SizedBox(height: 20),
-                  CustomField(
-                    hint: 'Data do Sorteio',
-                    controller: dataController,
-                    maxWidth: 500,
-                    readOnly: true,
-                    icon: Icons.calendar_today,
-                    onTap: () async {
-                      FocusScope.of(context).requestFocus(FocusNode());
-                      final data = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
-                      if (data == null) return;
-                      dataController.text =
-                          '${data.day.toString().padLeft(2, '0')}/'
-                          '${data.month.toString().padLeft(2, '0')}/'
-                          '${data.year}';
-                    },
+                  Row(
+                    children: [
+                      CustomField(
+                        hint: 'Data do Sorteio',
+                        controller: dataController,
+                        maxWidth: 233,
+                        readOnly: true,
+                        icon: Icons.calendar_today,
+                        onTap: () async {
+                          FocusScope.of(context).requestFocus(FocusNode());
+                          final data = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2030),
+                          );
+                          if (data == null) return;
+                          dataController.text =
+                              '${data.day.toString().padLeft(2, '0')}/'
+                              '${data.month.toString().padLeft(2, '0')}/'
+                              '${data.year}';
+                        },
+                      ),
+                      SizedBox(width: 5),
+                      CustomField(
+                        hint: 'Hora do Sorteio',
+                        controller: horaController,
+                        maxWidth: 234,
+                        readOnly: true,
+                        icon: Icons.schedule_outlined,
+                        onTap: () async {
+                          FocusScope.of(context).unfocus();
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: horaSelecionada ?? TimeOfDay.now(),
+                          );
+                          if (picked == null) return;
+                          setState(() {
+                            horaSelecionada = picked;
+                            final hh = picked.hour.toString().padLeft(2, '0');
+                            final mm = picked.minute.toString().padLeft(2, '0');
+                            horaController.text = '$hh:$mm';
+                          });
+                        },
+                      ),
+                    ],
                   ),
                   SizedBox(height: 20),
                   PrimaryButton(
