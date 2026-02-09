@@ -5,25 +5,29 @@ import 'package:bolao_bolado/components/custom_card.dart';
 import 'package:bolao_bolado/components/default/drawer.dart';
 import 'package:bolao_bolado/components/custom_fields.dart';
 import 'package:bolao_bolado/components/header_paginas.dart';
-import 'package:bolao_bolado/components/logo.dart';
 import 'package:bolao_bolado/pages/participants.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-class CadastrarSala extends StatefulWidget {
-  const CadastrarSala({super.key});
+class CadastrarSalaMobile extends StatefulWidget {
+  const CadastrarSalaMobile({super.key});
 
   @override
-  State<CadastrarSala> createState() => _CadastrarSalaState();
+  State<CadastrarSalaMobile> createState() => _CadastrarSalaMobileState();
 }
 
-class _CadastrarSalaState extends State<CadastrarSala> {
+class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
   FirebaseFirestore firestore = .instance;
   TextEditingController nameController = .new();
   TextEditingController valueController = .new();
   TextEditingController descriptionController = .new();
-  final TextEditingController horaController = TextEditingController();
-  final TextEditingController dataController = TextEditingController();
+  TextEditingController horaController = .new();
+  TextEditingController dataController = .new();
+  TextEditingController premioController = .new();
+  TextEditingController numerosApostadosController = .new();
+  TextEditingController valorMaximoApostaController = .new();
+  TextEditingController senhaSalaController = .new();
+  TextEditingController chavePixController = .new();
   TimeOfDay? horaSelecionada;
   String? sorteio;
 
@@ -47,14 +51,14 @@ class _CadastrarSalaState extends State<CadastrarSala> {
                     controller: nameController,
                     maxWidth: 500,
                   ),
-                  SizedBox(height: 20),
+                  SizedBox(height: 15),
                   CustomField(
                     hint: 'Descrição',
                     icon: Icons.speaker_notes_outlined,
                     controller: descriptionController,
                     maxWidth: 500,
                   ),
-                  SizedBox(height: 20),
+                  SizedBox(height: 15),
                   CustomDropdownField(
                     hint: 'Sorteio',
                     icon: Icons.confirmation_number_outlined,
@@ -67,53 +71,94 @@ class _CadastrarSalaState extends State<CadastrarSala> {
                       DropdownMenuItem(value: 'outros', child: Text('Outros')),
                     ],
                   ),
-                  SizedBox(height: 20),
-                  Row(
-                    children: [
-                      CustomField(
-                        hint: 'Data do Sorteio',
-                        controller: dataController,
-                        maxWidth: 233,
-                        readOnly: true,
-                        icon: Icons.calendar_today,
-                        onTap: () async {
-                          FocusScope.of(context).requestFocus(FocusNode());
-                          final data = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2030),
-                          );
-                          if (data == null) return;
-                          dataController.text =
-                              '${data.day.toString().padLeft(2, '0')}/'
-                              '${data.month.toString().padLeft(2, '0')}/'
-                              '${data.year}';
-                        },
-                      ),
-                      SizedBox(width: 5),
-                      CustomField(
-                        hint: 'Hora do Sorteio',
-                        controller: horaController,
-                        maxWidth: 234,
-                        readOnly: true,
-                        icon: Icons.schedule_outlined,
-                        onTap: () async {
-                          FocusScope.of(context).unfocus();
-                          final picked = await showTimePicker(
-                            context: context,
-                            initialTime: horaSelecionada ?? TimeOfDay.now(),
-                          );
-                          if (picked == null) return;
-                          setState(() {
-                            horaSelecionada = picked;
-                            final hh = picked.hour.toString().padLeft(2, '0');
-                            final mm = picked.minute.toString().padLeft(2, '0');
-                            horaController.text = '$hh:$mm';
-                          });
-                        },
-                      ),
-                    ],
+                  SizedBox(height: 15),
+                  CustomField(
+                    hint: 'Data do Sorteio',
+                    controller: dataController,
+                    maxWidth: 500,
+                    readOnly: true,
+                    icon: Icons.calendar_today,
+                    onTap: () async {
+                      FocusScope.of(context).requestFocus(FocusNode());
+                      final data = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (data == null) return;
+                      dataController.text =
+                          '${data.day.toString().padLeft(2, '0')}/'
+                          '${data.month.toString().padLeft(2, '0')}/'
+                          '${data.year}';
+                    },
+                  ),
+                  SizedBox(height: 15),
+                  CustomField(
+                    hint: 'Hora do Sorteio',
+                    controller: horaController,
+                    maxWidth: 500,
+                    readOnly: true,
+                    icon: Icons.schedule_outlined,
+                    onTap: () async {
+                      FocusScope.of(context).unfocus();
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: horaSelecionada ?? TimeOfDay.now(),
+                      );
+                      if (picked == null) return;
+                      setState(() {
+                        horaSelecionada = picked;
+                        final hh = picked.hour.toString().padLeft(2, '0');
+                        final mm = picked.minute.toString().padLeft(2, '0');
+                        horaController.text = '$hh:$mm';
+                      });
+                    },
+                  ),
+                  SizedBox(height: 15),
+                  CustomField(
+                    hint: 'Prêmio',
+                    icon: Icons.attach_money,
+                    controller: premioController,
+                    maxWidth: 500,
+                    prefix: Text('R\$ '),
+                    keyboardType: TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    isNumeric: true,
+                  ),
+                  SizedBox(height: 15),
+                  CustomField(
+                    hint: 'Números Apostados',
+                    icon: Icons.numbers,
+                    controller: numerosApostadosController,
+                    maxWidth: 500,
+                  ),
+                  SizedBox(height: 15),
+                  CustomField(
+                    hint: 'Valor Máximo de Aposta',
+                    icon: Icons.attach_money,
+                    controller: valorMaximoApostaController,
+                    maxWidth: 500,
+                    prefix: Text('R\$ '),
+                    keyboardType: TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    isNumeric: true,
+                  ),
+                  SizedBox(height: 15),
+                  CustomField(
+                    hint: 'Senha da sala',
+                    icon: Icons.password,
+                    controller: senhaSalaController,
+                    maxWidth: 500,
+                  ),
+                  SizedBox(height: 15),
+                  CustomField(
+                    hint: 'Chave PIX',
+                    icon: Icons.key,
+                    controller: chavePixController,
+                    maxWidth: 500,
                   ),
                   SizedBox(height: 20),
                   PrimaryButton(
@@ -154,7 +199,6 @@ class _CadastrarSalaState extends State<CadastrarSala> {
                               content: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // Topo com ícone + título
                                   Row(
                                     children: [
                                       Container(
@@ -232,7 +276,7 @@ class _CadastrarSalaState extends State<CadastrarSala> {
                       );
                     },
                   ),
-                  SizedBox(height: 30),
+                  SizedBox(height: 20),
                 ],
               ),
             ],
