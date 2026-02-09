@@ -4,11 +4,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// Atual:
-// Criar novo botão "Telas" na página inicial pra acessar e ir para uma tela
-// com vários botões com o nome de cada tela.
-// Fazer isso para facilitar o acesso a todas as telas, depois será retirado.
-
 // Implementações:
 // Cadastrar com e-mail/número e senha
 // Criação do perfil preenchendo nome, sobrenome e foto de perfil

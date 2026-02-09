@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/components/formatters/money_input_format.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,7 @@ class CustomField extends StatelessWidget {
   final Widget? suffix;
   final bool? obscure;
   final bool? readOnly;
+  final Widget? prefix;
   final void Function()? onTap;
 
   const CustomField({
@@ -28,6 +30,7 @@ class CustomField extends StatelessWidget {
     this.suffix,
     this.readOnly = false,
     this.onTap,
+    this.prefix,
   });
 
   @override
@@ -48,25 +51,24 @@ class CustomField extends StatelessWidget {
           obscureText: obscure!,
           enableInteractiveSelection: true,
           onTap: onTap,
-          inputFormatters: isNumeric!
-              ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
-              : null,
+          inputFormatters: isNumeric! ? [MoneyInputFormat()] : null,
           validator: isNumeric!
               ? (value) {
                   if (value == null || value.isEmpty) {
                     return null;
                   }
-                  final number = int.tryParse(value);
-                  if (number == null || number < 0) {
+                  final number = double.tryParse(value.replaceAll(',', '.'));
+                  if (number == null) {
                     return 'Valor inválido';
                   }
-                  if (number % 6 != 0) {
-                    return 'O número deve ser divisível por 6';
+                  if (number < 0) {
+                    return 'Valor não pode ser negativo';
                   }
                   return null;
                 }
               : null,
           decoration: InputDecoration(
+            prefix: prefix,
             labelText: hint,
             floatingLabelStyle: TextStyle(color: Colors.black),
             prefixIcon: icon != null ? Icon(icon) : null,

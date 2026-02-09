@@ -22,7 +22,9 @@ class CustomCard extends StatelessWidget {
           elevation: isChild! ? 3 : 20,
           color: color,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+            padding: isChild!
+                ? EdgeInsets.fromLTRB(20, 0, 20, 0)
+                : EdgeInsets.zero,
             child: SizedBox(width: 560, child: Column(children: children)),
           ),
         ),
