@@ -49,10 +49,11 @@ class _LoginState extends State<Login> {
                 onTap: () async {
                   final nome = nameController.text.trim();
                   final valor = valueController.text.trim();
+                  final valorEditado = valor.replaceAll(',', '.');
                   final navigator = Navigator.of(context);
                   if (nome.isEmpty ||
-                      valor.isEmpty ||
-                      (double.parse(valor) % 6 != 0)) {
+                      valorEditado.isEmpty ||
+                      (double.parse(valorEditado) % 6 != 0)) {
                     showDialog(
                       context: context,
                       barrierDismissible: false,
@@ -77,7 +78,6 @@ class _LoginState extends State<Login> {
                           content: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Topo com ícone + título
                               Row(
                                 children: [
                                   Container(
@@ -121,8 +121,8 @@ class _LoginState extends State<Login> {
                               ),
                               SizedBox(height: 12),
                               Text(
-                                (valor.isNotEmpty &&
-                                        double.parse(valor) % 6 != 0)
+                                (valorEditado.isNotEmpty &&
+                                        double.parse(valorEditado) % 6 != 0)
                                     ? "O número deve ser divisível por 6!"
                                     : 'Preencha o nome e o valor antes de confirmar.',
                                 textAlign: TextAlign.left,
@@ -142,14 +142,11 @@ class _LoginState extends State<Login> {
                     return;
                   }
                   await firestore.collection('Apostas').doc(nome).set({
-                    'valor': valor,
+                    'valor': valorEditado,
+                    'data-hora': FieldValue.serverTimestamp(),
                   });
                   navigator.push(
-                    PageRouteBuilder(
-                      transitionDuration: Duration.zero,
-                      reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) => Participants(),
-                    ),
+                    PageRouteBuilder(pageBuilder: (_, _, _) => Participants()),
                   );
                 },
               ),
