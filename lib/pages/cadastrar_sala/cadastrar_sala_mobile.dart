@@ -5,6 +5,7 @@ import 'package:bolao_bolado/components/custom_card.dart';
 import 'package:bolao_bolado/components/default/drawer.dart';
 import 'package:bolao_bolado/components/custom_fields.dart';
 import 'package:bolao_bolado/components/header_paginas.dart';
+import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
 import 'package:bolao_bolado/pages/participants.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -176,6 +177,7 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                   PrimaryButton(
                     text: 'Confirmar',
                     onTap: () async {
+                      // final navigator = Navigator.of(context);
                       // final nome = nameController.text.trim();
                       // final valor = valorController.text.trim();
                       // if (nome.isEmpty ||
@@ -276,22 +278,37 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                       //   );
                       //   return;
                       // }
+                      final dataHora = juntarDataHora(
+                        dataController.text,
+                        horaController.text,
+                      );
                       await firestore.collection('Salas').add({
                         'nome': nameController.text,
                         'descricao': descricaoController.text,
                         'sorteio': sorteio,
-                        'data': dataController.text,
-                        'hora': horaController.text,
-                        'premio': premioController.text,
-                        'numerosApostados': numerosApostadosController.text,
+                        'dataHora': Timestamp.fromDate(dataHora),
+                        'premio': double.parse(
+                          premioController.text
+                              .replaceAll('.', '')
+                              .replaceAll(',', '.'),
+                        ),
+                        'numerosApostados': numerosApostadosController.text
+                            .split(' ')
+                            .map((e) => int.parse(e))
+                            .toList(),
+                        'valorMaximo': double.parse(
+                          valorMaximoApostaController.text
+                              .replaceAll('.', '')
+                              .replaceAll(',', '.'),
+                        ),
                         'senha': senhaSalaController.text,
                         'chavePix': chavePixController.text,
                       });
-                      Navigator.of(context).push(
-                        PageRouteBuilder(
-                          pageBuilder: (_, _, _) => Participants(),
-                        ),
-                      );
+                      // navigator.push(
+                      //   PageRouteBuilder(
+                      //     pageBuilder: (_, _, _) => Participants(),
+                      //   ),
+                      // );
                     },
                   ),
                   SizedBox(height: 20),

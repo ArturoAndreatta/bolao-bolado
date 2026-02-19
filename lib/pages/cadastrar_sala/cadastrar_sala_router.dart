@@ -21,3 +21,16 @@ class CadastrarSala extends StatelessWidget {
     );
   }
 }
+
+DateTime juntarDataHora(String data, String hora) {
+  final separadorData = data.split('/');
+  final dia = int.parse(separadorData[0]);
+  final mes = int.parse(separadorData[1]);
+  final ano = int.parse(separadorData[2]);
+
+  final separadorHora = hora.split(':');
+  final hh = int.parse(separadorHora[0]);
+  final mm = int.parse(separadorHora[1]);
+
+  return DateTime(ano, mes, dia, hh, mm);
+}
