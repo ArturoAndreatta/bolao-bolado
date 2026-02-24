@@ -56,7 +56,7 @@ class _LoginState extends State<Login> {
                       (double.parse(valorEditado) % 6 != 0)) {
                     showDialog(
                       context: context,
-                      barrierDismissible: false,
+                      barrierDismissible: true,
                       builder: (_) {
                         Future.delayed(Duration(seconds: 2), () {
                           if (navigator.canPop()) {
