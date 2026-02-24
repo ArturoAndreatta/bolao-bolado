@@ -52,6 +52,7 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                     controller: nameController,
                     textInputAction: TextInputAction.next,
                     maxWidth: 500,
+                    isRequired: true,
                   ),
                   SizedBox(height: 15),
                   CustomField(
@@ -84,6 +85,7 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                     textInputAction: TextInputAction.next,
                     maxWidth: 500,
                     readOnly: true,
+                    isRequired: true,
                     icon: Icons.calendar_today,
                     onTap: () async {
                       FocusScope.of(context).requestFocus(FocusNode());
@@ -107,6 +109,7 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                     textInputAction: TextInputAction.next,
                     maxWidth: 500,
                     readOnly: true,
+                    isRequired: true,
                     icon: Icons.schedule_outlined,
                     onTap: () async {
                       FocusScope.of(context).unfocus();
@@ -135,6 +138,7 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                       decimal: true,
                     ),
                     isNumeric: true,
+                    isRequired: true,
                   ),
                   SizedBox(height: 15),
                   CustomField(
@@ -143,6 +147,7 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                     controller: numerosApostadosController,
                     textInputAction: TextInputAction.next,
                     maxWidth: 500,
+                    isRequired: true,
                   ),
                   SizedBox(height: 15),
                   CustomField(
@@ -172,6 +177,7 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                     controller: chavePixController,
                     textInputAction: TextInputAction.done,
                     maxWidth: 500,
+                    isRequired: true,
                   ),
                   SizedBox(height: 20),
                   PrimaryButton(

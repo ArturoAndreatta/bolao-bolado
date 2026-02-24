@@ -1,7 +1,6 @@
 import 'package:bolao_bolado/components/formatters/money_input_format.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class CustomField extends StatelessWidget {
   final String hint;
@@ -16,6 +15,7 @@ class CustomField extends StatelessWidget {
   final bool? readOnly;
   final Widget? prefix;
   final void Function()? onTap;
+  final bool? isRequired;
 
   const CustomField({
     super.key,
@@ -31,6 +31,7 @@ class CustomField extends StatelessWidget {
     this.readOnly = false,
     this.onTap,
     this.prefix,
+    this.isRequired = false,
   });
 
   @override
@@ -52,17 +53,18 @@ class CustomField extends StatelessWidget {
           enableInteractiveSelection: true,
           onTap: onTap,
           inputFormatters: isNumeric! ? [MoneyInputFormat()] : null,
-          validator: isNumeric!
+          validator: isRequired!
               ? (value) {
                   if (value == null || value.isEmpty) {
-                    return null;
+                    return 'Campo obrigatório';
                   }
-                  final number = double.tryParse(value.replaceAll(',', '.'));
-                  if (number == null) {
-                    return 'Valor inválido';
-                  }
-                  if (number < 0) {
-                    return 'Valor não pode ser negativo';
+                  if (isNumeric!) {
+                    final number = double.tryParse(
+                      value.replaceAll(',', '').replaceAll('.', ''),
+                    );
+                    if (number == 0) {
+                      return 'Campo obrigatório';
+                    }
                   }
                   return null;
                 }
