@@ -1,12 +1,12 @@
-import 'package:bolao_bolado/components/Default/default_layout.dart';
-import 'package:bolao_bolado/components/back_screen_button.dart';
-import 'package:bolao_bolado/components/custom_card.dart';
-import 'package:bolao_bolado/components/default/drawer.dart';
-import 'package:bolao_bolado/components/participants_table.dart';
+import 'package:bolao_bolado/components/shell/default_layout.dart';
+import 'package:bolao_bolado/components/shared/back_screen_button.dart';
+import 'package:bolao_bolado/components/shared/custom_card.dart';
+import 'package:bolao_bolado/components/shell/drawer.dart';
+import 'package:bolao_bolado/components/widgets/participants_table.dart';
 import 'package:bolao_bolado/models/bet.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:bolao_bolado/components/logo.dart';
+import 'package:bolao_bolado/components/shared/branding/logo.dart';
 
 class Participants extends StatefulWidget {
   const Participants({super.key});
