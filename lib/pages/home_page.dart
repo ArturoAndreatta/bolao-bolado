@@ -1,13 +1,13 @@
 import 'dart:math';
-import 'package:bolao_bolado/components/Default/default_layout.dart';
-import 'package:bolao_bolado/components/buttons.dart';
-import 'package:bolao_bolado/components/custom_card.dart';
-import 'package:bolao_bolado/components/default/drawer.dart';
-import 'package:bolao_bolado/components/logo.dart';
+import 'package:bolao_bolado/components/shell/default_layout.dart';
+import 'package:bolao_bolado/components/shared/buttons.dart';
+import 'package:bolao_bolado/components/shared/custom_card.dart';
+import 'package:bolao_bolado/components/shell/drawer.dart';
+import 'package:bolao_bolado/components/shared/branding/logo.dart';
 import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/pages.dart';
 import 'package:bolao_bolado/pages/participants.dart';
-import 'package:bolao_bolado/components/phrases.dart';
+import 'package:bolao_bolado/components/shared/constants/phrases.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 

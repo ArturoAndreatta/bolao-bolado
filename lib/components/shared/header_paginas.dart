@@ -1,4 +1,4 @@
-import 'package:bolao_bolado/components/logo.dart';
+import 'package:bolao_bolado/components/shared/branding/logo.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:flutter/material.dart';
 

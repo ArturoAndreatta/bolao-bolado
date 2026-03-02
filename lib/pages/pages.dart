@@ -1,18 +1,12 @@
-import 'dart:math';
-import 'package:bolao_bolado/components/Default/default_layout.dart';
-import 'package:bolao_bolado/components/back_screen_button.dart';
-import 'package:bolao_bolado/components/buttons.dart';
-import 'package:bolao_bolado/components/custom_card.dart';
-import 'package:bolao_bolado/components/default/drawer.dart';
-import 'package:bolao_bolado/components/logo.dart';
+import 'package:bolao_bolado/components/shell/default_layout.dart';
+import 'package:bolao_bolado/components/shared/back_screen_button.dart';
+import 'package:bolao_bolado/components/shared/buttons.dart';
+import 'package:bolao_bolado/components/shared/custom_card.dart';
+import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/pages/auth/signup.dart';
-import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_mobile.dart';
 import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
-import 'package:bolao_bolado/pages/home_page.dart';
 import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/participants.dart';
-import 'package:bolao_bolado/components/phrases.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class Pages extends StatefulWidget {

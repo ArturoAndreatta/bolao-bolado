@@ -1,5 +1,5 @@
-import 'package:bolao_bolado/components/default/footer.dart';
-import 'package:bolao_bolado/components/default/gradient_decoration.dart';
+import 'package:bolao_bolado/components/shell/footer.dart';
+import 'package:bolao_bolado/components/shell/gradient_decoration.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
