@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/components/shared/dialogs/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
@@ -51,93 +52,17 @@ class _LoginState extends State<Login> {
                   final valor = valueController.text.trim();
                   final valorEditado = valor.replaceAll(',', '.');
                   final navigator = Navigator.of(context);
-                  if (nome.isEmpty ||
-                      valorEditado.isEmpty ||
-                      (double.parse(valorEditado) % 6 != 0)) {
-                    showDialog(
-                      context: context,
-                      barrierDismissible: true,
-                      builder: (_) {
-                        Future.delayed(Duration(seconds: 2), () {
-                          if (navigator.canPop()) {
-                            navigator.pop();
-                          }
-                        });
-                        return AlertDialog(
-                          backgroundColor: Color(0xFFFEFEFE),
-                          surfaceTintColor: Colors.transparent,
-                          elevation: 18,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            side: BorderSide(
-                              color: Colors.grey.shade200,
-                              width: 1,
-                            ),
-                          ),
-                          contentPadding: EdgeInsets.fromLTRB(18, 18, 18, 14),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFFFF3C7),
-                                      borderRadius: BorderRadius.circular(14),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.08,
-                                          ),
-                                          blurRadius: 12,
-                                          offset: Offset(0, 6),
-                                        ),
-                                      ],
-                                      border: Border.all(
-                                        color: Color(0xFFFDE68A),
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '⚠️',
-                                        style: TextStyle(fontSize: 20),
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Ops, um problema foi encontrado!',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF111827),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 12),
-                              Text(
-                                (valorEditado.isNotEmpty &&
-                                        double.parse(valorEditado) % 6 != 0)
-                                    ? "O número deve ser divisível por 6!"
-                                    : 'Preencha o nome e o valor antes de confirmar.',
-                                textAlign: TextAlign.left,
-                                style: TextStyle(
-                                  height: 1.3,
-                                  fontSize: 14,
-                                  color: Colors.grey.shade700,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              SizedBox(height: 14),
-                            ],
-                          ),
-                        );
-                      },
+                  if (nome.isEmpty || valorEditado.isEmpty) {
+                    CustomShowDialog.show(
+                      context,
+                      "Preencha o nome e o valor antes de confirmar.",
+                    );
+                    return;
+                  }
+                  if (double.parse(valorEditado) % 6 != 0) {
+                    CustomShowDialog.show(
+                      context,
+                      "O valor deve ser divisível por 6!",
                     );
                     return;
                   }
