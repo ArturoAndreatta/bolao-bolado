@@ -50,7 +50,9 @@ class _LoginState extends State<Login> {
                 onTap: () async {
                   final nome = nameController.text.trim();
                   final valor = valueController.text.trim();
-                  final valorEditado = valor.replaceAll(',', '.');
+                  final valorEditado = valor
+                      .replaceAll('.', '')
+                      .replaceAll(',', '.');
                   final navigator = Navigator.of(context);
                   if (nome.isEmpty || valorEditado.isEmpty) {
                     CustomShowDialog.show(
