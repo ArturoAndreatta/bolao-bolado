@@ -5,6 +5,7 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/pages/auth/signup.dart';
 import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
+import 'package:bolao_bolado/pages/consultar_salas.dart';
 import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/participants.dart';
 import 'package:flutter/material.dart';
@@ -102,7 +103,7 @@ class _PagesState extends State<Pages> {
                     PageRouteBuilder(
                       transitionDuration: Duration.zero,
                       reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) => Login(),
+                      pageBuilder: (_, _, _) => ConsultarSalas(),
                     ),
                   );
                 },

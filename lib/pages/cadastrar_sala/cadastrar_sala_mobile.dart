@@ -7,6 +7,7 @@ import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
+import 'package:bolao_bolado/pages/consultar_salas.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -191,6 +192,7 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                     PrimaryButton(
                       text: 'Confirmar',
                       onTap: () async {
+                        final navigator = Navigator.of(context);
                         if (!_formKey.currentState!.validate()) {
                           CustomShowDialog.show(
                             context,
@@ -212,19 +214,22 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                                 .replaceAll('.', '')
                                 .replaceAll(',', '.'),
                           ),
-                          'valorMaximo': double.parse(
-                            valorMaximoApostaController.text
-                                .replaceAll('.', '')
-                                .replaceAll(',', '.'),
-                          ),
+                          'valorMaximo':
+                              valorMaximoApostaController.text.isNotEmpty
+                              ? double.parse(
+                                  valorMaximoApostaController.text
+                                      .replaceAll('.', '')
+                                      .replaceAll(',', '.'),
+                                )
+                              : null,
                           'senha': senhaSalaController.text,
                           'chavePix': chavePixController.text,
                         });
-                        // navigator.push(
-                        //   PageRouteBuilder(
-                        //     pageBuilder: (_, _, _) => Participants(),
-                        //   ),
-                        // );
+                        navigator.push(
+                          PageRouteBuilder(
+                            pageBuilder: (_, _, _) => ConsultarSalas(),
+                          ),
+                        );
                       },
                     ),
                     SizedBox(height: 20),
