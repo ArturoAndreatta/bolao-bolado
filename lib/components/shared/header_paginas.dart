@@ -9,13 +9,12 @@ class HeaderPaginas extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
-
     final logo = Logo(isSmall: true, logo: 'images/logo4.png');
     final tituloDesktop = _titulo(fontSize: 30);
     final tituloMobile = _titulo(fontSize: 25);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 60),
       child: isMobile
           ? Column(children: [logo, tituloMobile, const SizedBox(height: 10)])
           : Row(
