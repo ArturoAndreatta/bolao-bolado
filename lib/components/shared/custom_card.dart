@@ -17,7 +17,7 @@ class CustomCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 600),
+        constraints: BoxConstraints(maxWidth: 630),
         child: Card(
           elevation: isChild! ? 3 : 20,
           color: color,
@@ -25,7 +25,7 @@ class CustomCard extends StatelessWidget {
             padding: isChild!
                 ? EdgeInsets.fromLTRB(20, 0, 20, 0)
                 : EdgeInsets.zero,
-            child: SizedBox(width: 560, child: Column(children: children)),
+            child: SizedBox(width: 615, child: Column(children: children)),
           ),
         ),
       ),

@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/components/shared/dialogs/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
@@ -5,8 +6,7 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
-import 'package:bolao_bolado/components/shared/branding/logo.dart';
-import 'package:bolao_bolado/pages/participants.dart';
+import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -20,12 +20,38 @@ class CadastrarSalaDesktop extends StatefulWidget {
 class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
   FirebaseFirestore firestore = .instance;
   TextEditingController nameController = .new();
-  TextEditingController valueController = .new();
-  TextEditingController descriptionController = .new();
-  final TextEditingController horaController = TextEditingController();
-  final TextEditingController dataController = TextEditingController();
+  TextEditingController descricaoController = .new();
+  TextEditingController horaController = .new();
+  TextEditingController dataController = .new();
+  TextEditingController premioController = .new();
+  TextEditingController numerosApostadosController = .new();
+  TextEditingController valorMaximoApostaController = .new();
+  TextEditingController senhaSalaController = .new();
+  TextEditingController chavePixController = .new();
   TimeOfDay? horaSelecionada;
   String? sorteio;
+  final _formKey = GlobalKey<FormState>();
+
+  static const double _fieldMaxWidth = 540;
+  static const double _halfWidth = 242;
+  static const double _gap = 15.0;
+
+  Widget _row(Widget left, Widget right) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final halfWidth = (constraints.maxWidth - _gap) / 2;
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: halfWidth, child: left),
+            SizedBox(width: _gap),
+            SizedBox(width: halfWidth, child: right),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,44 +63,68 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
             color: Color(0xFFF3F1EF),
             children: [
               HeaderPaginas(text: 'Criar Sala'),
-              CustomCard(
-                isChild: true,
-                children: [
-                  SizedBox(height: 20),
-                  CustomField(
-                    hint: 'Nome da Sala',
-                    icon: Icons.groups_2_outlined,
-                    controller: nameController,
-                    maxWidth: 500,
-                  ),
-                  SizedBox(height: 20),
-                  CustomField(
-                    hint: 'Descrição',
-                    icon: Icons.speaker_notes_outlined,
-                    controller: descriptionController,
-                    maxWidth: 500,
-                  ),
-                  SizedBox(height: 20),
-                  CustomDropdownField(
-                    hint: 'Sorteio',
-                    icon: Icons.confirmation_number_outlined,
-                    value: sorteio,
-                    maxWidth: 500,
-                    onChanged: (v) => setState(() => sorteio = v),
-                    items: const [
-                      DropdownMenuItem(value: 'mega', child: Text('Mega-Sena')),
-                      DropdownMenuItem(value: 'loto', child: Text('Lotofácil')),
-                      DropdownMenuItem(value: 'outros', child: Text('Outros')),
-                    ],
-                  ),
-                  SizedBox(height: 20),
-                  Row(
-                    children: [
+              Form(
+                key: _formKey,
+                child: CustomCard(
+                  isChild: true,
+                  children: [
+                    SizedBox(height: 20),
+                    CustomField(
+                      hint: 'Nome da Sala',
+                      icon: Icons.groups_2_outlined,
+                      controller: nameController,
+                      textInputAction: TextInputAction.next,
+                      maxWidth: _fieldMaxWidth,
+                      isRequired: true,
+                    ),
+                    SizedBox(height: _gap),
+                    CustomField(
+                      hint: 'Descrição',
+                      icon: Icons.speaker_notes_outlined,
+                      controller: descricaoController,
+                      textInputAction: TextInputAction.next,
+                      maxWidth: _fieldMaxWidth,
+                    ),
+                    SizedBox(height: _gap),
+                    CustomDropdownField(
+                      hint: 'Sorteio',
+                      icon: Icons.confirmation_number_outlined,
+                      value: sorteio,
+                      maxWidth: _fieldMaxWidth,
+                      onChanged: (v) {
+                        setState(() => sorteio = v);
+                        FocusScope.of(context).nextFocus();
+                      },
+                      validator: (value) {
+                        if (value == null) {
+                          return 'Campo obrigatório';
+                        }
+                        return null;
+                      },
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'mega',
+                          child: Text('Mega-Sena'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'loto',
+                          child: Text('Lotofácil'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'outros',
+                          child: Text('Outros'),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: _gap),
+                    _row(
                       CustomField(
                         hint: 'Data do Sorteio',
                         controller: dataController,
-                        maxWidth: 233,
+                        textInputAction: TextInputAction.next,
+                        maxWidth: _halfWidth,
                         readOnly: true,
+                        isRequired: true,
                         icon: Icons.calendar_today,
                         onTap: () async {
                           FocusScope.of(context).requestFocus(FocusNode());
@@ -91,12 +141,13 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
                               '${data.year}';
                         },
                       ),
-                      SizedBox(width: 5),
                       CustomField(
                         hint: 'Hora do Sorteio',
                         controller: horaController,
-                        maxWidth: 234,
+                        textInputAction: TextInputAction.next,
+                        maxWidth: _halfWidth,
                         readOnly: true,
+                        isRequired: true,
                         icon: Icons.schedule_outlined,
                         onTap: () async {
                           FocusScope.of(context).unfocus();
@@ -113,127 +164,91 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
                           });
                         },
                       ),
-                    ],
-                  ),
-                  SizedBox(height: 20),
-                  PrimaryButton(
-                    text: 'Confirmar',
-                    onTap: () async {
-                      final nome = nameController.text.trim();
-                      final valor = valueController.text.trim();
-                      if (nome.isEmpty ||
-                          valor.isEmpty ||
-                          (double.parse(valor) % 6 != 0)) {
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (_) {
-                            final navigator = Navigator.of(context);
-                            Future.delayed(Duration(seconds: 2), () {
-                              if (navigator.canPop()) {
-                                navigator.pop();
-                              }
-                            });
-                            return AlertDialog(
-                              backgroundColor: Color(0xFFFEFEFE),
-                              surfaceTintColor: Colors.transparent,
-                              elevation: 18,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                                side: BorderSide(
-                                  color: Colors.grey.shade200,
-                                  width: 1,
-                                ),
-                              ),
-                              contentPadding: EdgeInsets.fromLTRB(
-                                18,
-                                18,
-                                18,
-                                14,
-                              ),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // Topo com ícone + título
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          color: Color(0xFFFFF3C7),
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(
-                                                alpha: 0.08,
-                                              ),
-                                              blurRadius: 12,
-                                              offset: Offset(0, 6),
-                                            ),
-                                          ],
-                                          border: Border.all(
-                                            color: Color(0xFFFDE68A),
-                                          ),
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            '⚠️',
-                                            style: TextStyle(fontSize: 20),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          'Ops, um problema foi encontrado!',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w800,
-                                            color: Color(0xFF111827),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    (valor.isNotEmpty &&
-                                            double.parse(valor) % 6 != 0)
-                                        ? "O número deve ser divisível por 6!"
-                                        : 'Preencha o nome e o valor antes de confirmar.',
-                                    textAlign: TextAlign.left,
-                                    style: TextStyle(
-                                      height: 1.3,
-                                      fontSize: 14,
-                                      color: Colors.grey.shade700,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  SizedBox(height: 14),
-                                ],
-                              ),
-                            );
-                          },
-                        );
-                        return;
-                      }
-                      await firestore.collection('Apostas').doc(nome).set({
-                        'valor': valor,
-                      });
-                      Navigator.of(context).push(
-                        PageRouteBuilder(
-                          transitionDuration: Duration.zero,
-                          reverseTransitionDuration: Duration.zero,
-                          pageBuilder: (_, _, _) => Participants(),
+                    ),
+                    SizedBox(height: _gap),
+                    _row(
+                      CustomField(
+                        hint: 'Prêmio',
+                        icon: Icons.attach_money,
+                        controller: premioController,
+                        textInputAction: TextInputAction.next,
+                        maxWidth: _halfWidth,
+                        prefix: Text('R\$ '),
+                        keyboardType: TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                      );
-                    },
-                  ),
-                  SizedBox(height: 30),
-                ],
+                        isNumeric: true,
+                        isRequired: true,
+                      ),
+                      CustomField(
+                        hint: 'Valor Máximo de Aposta',
+                        icon: Icons.attach_money,
+                        controller: valorMaximoApostaController,
+                        textInputAction: TextInputAction.next,
+                        maxWidth: _halfWidth,
+                        prefix: Text('R\$ '),
+                        keyboardType: TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        isNumeric: true,
+                      ),
+                    ),
+                    SizedBox(height: _gap),
+                    CustomField(
+                      hint: 'Senha da sala',
+                      icon: Icons.password,
+                      controller: senhaSalaController,
+                      textInputAction: TextInputAction.next,
+                      maxWidth: _fieldMaxWidth,
+                    ),
+                    SizedBox(height: _gap),
+                    CustomField(
+                      hint: 'Chave PIX',
+                      icon: Icons.key,
+                      controller: chavePixController,
+                      textInputAction: TextInputAction.done,
+                      maxWidth: _fieldMaxWidth,
+                      isRequired: true,
+                    ),
+                    SizedBox(height: 20),
+                    PrimaryButton(
+                      text: 'Confirmar',
+                      onTap: () async {
+                        if (!_formKey.currentState!.validate()) {
+                          CustomShowDialog.show(
+                            context,
+                            "Preencha os campos obrigatórios!",
+                          );
+                          return;
+                        }
+
+                        final dataHora = juntarDataHora(
+                          dataController.text,
+                          horaController.text,
+                        );
+                        await firestore.collection('Salas').add({
+                          'nome': nameController.text,
+                          'descricao': descricaoController.text,
+                          'sorteio': sorteio,
+                          'dataHora': Timestamp.fromDate(dataHora),
+                          'premio': double.parse(
+                            premioController.text
+                                .replaceAll('.', '')
+                                .replaceAll(',', '.'),
+                          ),
+                          'valorMaximo': double.parse(
+                            valorMaximoApostaController.text
+                                .replaceAll('.', '')
+                                .replaceAll(',', '.'),
+                          ),
+                          'senha': senhaSalaController.text,
+                          'chavePix': chavePixController.text,
+                        });
+                      },
+                    ),
+                    SizedBox(height: 20),
+                  ],
+                ),
               ),
             ],
           ),

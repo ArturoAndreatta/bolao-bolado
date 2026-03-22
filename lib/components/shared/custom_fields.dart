@@ -41,66 +41,64 @@ class CustomField extends StatelessWidget {
 
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth!),
-      child: Form(
-        child: TextFormField(
-          controller: controller,
-          readOnly: readOnly!,
-          keyboardType: keyboardType,
-          textInputAction: textInputAction,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          style: TextStyle(color: Color(0xFF1F2937), fontSize: 18),
-          obscureText: obscure!,
-          enableInteractiveSelection: true,
-          onTap: onTap,
-          inputFormatters: isNumeric! ? [MoneyInputFormat()] : null,
-          validator: isRequired!
-              ? (value) {
-                  if (value == null || value.isEmpty) {
+      child: TextFormField(
+        controller: controller,
+        readOnly: readOnly!,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        style: TextStyle(color: Color(0xFF1F2937), fontSize: 18),
+        obscureText: obscure!,
+        enableInteractiveSelection: true,
+        onTap: onTap,
+        inputFormatters: isNumeric! ? [MoneyInputFormat()] : null,
+        validator: isRequired!
+            ? (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Campo obrigatório';
+                }
+                if (isNumeric!) {
+                  final number = double.tryParse(
+                    value.replaceAll(',', '').replaceAll('.', ''),
+                  );
+                  if (number == 0) {
                     return 'Campo obrigatório';
                   }
-                  if (isNumeric!) {
-                    final number = double.tryParse(
-                      value.replaceAll(',', '').replaceAll('.', ''),
-                    );
-                    if (number == 0) {
-                      return 'Campo obrigatório';
-                    }
-                  }
-                  return null;
                 }
-              : null,
-          decoration: InputDecoration(
-            prefix: prefix,
-            labelText: hint,
-            floatingLabelStyle: TextStyle(color: Colors.black),
-            prefixIcon: icon != null ? Icon(icon) : null,
-            filled: true,
-            fillColor: const Color(0xFFF3F4F6),
-            suffixIcon: suffix,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: borderRadius,
-              borderSide: BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: borderRadius,
-              borderSide: BorderSide(color: Color(0xFFCCCCCC), width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: borderRadius,
-              borderSide: BorderSide(color: Colors.red, width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: borderRadius,
-              borderSide: BorderSide(color: Colors.red, width: 2.5),
-            ),
+                return null;
+              }
+            : null,
+        decoration: InputDecoration(
+          prefix: prefix,
+          labelText: hint,
+          floatingLabelStyle: TextStyle(color: Colors.black),
+          prefixIcon: icon != null ? Icon(icon) : null,
+          filled: true,
+          fillColor: const Color(0xFFF3F4F6),
+          suffixIcon: suffix,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: borderRadius,
+            borderSide: BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: borderRadius,
+            borderSide: BorderSide(color: Color(0xFFCCCCCC), width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: borderRadius,
+            borderSide: BorderSide(color: Colors.red, width: 1.5),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: borderRadius,
+            borderSide: BorderSide(color: Colors.red, width: 2.5),
           ),
         ),
       ),
