@@ -18,6 +18,7 @@ class HeaderPaginas extends StatelessWidget {
       child: isMobile
           ? Column(children: [logo, tituloMobile, const SizedBox(height: 10)])
           : Row(
+              spacing: 50,
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 logo,
