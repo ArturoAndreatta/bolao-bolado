@@ -107,7 +107,6 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
                             },
                           ),
                   ),
-                  SizedBox(height: 20),
                 ],
               ),
             ],

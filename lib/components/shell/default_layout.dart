@@ -1,6 +1,6 @@
 import 'package:bolao_bolado/components/shell/footer.dart';
 import 'package:bolao_bolado/components/shell/gradient_decoration.dart';
-import 'package:flutter/foundation.dart';
+import 'package:bolao_bolado/core/responsive.dart';
 import 'package:flutter/material.dart';
 
 class DefaultLayout extends StatelessWidget {
@@ -10,34 +10,33 @@ class DefaultLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final isDesktopWeb = kIsWeb && width >= 900;
+    final isMobile = Responsive.isMobile(context);
 
     return Container(
       decoration: GradientDecoration.backgroundGradient(),
       child: Scaffold(
         drawer: drawer,
         backgroundColor: Colors.transparent,
-        bottomNavigationBar: isDesktopWeb ? const Footer() : null,
+        bottomNavigationBar: isMobile ? null : const Footer(),
         body: Stack(
           children: [
             SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
               child: Center(child: Column(children: [child])),
             ),
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu, size: 28),
-                  color: Colors.black,
-                  onPressed: () {
-                    Scaffold.of(context).openDrawer();
-                  },
-                ),
-              ),
-            ),
+            // Positioned(
+            //   top: 12,
+            //   left: 12,
+            //   child: Builder(
+            //     builder: (context) => IconButton(
+            //       icon: const Icon(Icons.menu, size: 28),
+            //       color: Colors.black,
+            //       onPressed: () {
+            //         Scaffold.of(context).openDrawer();
+            //       },
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),
