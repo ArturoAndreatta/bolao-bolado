@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/bolao_bolado.dart';
+import 'package:bolao_bolado/pages/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -50,9 +51,43 @@ import 'package:firebase_auth/firebase_auth.dart';
 //
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  if (FirebaseAuth.instance.currentUser == null) {
-    await FirebaseAuth.instance.signInAnonymously();
+  runApp(const _AppInit());
+}
+
+class _AppInit extends StatefulWidget {
+  const _AppInit();
+
+  @override
+  State<_AppInit> createState() => _AppInitState();
+}
+
+class _AppInitState extends State<_AppInit> {
+  bool _pronto = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _inicializar();
   }
-  runApp(BolaoBolado());
+
+  Future<void> _inicializar() async {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    if (FirebaseAuth.instance.currentUser == null) {
+      await FirebaseAuth.instance.signInAnonymously();
+    }
+    setState(() => _pronto = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_pronto) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: SplashScreen(),
+      );
+    }
+    return const BolaoBolado();
+  }
 }
