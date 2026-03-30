@@ -15,7 +15,7 @@ class _BolaoBoladoState extends State<BolaoBolado> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Bolão Bolado',
-      home: HomePage(), //Signup(),
+      home: HomePage(), //HomePage()
       theme: ThemeData(useMaterial3: true),
       debugShowCheckedModeBanner: false,
       locale: const Locale('pt', 'BR'),
