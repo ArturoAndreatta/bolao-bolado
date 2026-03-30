@@ -1,4 +1,3 @@
-import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/dialogs/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
@@ -6,38 +5,38 @@ import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
-import 'package:bolao_bolado/pages/auth/recuperar_senha.dart';
-import 'package:bolao_bolado/pages/auth/registrar.dart';
-import 'package:bolao_bolado/pages/informar_aposta.dart';
-import 'package:bolao_bolado/pages/pages.dart';
+import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/core/responsive.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-class Signup extends StatefulWidget {
-  const Signup({super.key});
+class Register extends StatefulWidget {
+  final String? email;
+  const Register({super.key, this.email});
 
   @override
-  State<Signup> createState() => _SignupState();
+  State<Register> createState() => _RegisterState();
 }
 
-class _SignupState extends State<Signup> {
-  final emailController = TextEditingController();
+class _RegisterState extends State<Register> {
+  final nomeController = TextEditingController();
+  late final emailController = TextEditingController(text: widget.email);
   final senhaController = TextEditingController();
-  bool _obscure = true;
+  final confirmarSenhaController = TextEditingController();
+  bool _obscureSenha = true;
+  bool _obscureConfirmar = true;
   final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
+    nomeController.dispose();
     emailController.dispose();
     senhaController.dispose();
+    confirmarSenhaController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final isDesktopWeb = kIsWeb && width >= 900;
     final isMobile = Responsive.isMobile(context);
 
     return DefaultLayout(
@@ -47,13 +46,22 @@ class _SignupState extends State<Signup> {
           CustomCard(
             color: const Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(text: 'Acesse sua conta'),
+              HeaderPaginas(text: 'Criar conta'),
               Form(
                 key: _formKey,
                 child: CustomCard(
                   isChild: true,
                   children: [
                     const SizedBox(height: 20),
+                    CustomField(
+                      hint: 'Nome',
+                      isRequired: true,
+                      icon: Icons.person_outline,
+                      controller: nomeController,
+                      textInputAction: TextInputAction.next,
+                      maxWidth: 500,
+                    ),
+                    const SizedBox(height: 15),
                     CustomField(
                       hint: 'E-mail',
                       isRequired: true,
@@ -69,35 +77,44 @@ class _SignupState extends State<Signup> {
                       isRequired: true,
                       icon: Icons.lock_outline,
                       controller: senhaController,
-                      textInputAction: TextInputAction.done,
+                      textInputAction: TextInputAction.next,
                       maxWidth: 500,
-                      obscure: _obscure,
+                      obscure: _obscureSenha,
                       suffix: IconButton(
-                        onPressed: () => setState(() => _obscure = !_obscure),
+                        onPressed: () =>
+                            setState(() => _obscureSenha = !_obscureSenha),
                         icon: Icon(
-                          _obscure
+                          _obscureSenha
                               ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
                         ),
                       ),
                     ),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 500),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _recuperarSenha,
-                          child: const Text('Esqueci minha senha'),
+                    const SizedBox(height: 15),
+                    CustomField(
+                      hint: 'Confirmar senha',
+                      isRequired: true,
+                      icon: Icons.lock_outline,
+                      controller: confirmarSenhaController,
+                      textInputAction: TextInputAction.done,
+                      maxWidth: 500,
+                      obscure: _obscureConfirmar,
+                      suffix: IconButton(
+                        onPressed: () => setState(
+                          () => _obscureConfirmar = !_obscureConfirmar,
+                        ),
+                        icon: Icon(
+                          _obscureConfirmar
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 20),
                     isMobile
                         ? Column(
                             children: [
-                              PrimaryButton(text: 'Logar', onTap: _logar),
-                              const SizedBox(height: 14),
-                              SecondaryButton(
+                              PrimaryButton(
                                 text: 'Cadastrar',
                                 onTap: _cadastrar,
                               ),
@@ -107,12 +124,6 @@ class _SignupState extends State<Signup> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               PrimaryButton(
-                                text: 'Logar',
-                                width: 233,
-                                onTap: _logar,
-                              ),
-                              const SizedBox(width: 14),
-                              SecondaryButton(
                                 text: 'Cadastrar',
                                 width: 233,
                                 onTap: _cadastrar,
@@ -125,56 +136,21 @@ class _SignupState extends State<Signup> {
               ),
             ],
           ),
-          Positioned(
-            top: 10,
-            left: isDesktopWeb ? 500 : 250,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(30),
-                onTap: () {
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      transitionDuration: Duration.zero,
-                      reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) => Pages(),
-                    ),
-                  );
-                },
-                child: Container(padding: const EdgeInsets.all(20)),
-              ),
-            ),
-          ),
           BackScreenButton(),
         ],
       ),
     );
   }
 
-  void _logar() {
+  void _cadastrar() {
     if (!_formKey.currentState!.validate()) {
       CustomShowDialog.show(context, "Preencha os campos obrigatórios!");
       return;
     }
-  }
-
-  void _cadastrar() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-        pageBuilder: (_, _, _) => Register(email: emailController.text),
-      ),
-    );
-  }
-
-  void _recuperarSenha() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-        pageBuilder: (_, _, _) => RecuperarSenha(email: emailController.text),
-      ),
-    );
+    if (senhaController.text != confirmarSenhaController.text) {
+      CustomShowDialog.show(context, "As senhas não coincidem!");
+      return;
+    }
+    // TODO: implementar cadastro
   }
 }

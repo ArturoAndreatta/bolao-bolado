@@ -4,6 +4,7 @@ import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/branding/logo.dart';
+import 'package:bolao_bolado/pages/auth/signup.dart';
 import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/pages.dart';
 import 'package:bolao_bolado/pages/participants.dart';
@@ -20,7 +21,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late String frase;
-  // FirebaseFirestore firestore = .instance;
 
   @override
   void initState() {
@@ -72,31 +72,31 @@ class _HomePageState extends State<HomePage> {
               ),
               SizedBox(height: 20),
               PrimaryButton(
-                text: 'Participar',
+                text: 'Acessar',
                 onTap: () {
                   Navigator.of(context).push(
                     PageRouteBuilder(
                       transitionDuration: Duration.zero,
                       reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) => Login(),
+                      pageBuilder: (_, _, _) => Signup(),
                     ),
                   );
                 },
               ),
               SizedBox(height: 20),
-              SecondaryButton(
-                text: 'Visualizar',
-                onTap: () {
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      transitionDuration: Duration.zero,
-                      reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) => Participants(),
-                    ),
-                  );
-                },
-              ),
-              SizedBox(height: 30),
+              // SecondaryButton(
+              //   text: 'Visualizar',
+              //   onTap: () {
+              //     Navigator.of(context).push(
+              //       PageRouteBuilder(
+              //         transitionDuration: Duration.zero,
+              //         reverseTransitionDuration: Duration.zero,
+              //         pageBuilder: (_, _, _) => Participants(),
+              //       ),
+              //     );
+              //   },
+              // ),
+              // SizedBox(height: 30),
             ],
           ),
           Positioned(

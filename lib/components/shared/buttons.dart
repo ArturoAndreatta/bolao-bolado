@@ -3,8 +3,14 @@ import 'package:flutter/material.dart';
 class PrimaryButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
+  final double width;
 
-  const PrimaryButton({super.key, required this.text, required this.onTap});
+  const PrimaryButton({
+    super.key,
+    required this.text,
+    required this.onTap,
+    this.width = 300,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +18,7 @@ class PrimaryButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(15),
       child: Container(
-        width: 300,
+        width: width,
         padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 0),
         decoration: BoxDecoration(
           color: Color(0xFF487DE5),
@@ -42,8 +48,14 @@ class PrimaryButton extends StatelessWidget {
 class SecondaryButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
+  final double width;
 
-  const SecondaryButton({super.key, required this.text, required this.onTap});
+  const SecondaryButton({
+    super.key,
+    required this.text,
+    required this.onTap,
+    this.width = 300,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +63,7 @@ class SecondaryButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(15),
       child: Container(
-        width: 300,
+        width: width,
         padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 0),
         decoration: BoxDecoration(
           color: Colors.transparent,
