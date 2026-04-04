@@ -11,6 +11,7 @@ import 'package:bolao_bolado/pages/auth/register.dart';
 import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/pages.dart';
 import 'package:bolao_bolado/core/responsive.dart';
+import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -26,6 +27,8 @@ class _SignupState extends State<Signup> {
   final senhaController = TextEditingController();
   bool _obscure = true;
   final _formKey = GlobalKey<FormState>();
+
+  AuthService authService = .new();
 
   @override
   void dispose() {
@@ -156,6 +159,8 @@ class _SignupState extends State<Signup> {
       CustomShowDialog.show(context, "Preencha os campos obrigatórios!");
       return;
     }
+
+    authService.logar(email: emailController.text, senha: senhaController.text);
   }
 
   void _cadastrar() {

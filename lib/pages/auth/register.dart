@@ -7,6 +7,7 @@ import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/core/responsive.dart';
+import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:flutter/material.dart';
 
 class Register extends StatefulWidget {
@@ -25,6 +26,8 @@ class _RegisterState extends State<Register> {
   bool _obscureSenha = true;
   bool _obscureConfirmar = true;
   final _formKey = GlobalKey<FormState>();
+
+  AuthService authService = .new();
 
   @override
   void dispose() {
@@ -151,6 +154,11 @@ class _RegisterState extends State<Register> {
       CustomShowDialog.show(context, "As senhas não coincidem!");
       return;
     }
-    // TODO: implementar cadastro
+
+    authService.cadastrar(
+      email: emailController.text,
+      senha: senhaController.text,
+      nome: nomeController.text,
+    );
   }
 }
