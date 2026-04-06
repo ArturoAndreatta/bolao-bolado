@@ -16,6 +16,8 @@ class CustomField extends StatelessWidget {
   final Widget? prefix;
   final void Function()? onTap;
   final bool? isRequired;
+  final bool isEmail;
+  final List<String? Function(String?)>? validators;
 
   const CustomField({
     super.key,
@@ -32,6 +34,8 @@ class CustomField extends StatelessWidget {
     this.onTap,
     this.prefix,
     this.isRequired = false,
+    this.isEmail = false,
+    this.validators,
   });
 
   @override
@@ -52,22 +56,33 @@ class CustomField extends StatelessWidget {
         enableInteractiveSelection: true,
         onTap: onTap,
         inputFormatters: isNumeric! ? [MoneyInputFormat()] : null,
-        validator: isRequired!
-            ? (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Campo obrigatório';
-                }
-                if (isNumeric!) {
-                  final number = double.tryParse(
-                    value.replaceAll(',', '').replaceAll('.', ''),
-                  );
-                  if (number == 0) {
-                    return 'Campo obrigatório';
-                  }
-                }
-                return null;
-              }
-            : null,
+        validator: (value) {
+          if (isRequired!) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Campo obrigatório';
+            }
+            if (isNumeric!) {
+              final number = double.tryParse(
+                value.replaceAll('.', '').replaceAll(',', ''),
+              );
+              if (number == 0) return 'Campo obrigatório';
+            }
+          }
+
+          if (isEmail && value != null && value.isNotEmpty) {
+            final emailRegex = RegExp(r'^[\w.-]+@[\w.-]+\.\w{2,}$');
+            if (!emailRegex.hasMatch(value)) return 'E-mail inválido';
+          }
+
+          if (validators != null) {
+            for (final validate in validators!) {
+              final error = validate(value);
+              if (error != null) return error;
+            }
+          }
+
+          return null;
+        },
         decoration: InputDecoration(
           prefix: prefix,
           labelText: hint,

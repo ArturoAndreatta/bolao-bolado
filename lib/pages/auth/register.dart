@@ -1,4 +1,4 @@
-import 'package:bolao_bolado/components/shared/dialogs/custom_show_dialog.dart';
+import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
@@ -68,6 +68,7 @@ class _RegisterState extends State<Register> {
                     CustomField(
                       hint: 'E-mail',
                       isRequired: true,
+                      isEmail: true,
                       icon: Icons.alternate_email,
                       keyboardType: TextInputType.emailAddress,
                       controller: emailController,
@@ -145,7 +146,7 @@ class _RegisterState extends State<Register> {
     );
   }
 
-  void _cadastrar() {
+  void _cadastrar() async {
     if (!_formKey.currentState!.validate()) {
       CustomShowDialog.show(context, "Preencha os campos obrigatórios!");
       return;
@@ -155,10 +156,19 @@ class _RegisterState extends State<Register> {
       return;
     }
 
-    authService.cadastrar(
+    String? erro = await authService.cadastrar(
       email: emailController.text,
       senha: senhaController.text,
       nome: nomeController.text,
     );
+
+    if (!mounted) return;
+
+    if (erro != null) {
+      CustomShowDialog.show(context, erro);
+      return;
+    }
+
+    CustomShowDialog.show(context, "Cadastrado com sucesso!");
   }
 }

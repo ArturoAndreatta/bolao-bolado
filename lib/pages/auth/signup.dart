@@ -1,5 +1,5 @@
 import 'package:bolao_bolado/components/shared/back_screen_button.dart';
-import 'package:bolao_bolado/components/shared/dialogs/custom_show_dialog.dart';
+import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
