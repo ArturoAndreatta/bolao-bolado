@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
@@ -5,8 +6,8 @@ import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
-import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/core/responsive.dart';
+import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:flutter/material.dart';
 
@@ -25,9 +26,9 @@ class _RegisterState extends State<Register> {
   final confirmarSenhaController = TextEditingController();
   bool _obscureSenha = true;
   bool _obscureConfirmar = true;
+  bool _loading = false;
   final _formKey = GlobalKey<FormState>();
-
-  AuthService authService = .new();
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -68,7 +69,6 @@ class _RegisterState extends State<Register> {
                     CustomField(
                       hint: 'E-mail',
                       isRequired: true,
-                      isEmail: true,
                       icon: Icons.alternate_email,
                       keyboardType: TextInputType.emailAddress,
                       controller: emailController,
@@ -115,7 +115,9 @@ class _RegisterState extends State<Register> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    isMobile
+                    _loading
+                        ? const CircularProgressIndicator()
+                        : isMobile
                         ? Column(
                             children: [
                               PrimaryButton(
@@ -156,19 +158,43 @@ class _RegisterState extends State<Register> {
       return;
     }
 
-    String? erro = await authService.cadastrar(
-      email: emailController.text,
-      senha: senhaController.text,
-      nome: nomeController.text,
-    );
+    setState(() => _loading = true);
 
-    if (!mounted) return;
+    try {
+      await _authService.cadastrar(
+        email: emailController.text.trim(),
+        senha: senhaController.text,
+        nome: nomeController.text.trim(),
+      );
 
-    if (erro != null) {
-      CustomShowDialog.show(context, erro);
-      return;
+      if (mounted) {
+        // Cadastro novo → vai pra Participar
+        Navigator.of(context).pushAndRemoveUntil(
+          PageRouteBuilder(
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            pageBuilder: (_, _, _) => const Login(),
+          ),
+          (route) => false,
+        );
+      }
+    } on Exception catch (e) {
+      if (mounted) {
+        CustomShowDialog.show(context, _traduzirErro(e.toString()));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
+  }
 
-    CustomShowDialog.show(context, "Cadastrado com sucesso!");
+  String _traduzirErro(String erro) {
+    if (erro.contains('email-already-in-use')) {
+      return 'Este e-mail já está cadastrado.';
+    } else if (erro.contains('weak-password')) {
+      return 'Senha muito fraca. Use pelo menos 6 caracteres.';
+    } else if (erro.contains('invalid-email')) {
+      return 'E-mail inválido.';
+    }
+    return 'Erro ao cadastrar. Tente novamente.';
   }
 }

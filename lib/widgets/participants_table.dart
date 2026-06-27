@@ -30,7 +30,7 @@ class ParticipantsTable extends StatelessWidget {
               width: widthNome,
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(item['id'].toString(), maxLines: 2),
+                child: Text(item['nome'], maxLines: 2),
               ),
             ),
           ),

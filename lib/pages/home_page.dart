@@ -83,20 +83,19 @@ class _HomePageState extends State<HomePage> {
                   );
                 },
               ),
-              SizedBox(height: 20),
-              // SecondaryButton(
-              //   text: 'Visualizar',
-              //   onTap: () {
-              //     Navigator.of(context).push(
-              //       PageRouteBuilder(
-              //         transitionDuration: Duration.zero,
-              //         reverseTransitionDuration: Duration.zero,
-              //         pageBuilder: (_, _, _) => Participants(),
-              //       ),
-              //     );
-              //   },
-              // ),
-              // SizedBox(height: 30),
+              const SizedBox(height: 20),
+              SecondaryButton(
+                text: 'Visualizar',
+                onTap: () {
+                  final navigator = Navigator.of(context);
+                  navigator.push(
+                    PageRouteBuilder(
+                      pageBuilder: (_, _, _) => const Participants(),
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 30),
             ],
           ),
           Positioned(

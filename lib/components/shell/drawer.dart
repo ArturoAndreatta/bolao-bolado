@@ -1,3 +1,6 @@
+import 'package:bolao_bolado/pages/home_page.dart';
+import 'package:bolao_bolado/services/authentication/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -5,6 +8,11 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final isLoggedIn = user != null && !user.isAnonymous;
+    final nome = user?.displayName ?? 'Visitante';
+    final email = user?.email ?? '';
+
     return Drawer(
       backgroundColor: Colors.blueGrey,
       child: Column(
@@ -19,20 +27,21 @@ class AppDrawer extends StatelessWidget {
             ),
             color: Colors.blueAccent,
             child: Row(
-              children: const [
-                Icon(Icons.person, color: Colors.white, size: 40),
-                SizedBox(width: 12),
+              children: [
+                const Icon(Icons.person, color: Colors.white, size: 40),
+                const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'accountName',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                      nome,
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
                     ),
-                    Text(
-                      'accountEmail',
-                      style: TextStyle(color: Colors.white70),
-                    ),
+                    if (email.isNotEmpty)
+                      Text(
+                        email,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
                   ],
                 ),
               ],
@@ -42,25 +51,49 @@ class AppDrawer extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                ListTile(
-                  leading: Icon(Icons.person, color: Colors.white),
-                  title: Text('Minha Conta'),
-                  onTap: () {},
-                ),
-                ListTile(
-                  leading: Icon(Icons.settings, color: Colors.white),
-                  title: Text('Configurações'),
-                  onTap: () {},
-                ),
+                if (isLoggedIn) ...[
+                  ListTile(
+                    leading: const Icon(Icons.person, color: Colors.white),
+                    title: const Text(
+                      'Minha Conta',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.settings, color: Colors.white),
+                    title: const Text(
+                      'Configurações',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    onTap: () {},
+                  ),
+                ],
               ],
             ),
           ),
           const Divider(color: Colors.white24, height: 2),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.redAccent),
-            title: const Text('Sair'),
-            onTap: () {},
-          ),
+          if (isLoggedIn)
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text('Sair', style: TextStyle(color: Colors.white)),
+              onTap: () async {
+                Navigator.of(context).pop(); // fecha drawer
+                await AuthService().logout();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    PageRouteBuilder(
+                      transitionDuration: Duration.zero,
+                      reverseTransitionDuration: Duration.zero,
+                      pageBuilder: (_, _, _) => const HomePage(),
+                    ),
+                    (route) => false,
+                  );
+                }
+              },
+            )
+          else
+            const SizedBox(height: 16),
         ],
       ),
     );

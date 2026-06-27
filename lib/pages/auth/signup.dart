@@ -8,8 +8,8 @@ import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/pages/auth/forgot_password.dart';
 import 'package:bolao_bolado/pages/auth/register.dart';
-import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/pages.dart';
+import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:flutter/foundation.dart';
@@ -26,9 +26,9 @@ class _SignupState extends State<Signup> {
   final emailController = TextEditingController();
   final senhaController = TextEditingController();
   bool _obscure = true;
+  bool _loading = false;
   final _formKey = GlobalKey<FormState>();
-
-  AuthService authService = .new();
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -72,7 +72,9 @@ class _SignupState extends State<Signup> {
                       isRequired: true,
                       icon: Icons.lock_outline,
                       controller: senhaController,
+                      // Enter no campo senha → chama _logar
                       textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _logar(),
                       maxWidth: 500,
                       obscure: _obscure,
                       suffix: IconButton(
@@ -95,14 +97,16 @@ class _SignupState extends State<Signup> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    isMobile
+                    _loading
+                        ? const CircularProgressIndicator()
+                        : isMobile
                         ? Column(
                             children: [
                               PrimaryButton(text: 'Logar', onTap: _logar),
                               const SizedBox(height: 14),
                               SecondaryButton(
                                 text: 'Cadastrar',
-                                onTap: _cadastrar,
+                                onTap: _irParaCadastro,
                               ),
                             ],
                           )
@@ -118,7 +122,7 @@ class _SignupState extends State<Signup> {
                               SecondaryButton(
                                 text: 'Cadastrar',
                                 width: 233,
-                                onTap: _cadastrar,
+                                onTap: _irParaCadastro,
                               ),
                             ],
                           ),
@@ -154,16 +158,40 @@ class _SignupState extends State<Signup> {
     );
   }
 
-  void _logar() {
+  void _logar() async {
     if (!_formKey.currentState!.validate()) {
       CustomShowDialog.show(context, "Preencha os campos obrigatórios!");
       return;
     }
 
-    authService.logar(email: emailController.text, senha: senhaController.text);
+    setState(() => _loading = true);
+
+    try {
+      await _authService.logar(
+        email: emailController.text.trim(),
+        senha: senhaController.text,
+      );
+
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          PageRouteBuilder(
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            pageBuilder: (_, _, _) => const Participants(),
+          ),
+          (route) => false,
+        );
+      }
+    } on Exception catch (e) {
+      if (mounted) {
+        CustomShowDialog.show(context, _traduzirErro(e.toString()));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
-  void _cadastrar() {
+  void _irParaCadastro() {
     Navigator.of(context).push(
       PageRouteBuilder(
         transitionDuration: Duration.zero,
@@ -181,5 +209,18 @@ class _SignupState extends State<Signup> {
         pageBuilder: (_, _, _) => RecuperarSenha(email: emailController.text),
       ),
     );
+  }
+
+  String _traduzirErro(String erro) {
+    if (erro.contains('user-not-found') ||
+        erro.contains('wrong-password') ||
+        erro.contains('invalid-credential')) {
+      return 'E-mail ou senha incorretos.';
+    } else if (erro.contains('user-disabled')) {
+      return 'Conta desativada. Entre em contato com o suporte.';
+    } else if (erro.contains('too-many-requests')) {
+      return 'Muitas tentativas. Tente novamente mais tarde.';
+    }
+    return 'Erro ao fazer login. Tente novamente.';
   }
 }

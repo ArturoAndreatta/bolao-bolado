@@ -14,16 +14,27 @@ class Bet {
       valor = map['valor'];
 }
 
-Future<List<Map<String, Object>>> getBets() async {
-  FirebaseFirestore firestore = .instance;
-  final snapshot = await firestore.collection('Apostas').get();
+Future<List<Map<String, Object?>>> getBets() async {
+  FirebaseFirestore firestore = FirebaseFirestore.instance;
+  final snapshot = await firestore
+      .collection('Apostas')
+      .orderBy('data-hora', descending: true)
+      .get();
 
   return snapshot.docs.map((bet) {
     final dados = bet.data();
+    final nome = dados['nome'].toString();
     final valor = double.tryParse(dados['valor'].toString()) ?? 0;
     final cotas = (valor / 6).floor();
     final premio = cotas * 1500;
+    final dataHora = dados['data-hora']; // Timestamp ou null
 
-    return {'id': bet.id, 'valor': valor, 'cotas': cotas, 'premio': premio};
+    return {
+      'nome': nome,
+      'valor': valor,
+      'cotas': cotas,
+      'premio': premio,
+      'data-hora': dataHora,
+    };
   }).toList();
 }
