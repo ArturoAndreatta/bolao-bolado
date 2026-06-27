@@ -4,7 +4,9 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/models/bet.dart';
+import 'package:bolao_bolado/pages/pages.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -36,6 +38,9 @@ class _ParticipantsState extends State<Participants> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktopWeb = kIsWeb && width >= 900;
+
     return DefaultLayout(
       drawer: AppDrawer(),
       child: Stack(
@@ -81,12 +86,39 @@ class _ParticipantsState extends State<Participants> {
               ),
             ],
           ),
+          Positioned(
+            top: 10,
+            left: isDesktopWeb ? 500 : 250,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(30),
+                onTap: () {
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      transitionDuration: Duration.zero,
+                      reverseTransitionDuration: Duration.zero,
+                      pageBuilder: (_, _, _) => Pages(),
+                    ),
+                  );
+                },
+                child: Container(padding: const EdgeInsets.all(20)),
+              ),
+            ),
+          ),
           BackScreenButton(),
         ],
       ),
     );
   }
 }
+
+// Larguras fixas de cada coluna
+const double _wNome = 210;
+const double _wValor = 110;
+const double _wCotas = 70;
+const double _wPremio = 120;
+const double _wData = 130;
 
 class _TabelaApostas extends StatelessWidget {
   final List<Map<String, dynamic>> rows;
@@ -110,110 +142,110 @@ class _TabelaApostas extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
         ),
         clipBehavior: Clip.antiAlias,
-        child: IntrinsicWidth(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Cabeçalho
-              Container(
-                color: _corCabecalho,
-                child: Row(
-                  children: const [
-                    _CelulaCabecalho(
-                      texto: 'Nome',
-                      flex: 3,
-                      alinhamento: TextAlign.left,
-                    ),
-                    _CelulaCabecalho(
-                      texto: 'Valor',
-                      flex: 2,
-                      alinhamento: TextAlign.right,
-                    ),
-                    _CelulaCabecalho(
-                      texto: 'Cotas',
-                      flex: 1,
-                      alinhamento: TextAlign.right,
-                    ),
-                    _CelulaCabecalho(
-                      texto: 'Prêmio',
-                      flex: 2,
-                      alinhamento: TextAlign.right,
-                    ),
-                    _CelulaCabecalho(
-                      texto: 'Última Alteração',
-                      flex: 3,
-                      alinhamento: TextAlign.right,
-                      isLast: true,
-                    ),
-                  ],
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cabeçalho
+            Container(
+              color: _corCabecalho,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  _CelulaCabecalho(
+                    texto: 'Nome',
+                    width: _wNome,
+                    alinhamento: TextAlign.left,
+                  ),
+                  _CelulaCabecalho(
+                    texto: 'Valor',
+                    width: _wValor,
+                    alinhamento: TextAlign.right,
+                  ),
+                  _CelulaCabecalho(
+                    texto: 'Cotas',
+                    width: _wCotas,
+                    alinhamento: TextAlign.right,
+                  ),
+                  _CelulaCabecalho(
+                    texto: 'Prêmio',
+                    width: _wPremio,
+                    alinhamento: TextAlign.right,
+                  ),
+                  _CelulaCabecalho(
+                    texto: 'Última Alteração',
+                    width: _wData,
+                    alinhamento: TextAlign.right,
+                    isLast: true,
+                  ),
+                ],
               ),
-              const Divider(height: 1, thickness: 1, color: _corBorda),
-              // Linhas
-              ...rows.asMap().entries.map((entry) {
-                final index = entry.key;
-                final item = entry.value;
-                final isPar = index % 2 == 0;
+            ),
+            // const Divider(height: 1, thickness: 1, color: _corBorda),
+            // Linhas
+            ...rows.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              final isPar = index % 2 == 0;
 
-                final nome = item['nome']?.toString() ?? '—';
-                final valor = (item['valor'] as num?)?.toDouble() ?? 0;
-                final cotas = (item['cotas'] as num?)?.toInt() ?? 0;
-                final premio = (item['premio'] as num?)?.toDouble() ?? 0;
-                final dataHora = item['data-hora'];
+              final nome = item['nome']?.toString() ?? '—';
+              final valor = (item['valor'] as num?)?.toDouble() ?? 0;
+              final cotas = (item['cotas'] as num?)?.toInt() ?? 0;
+              final premio = (item['premio'] as num?)?.toDouble() ?? 0;
+              final dataHora = item['data-hora'];
 
-                String dataFormatada = '—';
-                if (dataHora != null && dataHora is Timestamp) {
-                  dataFormatada = DateFormat(
-                    'dd/MM/yy HH:mm',
-                  ).format(dataHora.toDate());
-                }
+              String dataFormatada = '—';
+              if (dataHora != null && dataHora is Timestamp) {
+                dataFormatada = DateFormat(
+                  'dd/MM/yy HH:mm',
+                ).format(dataHora.toDate());
+              }
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      color: isPar ? _corLinhaA : _corLinhaB,
-                      child: Row(
-                        children: [
-                          _CelulaLinha(
-                            texto: nome,
-                            flex: 3,
-                            alinhamento: TextAlign.left,
-                          ),
-                          _CelulaLinha(
-                            texto: formatoMoeda.format(valor),
-                            flex: 2,
-                            alinhamento: TextAlign.right,
-                          ),
-                          _CelulaLinha(
-                            texto: cotas.toString(),
-                            flex: 1,
-                            alinhamento: TextAlign.right,
-                          ),
-                          _CelulaLinha(
-                            texto: formatoMoeda.format(premio),
-                            flex: 2,
-                            alinhamento: TextAlign.right,
-                            destaque: true,
-                          ),
-                          _CelulaLinha(
-                            texto: dataFormatada,
-                            flex: 3,
-                            alinhamento: TextAlign.right,
-                            subTexto: true,
-                            isLast: true,
-                          ),
-                        ],
-                      ),
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    color: isPar ? _corLinhaA : _corLinhaB,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _CelulaLinha(
+                          texto: nome,
+                          width: _wNome,
+                          alinhamento: TextAlign.left,
+                        ),
+                        _CelulaLinha(
+                          texto: formatoMoeda.format(valor),
+                          width: _wValor,
+                          alinhamento: TextAlign.right,
+                        ),
+                        _CelulaLinha(
+                          texto: cotas.toString(),
+                          width: _wCotas,
+                          alinhamento: TextAlign.right,
+                        ),
+                        _CelulaLinha(
+                          texto: formatoMoeda.format(premio),
+                          width: _wPremio,
+                          alinhamento: TextAlign.right,
+                          destaque: true,
+                        ),
+                        _CelulaLinha(
+                          texto: dataFormatada,
+                          width: _wData,
+                          alinhamento: TextAlign.right,
+                          subTexto: true,
+                          isLast: true,
+                        ),
+                      ],
                     ),
-                    if (index < rows.length - 1)
-                      const Divider(height: 1, thickness: 1, color: _corBorda),
-                  ],
-                );
-              }),
-            ],
-          ),
+                  ),
+                  if (index < rows.length - 1)
+                    const Divider(height: 1, thickness: 1, color: _corBorda),
+                ],
+              );
+            }),
+          ],
         ),
       ),
     );
@@ -222,61 +254,45 @@ class _TabelaApostas extends StatelessWidget {
 
 class _CelulaCabecalho extends StatelessWidget {
   final String texto;
-  final int flex;
+  final double width;
   final TextAlign alinhamento;
   final bool isLast;
 
   const _CelulaCabecalho({
     required this.texto,
-    required this.flex,
+    required this.width,
     required this.alinhamento,
     this.isLast = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Flexible(
-      flex: flex,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        decoration: isLast
-            ? null
-            : const BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                ),
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: isLast
+          ? null
+          : const BoxDecoration(
+              border: Border(
+                right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
               ),
-        width: _larguraPorFlex(flex),
-        child: Text(
-          texto,
-          textAlign: alinhamento,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1F2937),
-          ),
+            ),
+      child: Text(
+        texto,
+        textAlign: alinhamento,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF1F2937),
         ),
       ),
     );
-  }
-
-  double _larguraPorFlex(int flex) {
-    switch (flex) {
-      case 1:
-        return 60;
-      case 2:
-        return 110;
-      case 3:
-        return 150;
-      default:
-        return 100;
-    }
   }
 }
 
 class _CelulaLinha extends StatelessWidget {
   final String texto;
-  final int flex;
+  final double width;
   final TextAlign alinhamento;
   final bool destaque;
   final bool subTexto;
@@ -284,7 +300,7 @@ class _CelulaLinha extends StatelessWidget {
 
   const _CelulaLinha({
     required this.texto,
-    required this.flex,
+    required this.width,
     required this.alinhamento,
     this.destaque = false,
     this.subTexto = false,
@@ -293,46 +309,30 @@ class _CelulaLinha extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Flexible(
-      flex: flex,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        decoration: isLast
-            ? null
-            : const BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                ),
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: isLast
+          ? null
+          : const BoxDecoration(
+              border: Border(
+                right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
               ),
-        width: _larguraPorFlex(flex),
-        child: Text(
-          texto,
-          textAlign: alinhamento,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: destaque ? FontWeight.w600 : FontWeight.w400,
-            color: destaque
-                ? const Color(0xFF2E7D32)
-                : subTexto
-                ? Colors.grey
-                : const Color(0xFF1F2937),
-          ),
+            ),
+      child: Text(
+        texto,
+        textAlign: alinhamento,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: destaque ? FontWeight.w600 : FontWeight.w400,
+          color: destaque
+              ? const Color(0xFF2E7D32)
+              : subTexto
+              ? Colors.grey
+              : const Color(0xFF1F2937),
         ),
       ),
     );
-  }
-
-  double _larguraPorFlex(int flex) {
-    switch (flex) {
-      case 1:
-        return 60;
-      case 2:
-        return 110;
-      case 3:
-        return 150;
-      default:
-        return 100;
-    }
   }
 }

@@ -24,19 +24,23 @@ class DefaultLayout extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
               child: Center(child: Column(children: [child])),
             ),
-            // Positioned(
-            //   top: 12,
-            //   left: 12,
-            //   child: Builder(
-            //     builder: (context) => IconButton(
-            //       icon: const Icon(Icons.menu, size: 28),
-            //       color: Colors.black,
-            //       onPressed: () {
-            //         Scaffold.of(context).openDrawer();
-            //       },
-            //     ),
-            //   ),
-            // ),
+            Container(
+              decoration: GradientDecoration.backgroundGradient(),
+              child: Scaffold(
+                drawer: drawer,
+                backgroundColor: Colors.transparent,
+
+                appBar: drawer != null
+                    ? AppBar(
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        scrolledUnderElevation: 0,
+                        automaticallyImplyLeading: true,
+                      )
+                    : null,
+                body: SingleChildScrollView(child: Center(child: child)),
+              ),
+            ),
           ],
         ),
       ),
