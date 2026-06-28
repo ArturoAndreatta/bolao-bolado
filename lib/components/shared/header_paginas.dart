@@ -4,38 +4,61 @@ import 'package:flutter/material.dart';
 
 class HeaderPaginas extends StatelessWidget {
   final String text;
+
   const HeaderPaginas({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
-    final logo = Logo(isSmall: true, logo: 'images/logo4.png');
-    final tituloDesktop = _titulo(fontSize: 30);
-    final tituloMobile = _titulo(fontSize: 25);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 60),
-      child: isMobile
-          ? Column(children: [logo, tituloMobile, const SizedBox(height: 10)])
-          : Row(
-              spacing: 50,
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                logo,
-                Expanded(child: tituloDesktop),
-              ],
-            ),
-    );
-  }
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 20 : 40,
+        vertical: isMobile ? 8 : 4,
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 20),
+          SizedBox(
+            width: 120,
+            height: 80,
+            child: Logo(isSmall: true, logo: 'images/logo4.png'),
+          ),
 
-  Widget _titulo({required double fontSize}) {
-    return Text(
-      text,
-      maxLines: 4,
-      overflow: TextOverflow.clip,
-      textAlign: TextAlign.center,
-      softWrap: true,
-      style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize),
+          Container(width: 1, height: 60, color: Colors.grey.shade300),
+
+          const SizedBox(width: 22),
+
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: isMobile ? 24 : 20,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1F2937),
+                    ),
+                  ),
+
+                  const SizedBox(height: 2),
+
+                  Text(
+                    "Entre para continuar",
+                    style: TextStyle(
+                      fontSize: isMobile ? 16 : 15,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

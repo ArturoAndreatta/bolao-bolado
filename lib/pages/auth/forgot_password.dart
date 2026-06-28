@@ -82,7 +82,7 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
                         keyboardType: TextInputType.emailAddress,
                         controller: emailController,
                         textInputAction: TextInputAction.done,
-                        maxWidth: 500,
+                        maxWidth: 480,
                       ),
                       const SizedBox(height: 20),
                       _loading

@@ -64,7 +64,7 @@ class _SignupState extends State<Signup> {
                       keyboardType: TextInputType.emailAddress,
                       controller: emailController,
                       textInputAction: TextInputAction.next,
-                      maxWidth: 500,
+                      maxWidth: 480,
                     ),
                     const SizedBox(height: 15),
                     CustomField(
@@ -75,7 +75,7 @@ class _SignupState extends State<Signup> {
                       // Enter no campo senha → chama _logar
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _logar(),
-                      maxWidth: 500,
+                      maxWidth: 480,
                       obscure: _obscure,
                       suffix: IconButton(
                         onPressed: () => setState(() => _obscure = !_obscure),
@@ -87,7 +87,7 @@ class _SignupState extends State<Signup> {
                       ),
                     ),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 500),
+                      constraints: const BoxConstraints(maxWidth: 480),
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(

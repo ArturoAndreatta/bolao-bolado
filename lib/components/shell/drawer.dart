@@ -3,11 +3,33 @@ import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/pages/consultar_salas.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
+import 'package:bolao_bolado/services/avatar/avatar_service.dart';
+import 'package:bolao_bolado/components/shell/avatar_picker_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
+
+  @override
+  State<AppDrawer> createState() => _AppDrawerState();
+}
+
+class _AppDrawerState extends State<AppDrawer> {
+  String? _avatarAtual;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarAvatar();
+  }
+
+  Future<void> _carregarAvatar() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final avatar = await AvatarService.buscarAvatar(uid);
+    if (mounted) setState(() => _avatarAtual = avatar);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,22 +56,70 @@ class AppDrawer extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  // Avatar com inicial
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF487DE5),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Center(
-                      child: Text(
-                        inicial,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  // Avatar clicável
+                  MouseRegion(
+                    cursor: isLoggedIn
+                        ? SystemMouseCursors.click
+                        : SystemMouseCursors.basic,
+                    child: GestureDetector(
+                      onTap: isLoggedIn
+                          ? () async {
+                              if (_avatarAtual == null) return;
+                              await mostrarEscolhaAvatar(
+                                context,
+                                avatarAtual: _avatarAtual!,
+                                onSelecionado: (novoAvatar) {
+                                  setState(() => _avatarAtual = novoAvatar);
+                                },
+                              );
+                            }
+                          : null,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF487DE5),
+                                width: 2,
+                              ),
+                            ),
+                            child: ClipOval(
+                              child: _avatarAtual != null
+                                  ? Image.asset(
+                                      _avatarAtual!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          _avatarFallback(inicial),
+                                    )
+                                  : _avatarFallback(inicial),
+                            ),
+                          ),
+                          if (isLoggedIn)
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF487DE5),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: const Color(0xFF1F2937),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.edit,
+                                  size: 10,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -85,7 +155,6 @@ class AppDrawer extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            // Itens de navegação
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -139,7 +208,6 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
 
-            // Rodapé com logout
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
               child: Column(
@@ -189,6 +257,22 @@ class AppDrawer extends StatelessWidget {
       ),
     );
   }
+
+  Widget _avatarFallback(String inicial) {
+    return Container(
+      color: const Color(0xFF487DE5),
+      child: Center(
+        child: Text(
+          inicial,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _DrawerItem extends StatelessWidget {
@@ -210,24 +294,27 @@ class _DrawerItem extends StatelessWidget {
         ? const Color(0xFFEF4444)
         : const Color(0xFFD1D5DB);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 14),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 14),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

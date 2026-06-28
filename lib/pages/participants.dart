@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class Participants extends StatefulWidget {
   const Participants({super.key});
@@ -21,6 +22,10 @@ class _ParticipantsState extends State<Participants> {
   List<Map<String, dynamic>> _rowsData = [];
   bool _loading = true;
 
+  // Ordenação padrão: valor decrescente
+  int _colunaOrdenada = 1; // 0=nome, 1=valor, 2=cotas, 3=premio, 4=data
+  bool _ascendente = false;
+
   @override
   void initState() {
     super.initState();
@@ -32,7 +37,59 @@ class _ParticipantsState extends State<Participants> {
     final dataBets = await getBets();
     setState(() {
       _rowsData = dataBets;
+      _ordenar();
       _loading = false;
+    });
+  }
+
+  void _ordenar() {
+    _rowsData.sort((a, b) {
+      dynamic va;
+      dynamic vb;
+
+      switch (_colunaOrdenada) {
+        case 0:
+          va = (a['nome'] ?? '').toString().toLowerCase();
+          vb = (b['nome'] ?? '').toString().toLowerCase();
+          break;
+        case 1:
+          va = (a['valor'] as num?)?.toDouble() ?? 0;
+          vb = (b['valor'] as num?)?.toDouble() ?? 0;
+          break;
+        case 2:
+          va = (a['cotas'] as num?)?.toInt() ?? 0;
+          vb = (b['cotas'] as num?)?.toInt() ?? 0;
+          break;
+        case 3:
+          va = (a['premio'] as num?)?.toDouble() ?? 0;
+          vb = (b['premio'] as num?)?.toDouble() ?? 0;
+          break;
+        case 4:
+          final ta = a['data-hora'];
+          final tb = b['data-hora'];
+          va = ta is Timestamp ? ta.millisecondsSinceEpoch : 0;
+          vb = tb is Timestamp ? tb.millisecondsSinceEpoch : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      final cmp = va is String
+          ? va.compareTo(vb)
+          : (va as num).compareTo(vb as num);
+      return _ascendente ? cmp : -cmp;
+    });
+  }
+
+  void _onCabecalhoTap(int coluna) {
+    setState(() {
+      if (_colunaOrdenada == coluna) {
+        _ascendente = !_ascendente;
+      } else {
+        _colunaOrdenada = coluna;
+        _ascendente = false;
+      }
+      _ordenar();
     });
   }
 
@@ -40,6 +97,7 @@ class _ParticipantsState extends State<Participants> {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final isDesktopWeb = kIsWeb && width >= 900;
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
 
     return DefaultLayout(
       drawer: AppDrawer(),
@@ -52,7 +110,7 @@ class _ParticipantsState extends State<Participants> {
               CustomCard(
                 isChild: true,
                 children: [
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                   if (_loading)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 40),
@@ -80,8 +138,14 @@ class _ParticipantsState extends State<Participants> {
                       ),
                     )
                   else
-                    _TabelaApostas(rows: _rowsData),
-                  const SizedBox(height: 20),
+                    _TabelaApostas(
+                      rows: _rowsData,
+                      colunaOrdenada: _colunaOrdenada,
+                      ascendente: _ascendente,
+                      onCabecalhoTap: _onCabecalhoTap,
+                      currentUid: currentUid,
+                    ),
+                  const SizedBox(height: 10),
                 ],
               ),
             ],
@@ -116,14 +180,24 @@ class _ParticipantsState extends State<Participants> {
 // Larguras fixas de cada coluna
 const double _wNome = 210;
 const double _wValor = 110;
-const double _wCotas = 70;
+const double _wCotas = 80;
 const double _wPremio = 120;
-const double _wData = 130;
+const double _wData = 140;
 
 class _TabelaApostas extends StatelessWidget {
   final List<Map<String, dynamic>> rows;
+  final int colunaOrdenada;
+  final bool ascendente;
+  final void Function(int) onCabecalhoTap;
+  final String? currentUid;
 
-  const _TabelaApostas({required this.rows});
+  const _TabelaApostas({
+    required this.rows,
+    required this.colunaOrdenada,
+    required this.ascendente,
+    required this.onCabecalhoTap,
+    required this.currentUid,
+  });
 
   static const _corLinhaA = Color(0xFFFEFEFE);
   static const _corLinhaB = Color(0xFFF3F4F6);
@@ -151,42 +225,65 @@ class _TabelaApostas extends StatelessWidget {
               color: _corCabecalho,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   _CelulaCabecalho(
                     texto: 'Nome',
                     width: _wNome,
                     alinhamento: TextAlign.left,
+                    indice: 0,
+                    colunaOrdenada: colunaOrdenada,
+                    ascendente: ascendente,
+                    onTap: onCabecalhoTap,
                   ),
                   _CelulaCabecalho(
                     texto: 'Valor',
                     width: _wValor,
                     alinhamento: TextAlign.right,
+                    indice: 1,
+                    colunaOrdenada: colunaOrdenada,
+                    ascendente: ascendente,
+                    onTap: onCabecalhoTap,
                   ),
                   _CelulaCabecalho(
                     texto: 'Cotas',
                     width: _wCotas,
                     alinhamento: TextAlign.right,
+                    indice: 2,
+                    colunaOrdenada: colunaOrdenada,
+                    ascendente: ascendente,
+                    onTap: onCabecalhoTap,
                   ),
                   _CelulaCabecalho(
                     texto: 'Prêmio',
                     width: _wPremio,
                     alinhamento: TextAlign.right,
+                    indice: 3,
+                    colunaOrdenada: colunaOrdenada,
+                    ascendente: ascendente,
+                    onTap: onCabecalhoTap,
                   ),
                   _CelulaCabecalho(
                     texto: 'Última Alteração',
                     width: _wData,
                     alinhamento: TextAlign.right,
+                    indice: 4,
+                    colunaOrdenada: colunaOrdenada,
+                    ascendente: ascendente,
+                    onTap: onCabecalhoTap,
                     isLast: true,
                   ),
                 ],
               ),
             ),
-            // const Divider(height: 1, thickness: 1, color: _corBorda),
+            const Divider(height: 1, thickness: 1, color: _corBorda),
             // Linhas
             ...rows.asMap().entries.map((entry) {
               final index = entry.key;
               final item = entry.value;
               final isPar = index % 2 == 0;
+              print('item uid: ${item['uid']}');
+              print('current uid: $currentUid');
+              final isUsuarioLogado = item['uid'] == currentUid;
 
               final nome = item['nome']?.toString() ?? '—';
               final valor = (item['valor'] as num?)?.toDouble() ?? 0;
@@ -213,6 +310,7 @@ class _TabelaApostas extends StatelessWidget {
                           texto: nome,
                           width: _wNome,
                           alinhamento: TextAlign.left,
+                          negrito: isUsuarioLogado,
                         ),
                         _CelulaLinha(
                           texto: formatoMoeda.format(valor),
@@ -256,34 +354,75 @@ class _CelulaCabecalho extends StatelessWidget {
   final String texto;
   final double width;
   final TextAlign alinhamento;
+  final int indice;
+  final int colunaOrdenada;
+  final bool ascendente;
+  final void Function(int) onTap;
   final bool isLast;
 
   const _CelulaCabecalho({
     required this.texto,
     required this.width,
     required this.alinhamento,
+    required this.indice,
+    required this.colunaOrdenada,
+    required this.ascendente,
+    required this.onTap,
     this.isLast = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-      decoration: isLast
-          ? null
-          : const BoxDecoration(
-              border: Border(
-                right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+    final ativa = colunaOrdenada == indice;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => onTap(indice),
+        child: Container(
+          width: width,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: isLast
+              ? null
+              : const BoxDecoration(
+                  border: Border(
+                    right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                  ),
+                ),
+          child: Row(
+            mainAxisAlignment: alinhamento == TextAlign.right
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            children: [
+              if (alinhamento == TextAlign.right && ativa) ...[
+                Icon(
+                  ascendente ? Icons.arrow_upward : Icons.arrow_downward,
+                  size: 12,
+                  color: const Color(0xFF487DE5),
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                texto,
+                textAlign: alinhamento,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: ativa
+                      ? const Color(0xFF487DE5)
+                      : const Color(0xFF1F2937),
+                ),
               ),
-            ),
-      child: Text(
-        texto,
-        textAlign: alinhamento,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF1F2937),
+              if (alinhamento == TextAlign.left && ativa) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  ascendente ? Icons.arrow_upward : Icons.arrow_downward,
+                  size: 12,
+                  color: const Color(0xFF487DE5),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -297,6 +436,7 @@ class _CelulaLinha extends StatelessWidget {
   final bool destaque;
   final bool subTexto;
   final bool isLast;
+  final bool negrito;
 
   const _CelulaLinha({
     required this.texto,
@@ -305,6 +445,7 @@ class _CelulaLinha extends StatelessWidget {
     this.destaque = false,
     this.subTexto = false,
     this.isLast = false,
+    this.negrito = false,
   });
 
   @override
@@ -325,7 +466,11 @@ class _CelulaLinha extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 13,
-          fontWeight: destaque ? FontWeight.w600 : FontWeight.w400,
+          fontWeight: destaque
+              ? FontWeight.w600
+              : negrito
+              ? FontWeight.w700
+              : FontWeight.w400,
           color: destaque
               ? const Color(0xFF2E7D32)
               : subTexto

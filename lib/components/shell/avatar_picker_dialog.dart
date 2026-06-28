@@ -1,0 +1,244 @@
+import 'package:bolao_bolado/services/avatar/avatar_service.dart';
+import 'package:flutter/material.dart';
+
+Future<void> mostrarEscolhaAvatar(
+  BuildContext context, {
+  required String avatarAtual,
+  required void Function(String novoAvatar) onSelecionado,
+}) async {
+  final isMobile = MediaQuery.of(context).size.width < 600;
+
+  if (isMobile) {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _AvatarBottomSheet(
+        avatarAtual: avatarAtual,
+        onSelecionado: onSelecionado,
+      ),
+    );
+  } else {
+    await showDialog(
+      context: context,
+      builder: (_) =>
+          _AvatarDialog(avatarAtual: avatarAtual, onSelecionado: onSelecionado),
+    );
+  }
+}
+
+// ─── Dialog (desktop) ────────────────────────────────────────────────────────
+
+class _AvatarDialog extends StatefulWidget {
+  final String avatarAtual;
+  final void Function(String) onSelecionado;
+
+  const _AvatarDialog({required this.avatarAtual, required this.onSelecionado});
+
+  @override
+  State<_AvatarDialog> createState() => _AvatarDialogState();
+}
+
+class _AvatarDialogState extends State<_AvatarDialog> {
+  late String _selecionado;
+
+  @override
+  void initState() {
+    super.initState();
+    _selecionado = widget.avatarAtual;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFFFEFEFE),
+      surfaceTintColor: Colors.transparent,
+      elevation: 18,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Colors.grey.shade200, width: 1),
+      ),
+      title: const Text(
+        'Escolha seu avatar',
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF1F2937),
+        ),
+      ),
+      content: SizedBox(
+        width: 320,
+        child: _GridAvatares(
+          selecionado: _selecionado,
+          onTap: (avatar) => setState(() => _selecionado = avatar),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            await AvatarService.salvarAvatar(_selecionado);
+            widget.onSelecionado(_selecionado);
+            if (context.mounted) Navigator.of(context).pop();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF487DE5),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Text('Confirmar'),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Bottom Sheet (mobile) ───────────────────────────────────────────────────
+
+class _AvatarBottomSheet extends StatefulWidget {
+  final String avatarAtual;
+  final void Function(String) onSelecionado;
+
+  const _AvatarBottomSheet({
+    required this.avatarAtual,
+    required this.onSelecionado,
+  });
+
+  @override
+  State<_AvatarBottomSheet> createState() => _AvatarBottomSheetState();
+}
+
+class _AvatarBottomSheetState extends State<_AvatarBottomSheet> {
+  late String _selecionado;
+
+  @override
+  void initState() {
+    super.initState();
+    _selecionado = widget.avatarAtual;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFFEFEFE),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Text(
+            'Escolha seu avatar',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 20),
+          _GridAvatares(
+            selecionado: _selecionado,
+            onTap: (avatar) => setState(() => _selecionado = avatar),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                await AvatarService.salvarAvatar(_selecionado);
+                widget.onSelecionado(_selecionado);
+                if (context.mounted) Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF487DE5),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Confirmar',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Grid de avatares compartilhado ─────────────────────────────────────────
+
+class _GridAvatares extends StatelessWidget {
+  final String selecionado;
+  final void Function(String) onTap;
+
+  const _GridAvatares({required this.selecionado, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final avatares = AvatarService.todosAvatares;
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: avatares.length,
+      itemBuilder: (context, index) {
+        final avatar = avatares[index];
+        final isSelected = avatar == selecionado;
+
+        return GestureDetector(
+          onTap: () => onTap(avatar),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF487DE5)
+                    : Colors.transparent,
+                width: 3,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF487DE5).withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: CircleAvatar(
+              backgroundImage: AssetImage(avatar),
+              backgroundColor: Colors.grey.shade200,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

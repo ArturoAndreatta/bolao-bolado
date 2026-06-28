@@ -15,17 +15,17 @@ class CustomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 740),
+        constraints: BoxConstraints(maxWidth: 730),
         child: Card(
           elevation: isChild! ? 3 : 20,
           color: color,
           child: Padding(
             padding: isChild!
-                ? EdgeInsets.fromLTRB(20, 0, 20, 0)
+                ? EdgeInsets.fromLTRB(10, 0, 10, 0)
                 : EdgeInsets.zero,
-            child: SizedBox(width: 725, child: Column(children: children)),
+            child: SizedBox(width: 715, child: Column(children: children)),
           ),
         ),
       ),

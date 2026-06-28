@@ -63,7 +63,7 @@ class _RegisterState extends State<Register> {
                       icon: Icons.person_outline,
                       controller: nomeController,
                       textInputAction: TextInputAction.next,
-                      maxWidth: 500,
+                      maxWidth: 480,
                     ),
                     const SizedBox(height: 15),
                     CustomField(
@@ -73,7 +73,7 @@ class _RegisterState extends State<Register> {
                       keyboardType: TextInputType.emailAddress,
                       controller: emailController,
                       textInputAction: TextInputAction.next,
-                      maxWidth: 500,
+                      maxWidth: 480,
                     ),
                     const SizedBox(height: 15),
                     CustomField(
@@ -82,7 +82,7 @@ class _RegisterState extends State<Register> {
                       icon: Icons.lock_outline,
                       controller: senhaController,
                       textInputAction: TextInputAction.next,
-                      maxWidth: 500,
+                      maxWidth: 480,
                       obscure: _obscureSenha,
                       suffix: IconButton(
                         onPressed: () =>
@@ -101,7 +101,7 @@ class _RegisterState extends State<Register> {
                       icon: Icons.lock_outline,
                       controller: confirmarSenhaController,
                       textInputAction: TextInputAction.done,
-                      maxWidth: 500,
+                      maxWidth: 480,
                       obscure: _obscureConfirmar,
                       suffix: IconButton(
                         onPressed: () => setState(

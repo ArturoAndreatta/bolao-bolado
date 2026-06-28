@@ -23,6 +23,7 @@ Future<List<Map<String, Object?>>> getBets() async {
 
   return snapshot.docs.map((bet) {
     final dados = bet.data();
+    final uid = dados['uid'];
     final nome = dados['nome'].toString();
     final valor = double.tryParse(dados['valor'].toString()) ?? 0;
     final cotas = (valor / 6).floor();
@@ -35,6 +36,7 @@ Future<List<Map<String, Object?>>> getBets() async {
       'cotas': cotas,
       'premio': premio,
       'data-hora': dataHora,
+      'uid': uid,
     };
   }).toList();
 }

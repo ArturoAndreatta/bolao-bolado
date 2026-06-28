@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/components/shared/branding/logo.dart';
 import 'package:bolao_bolado/components/shell/footer.dart';
 import 'package:bolao_bolado/components/shell/gradient_decoration.dart';
 import 'package:bolao_bolado/core/responsive.dart';
@@ -18,29 +19,35 @@ class DefaultLayout extends StatelessWidget {
         drawer: drawer,
         backgroundColor: Colors.transparent,
         bottomNavigationBar: isMobile ? null : const Footer(),
+        appBar: drawer != null
+            ? AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                automaticallyImplyLeading: true,
+                iconTheme: const IconThemeData(color: Color(0xFF1F2937)),
+              )
+            : null,
         body: Stack(
           children: [
             SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
               child: Center(child: Column(children: [child])),
             ),
-            Container(
-              decoration: GradientDecoration.backgroundGradient(),
-              child: Scaffold(
-                drawer: drawer,
-                backgroundColor: Colors.transparent,
 
-                appBar: drawer != null
-                    ? AppBar(
-                        backgroundColor: Colors.transparent,
-                        elevation: 0,
-                        scrolledUnderElevation: 0,
-                        automaticallyImplyLeading: true,
-                      )
-                    : null,
-                body: SingleChildScrollView(child: Center(child: child)),
-              ),
-            ),
+            // if (!isMobile)
+            //   Positioned(
+            //     right: 24,
+            //     bottom: 20,
+            //     child: IgnorePointer(
+            //       child: Opacity(
+            //         opacity: .95,
+            //         child: SizedBox(
+            //           width: 120,
+            //           child: Logo(isSmall: true, logo: 'images/logo4.png'),
+            //         ),
+            //       ),
+            //     ),
+            //   ),
           ],
         ),
       ),
