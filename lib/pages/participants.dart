@@ -3,8 +3,10 @@ import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
+import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/models/bet.dart';
 import 'package:bolao_bolado/pages/pages.dart';
+import 'package:bolao_bolado/widgets/chat_sala.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,10 +23,14 @@ class Participants extends StatefulWidget {
 class _ParticipantsState extends State<Participants> {
   List<Map<String, dynamic>> _rowsData = [];
   bool _loading = true;
+  String? _salaId;
 
   // Ordenação padrão: valor decrescente
   int _colunaOrdenada = 1; // 0=nome, 1=valor, 2=cotas, 3=premio, 4=data
   bool _ascendente = false;
+
+  // Aba ativa no mobile: 0 = Participantes, 1 = Chat
+  int _abaAtiva = 0;
 
   @override
   void initState() {
@@ -34,8 +40,10 @@ class _ParticipantsState extends State<Participants> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final salaId = await buscarSalaPrincipalId();
     final dataBets = await getBets();
     setState(() {
+      _salaId = salaId;
       _rowsData = dataBets;
       _ordenar();
       _loading = false;
@@ -97,81 +105,219 @@ class _ParticipantsState extends State<Participants> {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final isDesktopWeb = kIsWeb && width >= 900;
+    final isMobile = Responsive.isMobile(context);
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
 
     return DefaultLayout(
       drawer: AppDrawer(),
       child: Stack(
         children: [
+          isMobile ? _layoutMobile(currentUid) : _layoutDesktop(currentUid),
+          if (!isMobile)
+            Positioned(
+              top: 10,
+              left: isDesktopWeb ? 500 : 250,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(30),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      PageRouteBuilder(
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                        pageBuilder: (_, _, _) => Pages(),
+                      ),
+                    );
+                  },
+                  child: Container(padding: const EdgeInsets.all(20)),
+                ),
+              ),
+            ),
+          BackScreenButton(),
+        ],
+      ),
+    );
+  }
+
+  // ── Layout Desktop: card de participantes + chat lateral ────────────────
+  Widget _layoutDesktop(String? currentUid) {
+    const double chatWidth = 320;
+    const double chatHeight = 520;
+
+    return CustomCard(
+      color: const Color(0xFFF3F1EF),
+      maxWidth: 1080,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _cardParticipantes(currentUid)),
+              const SizedBox(width: 16),
+              if (_salaId != null)
+                SizedBox(
+                  width: chatWidth,
+                  child: ChatSala(salaId: _salaId!, height: chatHeight),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Layout Mobile: abas Participantes / Chat ─────────────────────────────
+  Widget _layoutMobile(String? currentUid) {
+    return Column(
+      children: [
+        CustomCard(
+          color: const Color(0xFFF3F1EF),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+              child: _SeletorAbas(
+                abaAtiva: _abaAtiva,
+                onSelecionar: (i) => setState(() => _abaAtiva = i),
+              ),
+            ),
+          ],
+        ),
+        if (_abaAtiva == 0)
+          _cardParticipantes(currentUid)
+        else if (_salaId != null)
           CustomCard(
             color: const Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(text: 'Participantes'),
-              CustomCard(
-                isChild: true,
-                children: [
-                  const SizedBox(height: 10),
-                  if (_loading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 5,
-                        color: Color(0xFF7CC8B5),
-                      ),
-                    )
-                  else if (_rowsData.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.sentiment_dissatisfied_outlined,
-                            size: 48,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(height: 12),
-                          Text(
-                            'Nenhuma aposta ainda.',
-                            style: TextStyle(color: Colors.grey, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    _TabelaApostas(
-                      rows: _rowsData,
-                      colunaOrdenada: _colunaOrdenada,
-                      ascendente: _ascendente,
-                      onCabecalhoTap: _onCabecalhoTap,
-                      currentUid: currentUid,
-                    ),
-                  const SizedBox(height: 10),
-                ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                child: ChatSala(
+                  salaId: _salaId!,
+                  height: MediaQuery.of(context).size.height * 0.62,
+                ),
               ),
             ],
           ),
-          Positioned(
-            top: 10,
-            left: isDesktopWeb ? 500 : 250,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(30),
-                onTap: () {
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      transitionDuration: Duration.zero,
-                      reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) => Pages(),
+      ],
+    );
+  }
+
+  Widget _cardParticipantes(String? currentUid) {
+    return CustomCard(
+      color: const Color(0xFFF3F1EF),
+      children: [
+        HeaderPaginas(text: 'Participantes'),
+        CustomCard(
+          isChild: true,
+          children: [
+            const SizedBox(height: 10),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: CircularProgressIndicator(
+                  strokeWidth: 5,
+                  color: Color(0xFF7CC8B5),
+                ),
+              )
+            else if (_rowsData.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.sentiment_dissatisfied_outlined,
+                      size: 48,
+                      color: Colors.grey,
                     ),
-                  );
-                },
-                child: Container(padding: const EdgeInsets.all(20)),
+                    SizedBox(height: 12),
+                    Text(
+                      'Nenhuma aposta ainda.',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  ],
+                ),
+              )
+            else
+              _TabelaApostas(
+                rows: _rowsData,
+                colunaOrdenada: _colunaOrdenada,
+                ascendente: _ascendente,
+                onCabecalhoTap: _onCabecalhoTap,
+                currentUid: currentUid,
               ),
-            ),
-          ),
-          BackScreenButton(),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SeletorAbas extends StatelessWidget {
+  final int abaAtiva;
+  final void Function(int) onSelecionar;
+
+  const _SeletorAbas({required this.abaAtiva, required this.onSelecionar});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9EAEC),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _aba(context, 'Participantes', Icons.people_outline, 0),
+          _aba(context, 'Chat', Icons.chat_bubble_outline, 1),
         ],
+      ),
+    );
+  }
+
+  Widget _aba(BuildContext context, String texto, IconData icon, int indice) {
+    final ativa = abaAtiva == indice;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onSelecionar(indice),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: ativa ? const Color(0xFFFEFEFE) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: ativa
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: ativa ? const Color(0xFF487DE5) : Colors.grey.shade500,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                texto,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: ativa ? const Color(0xFF487DE5) : Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -281,8 +427,6 @@ class _TabelaApostas extends StatelessWidget {
               final index = entry.key;
               final item = entry.value;
               final isPar = index % 2 == 0;
-              print('item uid: ${item['uid']}');
-              print('current uid: $currentUid');
               final isUsuarioLogado = item['uid'] == currentUid;
 
               final nome = item['nome']?.toString() ?? '—';

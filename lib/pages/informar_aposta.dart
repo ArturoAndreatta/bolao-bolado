@@ -6,6 +6,7 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
+import 'package:bolao_bolado/models/bet.dart';
 import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -27,7 +28,7 @@ class _LoginState extends State<Login> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = true;
   bool _saving = false;
-  String? _uid;
+  String? _salaId;
 
   @override
   void initState() {
@@ -49,7 +50,7 @@ class _LoginState extends State<Login> {
       return;
     }
 
-    _uid = user.uid;
+    _salaId = await buscarSalaPrincipalId();
 
     final dadosUsuario = await _authService.getDadosUsuario(user.uid);
     if (dadosUsuario != null) {
@@ -57,7 +58,9 @@ class _LoginState extends State<Login> {
     }
 
     final apostaDoc = await _firestore
-        .collection('Apostas')
+        .collection('Salas')
+        .doc(_salaId)
+        .collection('Participantes')
         .doc(user.uid)
         .get();
 
@@ -148,6 +151,15 @@ class _LoginState extends State<Login> {
   }
 
   Future<void> _confirmar() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) {
+      CustomShowDialog.show(
+        context,
+        "Você precisa estar logado para registrar uma aposta.",
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       CustomShowDialog.show(context, "Preencha todos os campos!");
       return;
@@ -167,24 +179,23 @@ class _LoginState extends State<Login> {
     setState(() => _saving = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null && !user.isAnonymous) {
-        if (nome != (user.displayName ?? '')) {
-          await _authService.atualizarNome(nome);
-        }
+      final salaId = _salaId ?? await buscarSalaPrincipalId();
 
-        await _firestore.collection('Apostas').doc(user.uid).set({
-          'nome': nome,
-          'valor': valorEditado,
-          'uid': user.uid,
-          'data-hora': FieldValue.serverTimestamp(),
-        });
-      } else {
-        await _firestore.collection('Apostas').doc(nome).set({
-          'valor': valorEditado,
-          'data-hora': FieldValue.serverTimestamp(),
-        });
+      if (nome != (user.displayName ?? '')) {
+        await _authService.atualizarNome(nome);
       }
+
+      await _firestore
+          .collection('Salas')
+          .doc(salaId)
+          .collection('Participantes')
+          .doc(user.uid)
+          .set({
+            'nome': nome,
+            'valor': valorEditado,
+            'uid': user.uid,
+            'data-hora': FieldValue.serverTimestamp(),
+          });
 
       navigator.push(
         PageRouteBuilder(pageBuilder: (_, _, _) => const Participants()),
