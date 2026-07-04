@@ -1,37 +1,67 @@
 import 'package:flutter/material.dart';
 
 class BackScreenButton extends StatelessWidget {
-  const BackScreenButton({super.key});
+  final bool floating;
+  final VoidCallback? onTap;
+
+  const BackScreenButton({super.key, this.floating = true, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      top: 20,
-      left: 36,
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    final button = MouseRegion(
+      cursor: SystemMouseCursors.click,
       child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(30),
-          onTap: () {
-            Navigator.pop(context);
-          },
-          child: Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
+        color: const Color(0xFFF9FAFB),
+        elevation: 1.5,
+        shadowColor: Colors.black12,
+          borderRadius: BorderRadius.circular(999),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: onTap ??
+                (Navigator.of(context).canPop()
+                    ? () => Navigator.pop(context)
+                    : null),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 12 : 14,
+              vertical: isMobile ? 10 : 11,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.arrow_back,
+                  size: 18,
+                  color: Color(0xFF1F2937),
                 ),
+                if (!isMobile) ...[
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Voltar',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1F2937),
+                    ),
+                  ),
+                ],
               ],
             ),
-            child: Icon(Icons.arrow_back, size: 22, color: Color(0xFF1F2937)),
           ),
         ),
       ),
     );
+
+    if (floating) {
+      return Positioned(
+        top: isMobile ? 14 : 18,
+        left: isMobile ? 14 : 22,
+        child: button,
+      );
+    }
+
+    return button;
   }
 }

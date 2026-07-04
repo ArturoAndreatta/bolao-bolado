@@ -61,7 +61,7 @@ class _ChatSalaState extends State<ChatSala> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          0,
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
@@ -97,76 +97,78 @@ class _ChatSalaState extends State<ChatSala> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: widget.height,
-      decoration: BoxDecoration(
+      child: Material(
         color: const Color(0xFFFEFEFE),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          _CabecalhoChat(),
-          Expanded(
-            child: StreamBuilder<List<Mensagem>>(
-              stream: _chatService.mensagensStream(widget.salaId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 4,
-                      color: Color(0xFF7CC8B5),
-                    ),
-                  );
-                }
+        elevation: 20,
+        shadowColor: Colors.black,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            _CabecalhoChat(),
+            Expanded(
+              child: StreamBuilder<List<Mensagem>>(
+                stream: _chatService.mensagensStream(widget.salaId),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 4,
+                        color: Color(0xFF7CC8B5),
+                      ),
+                    );
+                  }
 
-                final mensagens = snapshot.data ?? [];
+                  final mensagens = snapshot.data ?? [];
 
-                if (mensagens.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Text(
-                        'Nenhuma mensagem ainda.\nSeja o primeiro a falar! 💬',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 13,
+                  if (mensagens.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: SelectionArea(
+                          child: Text(
+                            'Nenhuma mensagem ainda.\nSeja o primeiro a falar! 💬',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 13,
+                            ),
+                          ),
                         ),
                       ),
+                    );
+                  }
+
+                  final lista = ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
+                    itemCount: mensagens.length,
+                    itemBuilder: (context, index) {
+                      final msg = mensagens[index];
+                      final isMinha =
+                          msg.autorUid ==
+                          FirebaseAuth.instance.currentUser?.uid;
+                      return _BolhaMensagem(mensagem: msg, isMinha: isMinha);
+                    },
                   );
-                }
 
-                _scrollParaFinal();
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  itemCount: mensagens.length,
-                  itemBuilder: (context, index) {
-                    final msg = mensagens[index];
-                    final isMinha =
-                        msg.autorUid == FirebaseAuth.instance.currentUser?.uid;
-                    return _BolhaMensagem(mensagem: msg, isMinha: isMinha);
-                  },
-                );
-              },
+                  return SelectionArea(child: lista);
+                },
+              ),
             ),
-          ),
-          _campoEnvio(),
-        ],
+            _campoEnvio(),
+          ],
+        ),
       ),
     );
   }

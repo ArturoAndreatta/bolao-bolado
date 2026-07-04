@@ -1,4 +1,3 @@
-import 'package:bolao_bolado/models/bet.dart';
 import 'package:bolao_bolado/models/mensagem.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,7 +14,7 @@ class ChatService {
         .collection('Salas')
         .doc(salaId)
         .collection('Mensagens')
-        .orderBy('criadoEm', descending: false)
+        .orderBy('criadoEm', descending: true)
         .snapshots()
         .map((snapshot) {
           return snapshot.docs.map((doc) => Mensagem.fromDoc(doc)).toList();

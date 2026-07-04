@@ -13,43 +13,47 @@ class HeaderPaginas extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 20 : 40,
-        vertical: isMobile ? 8 : 4,
+        horizontal: isMobile ? 16 : 24,
+        vertical: isMobile ? 4 : 2,
       ),
       child: Row(
         children: [
-          const SizedBox(width: 20),
           SizedBox(
-            width: 120,
-            height: 80,
+            width: isMobile ? 92 : 104,
+            height: isMobile ? 56 : 62,
             child: Logo(isSmall: true, logo: 'images/logo4.png'),
           ),
 
-          Container(width: 1, height: 60, color: Colors.grey.shade300),
+          const SizedBox(width: 14),
+          Container(
+            width: 1,
+            height: isMobile ? 38 : 44,
+            color: Colors.grey.shade300,
+          ),
 
-          const SizedBox(width: 22),
+          const SizedBox(width: 14),
 
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     text,
                     style: TextStyle(
-                      fontSize: isMobile ? 24 : 20,
+                      fontSize: isMobile ? 24 : 21,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF1F2937),
                     ),
                   ),
 
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 0),
 
                   Text(
                     "Entre para continuar",
                     style: TextStyle(
-                      fontSize: isMobile ? 16 : 15,
+                      fontSize: isMobile ? 15 : 14,
                       color: Colors.grey.shade600,
                     ),
                   ),

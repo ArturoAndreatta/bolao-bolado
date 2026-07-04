@@ -1,8 +1,8 @@
+import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
-import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/models/bet.dart';
 import 'package:bolao_bolado/pages/pages.dart';
@@ -101,42 +101,22 @@ class _ParticipantsState extends State<Participants> {
     });
   }
 
+  Widget _textoSelecionavel({
+    required BuildContext context,
+    required Widget child,
+  }) {
+    final habilitarSelecao = kIsWeb || Responsive.isDesktop(context);
+    return habilitarSelecao ? SelectionArea(child: child) : child;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final isDesktopWeb = kIsWeb && width >= 900;
     final isMobile = Responsive.isMobile(context);
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
 
     return DefaultLayout(
       drawer: AppDrawer(),
-      child: Stack(
-        children: [
-          isMobile ? _layoutMobile(currentUid) : _layoutDesktop(currentUid),
-          if (!isMobile)
-            Positioned(
-              top: 10,
-              left: isDesktopWeb ? 500 : 250,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(30),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      PageRouteBuilder(
-                        transitionDuration: Duration.zero,
-                        reverseTransitionDuration: Duration.zero,
-                        pageBuilder: (_, _, _) => Pages(),
-                      ),
-                    );
-                  },
-                  child: Container(padding: const EdgeInsets.all(20)),
-                ),
-              ),
-            ),
-          BackScreenButton(),
-        ],
-      ),
+      child: isMobile ? _layoutMobile(currentUid) : _layoutDesktop(currentUid),
     );
   }
 
@@ -150,17 +130,53 @@ class _ParticipantsState extends State<Participants> {
       maxWidth: 1080,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              BackScreenButton(
+                floating: false,
+                onTap: () {
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  } else {
+                    Navigator.of(context).pushReplacement(
+                      PageRouteBuilder(
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                        pageBuilder: (_, _, _) => Pages(),
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: HeaderPaginas(text: 'Participantes')),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _cardParticipantes(currentUid)),
-              const SizedBox(width: 16),
+              Expanded(
+                child: SizedBox(
+                  height: chatHeight + 10,
+                  child: _cardParticipantes(
+                    currentUid,
+                    expandirConteudo: true,
+                    mostrarCabecalho: false,
+                  ),
+                ),
+              ),
               if (_salaId != null)
                 SizedBox(
                   width: chatWidth,
                   child: ChatSala(salaId: _salaId!, height: chatHeight),
                 ),
+              if (_salaId != null) const SizedBox(width: 11),
             ],
           ),
         ),
@@ -168,7 +184,6 @@ class _ParticipantsState extends State<Participants> {
     );
   }
 
-  // ── Layout Mobile: abas Participantes / Chat ─────────────────────────────
   Widget _layoutMobile(String? currentUid) {
     return Column(
       children: [
@@ -203,54 +218,67 @@ class _ParticipantsState extends State<Participants> {
     );
   }
 
-  Widget _cardParticipantes(String? currentUid) {
-    return CustomCard(
-      color: const Color(0xFFF3F1EF),
+  Widget _cardParticipantes(
+    String? currentUid, {
+    bool expandirConteudo = false,
+    bool mostrarCabecalho = true,
+  }) {
+    final conteudo = CustomCard(
+      isChild: true,
       children: [
-        HeaderPaginas(text: 'Participantes'),
-        CustomCard(
-          isChild: true,
-          children: [
-            const SizedBox(height: 10),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
-                child: CircularProgressIndicator(
-                  strokeWidth: 5,
-                  color: Color(0xFF7CC8B5),
+        const SizedBox(height: 10),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: CircularProgressIndicator(
+              strokeWidth: 5,
+              color: Color(0xFF7CC8B5),
+            ),
+          )
+        else if (_rowsData.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.sentiment_dissatisfied_outlined,
+                  size: 48,
+                  color: Colors.grey,
                 ),
-              )
-            else if (_rowsData.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.sentiment_dissatisfied_outlined,
-                      size: 48,
-                      color: Colors.grey,
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Nenhuma aposta ainda.',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-                  ],
+                const SizedBox(height: 12),
+                _textoSelecionavel(
+                  context: context,
+                  child: const Text(
+                    'Nenhuma aposta ainda.',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
                 ),
-              )
-            else
-              _TabelaApostas(
-                rows: _rowsData,
-                colunaOrdenada: _colunaOrdenada,
-                ascendente: _ascendente,
-                onCabecalhoTap: _onCabecalhoTap,
-                currentUid: currentUid,
-              ),
-            const SizedBox(height: 10),
-          ],
-        ),
+              ],
+            ),
+          )
+        else
+          _TabelaApostas(
+            rows: _rowsData,
+            colunaOrdenada: _colunaOrdenada,
+            ascendente: _ascendente,
+            onCabecalhoTap: _onCabecalhoTap,
+            currentUid: currentUid,
+          ),
+        const SizedBox(height: 10),
       ],
     );
+
+    final card = CustomCard(
+      color: const Color(0xFFF3F1EF),
+      children: [
+        if (mostrarCabecalho) HeaderPaginas(text: 'Participantes'),
+        if (expandirConteudo)
+          Expanded(child: SelectionArea(child: conteudo))
+        else
+          SelectionArea(child: conteudo),
+      ],
+    );
+    return card;
   }
 }
 
@@ -366,129 +394,160 @@ class _TabelaApostas extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabeçalho
-            Container(
-              color: _corCabecalho,
-              child: Row(
+            _CabecalhoTabela(
+              colunaOrdenada: colunaOrdenada,
+              ascendente: ascendente,
+              onCabecalhoTap: onCabecalhoTap,
+            ),
+            const Divider(height: 1, thickness: 1, color: _corBorda),
+            SelectionArea(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _CelulaCabecalho(
-                    texto: 'Nome',
-                    width: _wNome,
-                    alinhamento: TextAlign.left,
-                    indice: 0,
-                    colunaOrdenada: colunaOrdenada,
-                    ascendente: ascendente,
-                    onTap: onCabecalhoTap,
-                  ),
-                  _CelulaCabecalho(
-                    texto: 'Valor',
-                    width: _wValor,
-                    alinhamento: TextAlign.right,
-                    indice: 1,
-                    colunaOrdenada: colunaOrdenada,
-                    ascendente: ascendente,
-                    onTap: onCabecalhoTap,
-                  ),
-                  _CelulaCabecalho(
-                    texto: 'Cotas',
-                    width: _wCotas,
-                    alinhamento: TextAlign.right,
-                    indice: 2,
-                    colunaOrdenada: colunaOrdenada,
-                    ascendente: ascendente,
-                    onTap: onCabecalhoTap,
-                  ),
-                  _CelulaCabecalho(
-                    texto: 'Prêmio',
-                    width: _wPremio,
-                    alinhamento: TextAlign.right,
-                    indice: 3,
-                    colunaOrdenada: colunaOrdenada,
-                    ascendente: ascendente,
-                    onTap: onCabecalhoTap,
-                  ),
-                  _CelulaCabecalho(
-                    texto: 'Última Alteração',
-                    width: _wData,
-                    alinhamento: TextAlign.right,
-                    indice: 4,
-                    colunaOrdenada: colunaOrdenada,
-                    ascendente: ascendente,
-                    onTap: onCabecalhoTap,
-                    isLast: true,
-                  ),
+                  ...rows.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final isPar = index % 2 == 0;
+                    final isUsuarioLogado = item['uid'] == currentUid;
+
+                    final nome = item['nome']?.toString() ?? '—';
+                    final valor = (item['valor'] as num?)?.toDouble() ?? 0;
+                    final cotas = (item['cotas'] as num?)?.toInt() ?? 0;
+                    final premio = (item['premio'] as num?)?.toDouble() ?? 0;
+                    final dataHora = item['data-hora'];
+
+                    String dataFormatada = '—';
+                    if (dataHora != null && dataHora is Timestamp) {
+                      dataFormatada = DateFormat(
+                        'dd/MM/yy HH:mm',
+                      ).format(dataHora.toDate());
+                    }
+
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          color: isPar ? _corLinhaA : _corLinhaB,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _CelulaLinha(
+                                texto: nome,
+                                width: _wNome,
+                                alinhamento: TextAlign.left,
+                                negrito: isUsuarioLogado,
+                              ),
+                              _CelulaLinha(
+                                texto: formatoMoeda.format(valor),
+                                width: _wValor,
+                                alinhamento: TextAlign.right,
+                              ),
+                              _CelulaLinha(
+                                texto: cotas.toString(),
+                                width: _wCotas,
+                                alinhamento: TextAlign.right,
+                              ),
+                              _CelulaLinha(
+                                texto: formatoMoeda.format(premio),
+                                width: _wPremio,
+                                alinhamento: TextAlign.right,
+                                destaque: true,
+                              ),
+                              _CelulaLinha(
+                                texto: dataFormatada,
+                                width: _wData,
+                                alinhamento: TextAlign.right,
+                                subTexto: true,
+                                isLast: true,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (index < rows.length - 1)
+                          const Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: _corBorda,
+                          ),
+                      ],
+                    );
+                  }),
                 ],
               ),
             ),
-            const Divider(height: 1, thickness: 1, color: _corBorda),
-            // Linhas
-            ...rows.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              final isPar = index % 2 == 0;
-              final isUsuarioLogado = item['uid'] == currentUid;
-
-              final nome = item['nome']?.toString() ?? '—';
-              final valor = (item['valor'] as num?)?.toDouble() ?? 0;
-              final cotas = (item['cotas'] as num?)?.toInt() ?? 0;
-              final premio = (item['premio'] as num?)?.toDouble() ?? 0;
-              final dataHora = item['data-hora'];
-
-              String dataFormatada = '—';
-              if (dataHora != null && dataHora is Timestamp) {
-                dataFormatada = DateFormat(
-                  'dd/MM/yy HH:mm',
-                ).format(dataHora.toDate());
-              }
-
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    color: isPar ? _corLinhaA : _corLinhaB,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _CelulaLinha(
-                          texto: nome,
-                          width: _wNome,
-                          alinhamento: TextAlign.left,
-                          negrito: isUsuarioLogado,
-                        ),
-                        _CelulaLinha(
-                          texto: formatoMoeda.format(valor),
-                          width: _wValor,
-                          alinhamento: TextAlign.right,
-                        ),
-                        _CelulaLinha(
-                          texto: cotas.toString(),
-                          width: _wCotas,
-                          alinhamento: TextAlign.right,
-                        ),
-                        _CelulaLinha(
-                          texto: formatoMoeda.format(premio),
-                          width: _wPremio,
-                          alinhamento: TextAlign.right,
-                          destaque: true,
-                        ),
-                        _CelulaLinha(
-                          texto: dataFormatada,
-                          width: _wData,
-                          alinhamento: TextAlign.right,
-                          subTexto: true,
-                          isLast: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (index < rows.length - 1)
-                    const Divider(height: 1, thickness: 1, color: _corBorda),
-                ],
-              );
-            }),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CabecalhoTabela extends StatelessWidget {
+  final int colunaOrdenada;
+  final bool ascendente;
+  final void Function(int) onCabecalhoTap;
+
+  const _CabecalhoTabela({
+    required this.colunaOrdenada,
+    required this.ascendente,
+    required this.onCabecalhoTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _TabelaApostas._corCabecalho,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _CelulaCabecalho(
+            texto: 'Nome',
+            width: _wNome,
+            alinhamento: TextAlign.left,
+            indice: 0,
+            colunaOrdenada: colunaOrdenada,
+            ascendente: ascendente,
+            onTap: onCabecalhoTap,
+          ),
+          _CelulaCabecalho(
+            texto: 'Valor',
+            width: _wValor,
+            alinhamento: TextAlign.right,
+            indice: 1,
+            colunaOrdenada: colunaOrdenada,
+            ascendente: ascendente,
+            onTap: onCabecalhoTap,
+          ),
+          _CelulaCabecalho(
+            texto: 'Cotas',
+            width: _wCotas,
+            alinhamento: TextAlign.right,
+            indice: 2,
+            colunaOrdenada: colunaOrdenada,
+            ascendente: ascendente,
+            onTap: onCabecalhoTap,
+          ),
+          _CelulaCabecalho(
+            texto: 'Prêmio',
+            width: _wPremio,
+            alinhamento: TextAlign.right,
+            indice: 3,
+            colunaOrdenada: colunaOrdenada,
+            ascendente: ascendente,
+            onTap: onCabecalhoTap,
+          ),
+          _CelulaCabecalho(
+            texto: 'Última Alteração',
+            width: _wData,
+            alinhamento: TextAlign.right,
+            indice: 4,
+            colunaOrdenada: colunaOrdenada,
+            ascendente: ascendente,
+            onTap: onCabecalhoTap,
+            isLast: true,
+          ),
+        ],
       ),
     );
   }
