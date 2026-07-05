@@ -90,6 +90,8 @@ class _HomePageState extends State<HomePage> {
                   final navigator = Navigator.of(context);
                   navigator.push(
                     PageRouteBuilder(
+                      transitionDuration: Duration.zero,
+                      reverseTransitionDuration: Duration.zero,
                       pageBuilder: (_, _, _) => const Participants(),
                     ),
                   );

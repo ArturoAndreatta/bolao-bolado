@@ -50,7 +50,10 @@ class _SignupState extends State<Signup> {
           CustomCard(
             color: const Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(text: 'Acesse sua conta'),
+              HeaderPaginas(
+                text: 'Acesse sua conta',
+                subtitle: 'Entre para continuar',
+              ),
               Form(
                 key: _formKey,
                 child: CustomCard(

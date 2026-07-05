@@ -39,7 +39,10 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
           CustomCard(
             color: const Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(text: 'Recuperar senha'),
+              HeaderPaginas(
+                text: 'Recuperar senha',
+                subtitle: 'Informe seu e-mail para redefinir a senha',
+              ),
               Form(
                 key: _formKey,
                 child: CustomCard(

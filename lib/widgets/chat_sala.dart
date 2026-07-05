@@ -7,9 +7,8 @@ import 'package:intl/intl.dart';
 
 class ChatSala extends StatefulWidget {
   final String salaId;
-  final double height;
 
-  const ChatSala({super.key, required this.salaId, required this.height});
+  const ChatSala({super.key, required this.salaId});
 
   @override
   State<ChatSala> createState() => _ChatSalaState();
@@ -97,8 +96,7 @@ class _ChatSalaState extends State<ChatSala> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: widget.height,
+    return SizedBox.expand(
       child: Material(
         color: const Color(0xFFFEFEFE),
         elevation: 20,

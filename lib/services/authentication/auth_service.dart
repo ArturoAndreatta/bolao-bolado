@@ -62,6 +62,11 @@ class AuthService {
     return doc.exists ? doc.data() : null;
   }
 
+  Future<bool> isAdmin(String uid) async {
+    final dados = await getDadosUsuario(uid);
+    return dados?['isAdmin'] == true;
+  }
+
   Future<void> atualizarNome(String novoNome) async {
     final user = _auth.currentUser;
     if (user == null || user.isAnonymous) return;

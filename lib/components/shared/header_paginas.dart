@@ -4,8 +4,15 @@ import 'package:flutter/material.dart';
 
 class HeaderPaginas extends StatelessWidget {
   final String text;
+  final String subtitle;
+  final Widget? trailing;
 
-  const HeaderPaginas({super.key, required this.text});
+  const HeaderPaginas({
+    super.key,
+    required this.text,
+    required this.subtitle,
+    this.trailing,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -13,21 +20,20 @@ class HeaderPaginas extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 24,
-        vertical: isMobile ? 4 : 2,
+        // horizontal: isMobile ? 16 : 24,
+        // vertical: isMobile ? 4 : 2,
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: isMobile ? 92 : 104,
-            height: isMobile ? 56 : 62,
-            child: Logo(isSmall: true, logo: 'images/logo4.png'),
-          ),
-
+          // SizedBox(
+          // width: isMobile ? 72 : 80,
+          // height: isMobile ? 44 : 48,
+          // child: Logo(isSmall: true, logo: 'images/logo4.png'),
+          // ),
           const SizedBox(width: 14),
           Container(
             width: 1,
-            height: isMobile ? 38 : 44,
+            height: isMobile ? 32 : 36,
             color: Colors.grey.shade300,
           ),
 
@@ -41,6 +47,8 @@ class HeaderPaginas extends StatelessWidget {
                 children: [
                   Text(
                     text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: isMobile ? 24 : 21,
                       fontWeight: FontWeight.w700,
@@ -51,7 +59,7 @@ class HeaderPaginas extends StatelessWidget {
                   const SizedBox(height: 0),
 
                   Text(
-                    "Entre para continuar",
+                    subtitle,
                     style: TextStyle(
                       fontSize: isMobile ? 15 : 14,
                       color: Colors.grey.shade600,
@@ -61,6 +69,7 @@ class HeaderPaginas extends StatelessWidget {
               ),
             ),
           ),
+          if (trailing != null) trailing!,
         ],
       ),
     );

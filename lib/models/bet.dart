@@ -59,6 +59,7 @@ Future<List<Map<String, Object?>>> getBets() async {
     final cotas = (valor / 6).floor();
     final premio = cotas * 1500;
     final dataHora = dados['data-hora'];
+    final verificado = dados['verificado'] == true;
 
     return {
       'nome': nome,
@@ -67,6 +68,48 @@ Future<List<Map<String, Object?>>> getBets() async {
       'premio': premio,
       'data-hora': dataHora,
       'uid': uid,
+      'verificado': verificado,
     };
   }).toList();
+}
+
+/// Cria uma notificação para o admin sobre uma nova aposta.
+Future<void> criarNotificacaoAposta({
+  required String salaId,
+  required String uid,
+  required String nome,
+  required String valor,
+}) async {
+  await FirebaseFirestore.instance.collection('notificacoes').add({
+    'tipo': 'nova_aposta',
+    'salaId': salaId,
+    'uid': uid,
+    'nome': nome,
+    'valor': valor,
+    'verificado': false,
+    'data-hora': FieldValue.serverTimestamp(),
+  });
+}
+
+/// Marca a aposta de um participante como verificada e resolve a
+/// notificação correspondente.
+Future<void> verificarAposta({
+  required String salaId,
+  required String uid,
+  String? notificacaoId,
+}) async {
+  final firestore = FirebaseFirestore.instance;
+
+  await firestore
+      .collection('Salas')
+      .doc(salaId)
+      .collection('Participantes')
+      .doc(uid)
+      .update({'verificado': true});
+
+  if (notificacaoId != null) {
+    await firestore.collection('notificacoes').doc(notificacaoId).update({
+      'verificado': true,
+    });
+  }
 }

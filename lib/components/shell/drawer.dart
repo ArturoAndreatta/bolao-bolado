@@ -1,3 +1,5 @@
+import 'package:bolao_bolado/pages/admin/painel_admin.dart';
+import 'package:bolao_bolado/pages/auth/signup.dart';
 import 'package:bolao_bolado/pages/home_page.dart';
 import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/participants.dart';
@@ -17,11 +19,13 @@ class AppDrawer extends StatefulWidget {
 
 class _AppDrawerState extends State<AppDrawer> {
   String? _avatarAtual;
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
     _carregarAvatar();
+    _carregarIsAdmin();
   }
 
   Future<void> _carregarAvatar() async {
@@ -29,6 +33,13 @@ class _AppDrawerState extends State<AppDrawer> {
     if (uid == null) return;
     final avatar = await AvatarService.buscarAvatar(uid);
     if (mounted) setState(() => _avatarAtual = avatar);
+  }
+
+  Future<void> _carregarIsAdmin() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) return;
+    final isAdmin = await AuthService().isAdmin(user.uid);
+    if (mounted) setState(() => _isAdmin = isAdmin);
   }
 
   @override
@@ -202,6 +213,21 @@ class _AppDrawerState extends State<AppDrawer> {
                         );
                       },
                     ),
+                    if (_isAdmin)
+                      _DrawerItem(
+                        icon: Icons.admin_panel_settings_outlined,
+                        label: 'Painel ADM',
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          Navigator.of(context).push(
+                            PageRouteBuilder(
+                              transitionDuration: Duration.zero,
+                              reverseTransitionDuration: Duration.zero,
+                              pageBuilder: (_, _, _) => const PainelAdmin(),
+                            ),
+                          );
+                        },
+                      ),
                     const _DrawerDivider(),
                   ],
                 ],
@@ -244,7 +270,7 @@ class _AppDrawerState extends State<AppDrawer> {
                           PageRouteBuilder(
                             transitionDuration: Duration.zero,
                             reverseTransitionDuration: Duration.zero,
-                            pageBuilder: (_, _, _) => const HomePage(),
+                            pageBuilder: (_, _, _) => const Signup(),
                           ),
                         );
                       },

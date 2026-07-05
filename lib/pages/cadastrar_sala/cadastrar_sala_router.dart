@@ -4,7 +4,9 @@ import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_mobile.dart';
 import 'package:flutter/material.dart';
 
 class CadastrarSala extends StatelessWidget {
-  const CadastrarSala({super.key});
+  final String? salaId;
+
+  const CadastrarSala({super.key, this.salaId});
 
   @override
   Widget build(BuildContext context) {
@@ -13,10 +15,10 @@ class CadastrarSala extends StatelessWidget {
         final isMobile = Responsive.isMobile(context);
 
         if (isMobile) {
-          return const CadastrarSalaMobile();
+          return CadastrarSalaMobile(salaId: salaId);
         }
 
-        return const CadastrarSalaDesktop();
+        return CadastrarSalaDesktop(salaId: salaId);
       },
     );
   }

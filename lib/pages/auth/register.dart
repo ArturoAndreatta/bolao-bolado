@@ -50,7 +50,10 @@ class _RegisterState extends State<Register> {
           CustomCard(
             color: const Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(text: 'Criar conta'),
+              HeaderPaginas(
+                text: 'Criar conta',
+                subtitle: 'Preencha seus dados para se cadastrar',
+              ),
               Form(
                 key: _formKey,
                 child: CustomCard(

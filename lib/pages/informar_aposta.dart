@@ -95,7 +95,10 @@ class _LoginState extends State<Login> {
           CustomCard(
             color: const Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(text: 'Minha Aposta'),
+              HeaderPaginas(
+                text: 'Minha Aposta',
+                subtitle: 'Informe seus palpites para os jogos',
+              ),
               if (_loading)
                 const Padding(
                   padding: EdgeInsets.all(40),
@@ -195,10 +198,22 @@ class _LoginState extends State<Login> {
             'valor': valorEditado,
             'uid': user.uid,
             'data-hora': FieldValue.serverTimestamp(),
+            'verificado': false,
           });
 
+      await criarNotificacaoAposta(
+        salaId: salaId,
+        uid: user.uid,
+        nome: nome,
+        valor: valorEditado,
+      );
+
       navigator.push(
-        PageRouteBuilder(pageBuilder: (_, _, _) => const Participants()),
+        PageRouteBuilder(
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+          pageBuilder: (_, _, _) => const Participants(),
+        ),
       );
     } catch (e) {
       if (mounted) {

@@ -69,7 +69,10 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
           CustomCard(
             color: Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(text: 'Consultar Salas'),
+              HeaderPaginas(
+                text: 'Consultar Salas',
+                subtitle: 'Veja e acompanhe as salas que você participa',
+              ),
               CustomCard(
                 isChild: true,
                 children: [

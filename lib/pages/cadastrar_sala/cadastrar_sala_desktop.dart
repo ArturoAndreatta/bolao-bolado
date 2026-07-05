@@ -10,9 +10,12 @@ import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
 import 'package:bolao_bolado/pages/consultar_salas.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class CadastrarSalaDesktop extends StatefulWidget {
-  const CadastrarSalaDesktop({super.key});
+  final String? salaId;
+
+  const CadastrarSalaDesktop({super.key, this.salaId});
 
   @override
   State<CadastrarSalaDesktop> createState() => _CadastrarSalaDesktopState();
@@ -30,11 +33,67 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
   TextEditingController chavePixController = .new();
   TimeOfDay? horaSelecionada;
   String? sorteio;
+  bool _saving = false;
+  bool _loadingSala = true;
   final _formKey = GlobalKey<FormState>();
+
+  bool get _editando => widget.salaId != null;
 
   static const double _fieldMaxWidth = 540;
   static const double _halfWidth = 242;
   static const double _gap = 15.0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_editando) {
+      _carregarSala();
+    } else {
+      _loadingSala = false;
+    }
+  }
+
+  Future<void> _carregarSala() async {
+    final doc = await firestore.collection('Salas').doc(widget.salaId).get();
+    final dados = doc.data();
+    if (dados != null) {
+      final formatoMoeda = NumberFormat.currency(
+        locale: 'pt_BR',
+        symbol: '',
+        decimalDigits: 2,
+      );
+      nameController.text = dados['nome']?.toString() ?? '';
+      descricaoController.text = dados['descricao']?.toString() ?? '';
+      sorteio = dados['sorteio']?.toString();
+      final dataHora = dados['dataHora'];
+      if (dataHora is Timestamp) {
+        final dt = dataHora.toDate();
+        dataController.text =
+            '${dt.day.toString().padLeft(2, '0')}/'
+            '${dt.month.toString().padLeft(2, '0')}/'
+            '${dt.year}';
+        horaSelecionada = TimeOfDay(hour: dt.hour, minute: dt.minute);
+        horaController.text =
+            '${dt.hour.toString().padLeft(2, '0')}:'
+            '${dt.minute.toString().padLeft(2, '0')}';
+      }
+      final premio = (dados['premio'] as num?)?.toDouble();
+      if (premio != null) {
+        premioController.text = formatoMoeda.format(premio).trim();
+      }
+      final valorMaximo = (dados['valorMaximo'] as num?)?.toDouble();
+      if (valorMaximo != null) {
+        valorMaximoApostaController.text = formatoMoeda
+            .format(valorMaximo)
+            .trim();
+      }
+      senhaSalaController.text = dados['senha']?.toString() ?? '';
+      chavePixController.text = dados['chavePix']?.toString() ?? '';
+    }
+    if (mounted) {
+      setState(() => _loadingSala = false);
+    }
+  }
 
   Widget _row(Widget left, Widget right) {
     return LayoutBuilder(
@@ -55,6 +114,15 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingSala) {
+      return DefaultLayout(
+        drawer: AppDrawer(),
+        child: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF7CC8B5)),
+        ),
+      );
+    }
+
     return DefaultLayout(
       drawer: AppDrawer(),
       child: Stack(
@@ -62,7 +130,12 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
           CustomCard(
             color: Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(text: 'Criar Sala'),
+              HeaderPaginas(
+                text: _editando ? 'Editar Sala' : 'Criar Sala',
+                subtitle: _editando
+                    ? 'Atualize as configurações da sala'
+                    : 'Configure sua nova sala de apostas',
+              ),
               Form(
                 key: _formKey,
                 child: CustomCard(
@@ -212,8 +285,9 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
                     ),
                     SizedBox(height: 20),
                     PrimaryButton(
-                      text: 'Confirmar',
+                      text: _editando ? 'Salvar Alterações' : 'Confirmar',
                       onTap: () async {
+                        if (_saving) return;
                         final navigator = Navigator.of(context);
                         if (!_formKey.currentState!.validate()) {
                           CustomShowDialog.show(
@@ -226,32 +300,53 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
                           dataController.text,
                           horaController.text,
                         );
-                        await firestore.collection('Salas').add({
-                          'nome': nameController.text,
-                          'descricao': descricaoController.text,
-                          'sorteio': sorteio,
-                          'dataHora': Timestamp.fromDate(dataHora),
-                          'premio': double.parse(
-                            premioController.text
-                                .replaceAll('.', '')
-                                .replaceAll(',', '.'),
-                          ),
-                          'valorMaximo':
-                              valorMaximoApostaController.text.isNotEmpty
-                              ? double.parse(
-                                  valorMaximoApostaController.text
-                                      .replaceAll('.', '')
-                                      .replaceAll(',', '.'),
-                                )
-                              : null,
-                          'senha': senhaSalaController.text,
-                          'chavePix': chavePixController.text,
-                        });
-                        navigator.push(
-                          PageRouteBuilder(
-                            pageBuilder: (_, _, _) => ConsultarSalas(),
-                          ),
-                        );
+                        setState(() => _saving = true);
+                        try {
+                          final dados = {
+                            'nome': nameController.text,
+                            'descricao': descricaoController.text,
+                            'sorteio': sorteio,
+                            'dataHora': Timestamp.fromDate(dataHora),
+                            'premio': double.parse(
+                              premioController.text
+                                  .replaceAll('.', '')
+                                  .replaceAll(',', '.'),
+                            ),
+                            'valorMaximo':
+                                valorMaximoApostaController.text.isNotEmpty
+                                ? double.parse(
+                                    valorMaximoApostaController.text
+                                        .replaceAll('.', '')
+                                        .replaceAll(',', '.'),
+                                  )
+                                : null,
+                            'senha': senhaSalaController.text,
+                            'chavePix': chavePixController.text,
+                          };
+                          if (_editando) {
+                            await firestore
+                                .collection('Salas')
+                                .doc(widget.salaId)
+                                .update(dados);
+                          } else {
+                            await firestore.collection('Salas').add(dados);
+                          }
+                          if (_editando) {
+                            navigator.pop();
+                          } else {
+                            navigator.push(
+                              PageRouteBuilder(
+                                transitionDuration: Duration.zero,
+                                reverseTransitionDuration: Duration.zero,
+                                pageBuilder: (_, _, _) => ConsultarSalas(),
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _saving = false);
+                          }
+                        }
                       },
                     ),
                     SizedBox(height: 20),
