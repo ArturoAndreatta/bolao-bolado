@@ -33,7 +33,7 @@ class HeaderPaginas extends StatelessWidget {
           const SizedBox(width: 14),
           Container(
             width: 1,
-            height: isMobile ? 32 : 36,
+            height: isMobile ? 50 : 36,
             color: Colors.grey.shade300,
           ),
 

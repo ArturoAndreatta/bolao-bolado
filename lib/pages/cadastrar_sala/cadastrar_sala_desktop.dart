@@ -130,11 +130,22 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
           CustomCard(
             color: Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(
-                text: _editando ? 'Editar Sala' : 'Criar Sala',
-                subtitle: _editando
-                    ? 'Atualize as configurações da sala'
-                    : 'Configure sua nova sala de apostas',
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: BackScreenButton(floating: false),
+                  ),
+                  Expanded(
+                    child: HeaderPaginas(
+                      text: _editando ? 'Editar Sala' : 'Criar Sala',
+                      subtitle: _editando
+                          ? 'Atualize as configurações da sala'
+                          : 'Configure sua nova sala de apostas',
+                    ),
+                  ),
+                ],
               ),
               Form(
                 key: _formKey,
@@ -355,7 +366,6 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
               ),
             ],
           ),
-          BackScreenButton(),
         ],
       ),
     );

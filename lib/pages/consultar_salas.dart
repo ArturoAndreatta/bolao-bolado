@@ -69,9 +69,20 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
           CustomCard(
             color: Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(
-                text: 'Consultar Salas',
-                subtitle: 'Veja e acompanhe as salas que você participa',
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: BackScreenButton(floating: false),
+                  ),
+                  Expanded(
+                    child: HeaderPaginas(
+                      text: 'Consultar Salas',
+                      subtitle: 'Veja e acompanhe as salas que você participa',
+                    ),
+                  ),
+                ],
               ),
               CustomCard(
                 isChild: true,
@@ -114,7 +125,6 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
               ),
             ],
           ),
-          BackScreenButton(),
         ],
       ),
     );

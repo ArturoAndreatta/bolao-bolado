@@ -85,9 +85,20 @@ class _PainelAdminState extends State<PainelAdmin> {
             color: const Color(0xFFF3F1EF),
             maxWidth: 900,
             children: [
-              HeaderPaginas(
-                text: 'Painel ADM',
-                subtitle: 'Gerencie apostas e verificações',
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: BackScreenButton(floating: false),
+                  ),
+                  Expanded(
+                    child: HeaderPaginas(
+                      text: 'Painel ADM',
+                      subtitle: 'Gerencie apostas e verificações',
+                    ),
+                  ),
+                ],
               ),
               if (_loading)
                 const Padding(
@@ -109,7 +120,6 @@ class _PainelAdminState extends State<PainelAdmin> {
                 _conteudoPainel(),
             ],
           ),
-          BackScreenButton(),
         ],
       ),
     );

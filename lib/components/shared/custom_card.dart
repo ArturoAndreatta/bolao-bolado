@@ -28,7 +28,7 @@ class CustomCard extends StatelessWidget {
           child: Padding(
             padding: isChild
                 ? const EdgeInsets.fromLTRB(10, 10, 10, 10)
-                : EdgeInsets.zero,
+                : const EdgeInsets.fromLTRB(16, 16, 16, 16),
             child: SizedBox(
               width: maxWidthChild,
               child: Column(children: children),

@@ -145,8 +145,10 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    BackScreenButton(floating: false),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         widget.sala.nome,
@@ -194,7 +196,6 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
               SizedBox(height: 30),
             ],
           ),
-          BackScreenButton(),
         ],
       ),
     );

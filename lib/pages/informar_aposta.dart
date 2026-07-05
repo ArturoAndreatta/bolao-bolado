@@ -95,9 +95,20 @@ class _LoginState extends State<Login> {
           CustomCard(
             color: const Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(
-                text: 'Minha Aposta',
-                subtitle: 'Informe seus palpites para os jogos',
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: BackScreenButton(floating: false),
+                  ),
+                  Expanded(
+                    child: HeaderPaginas(
+                      text: 'Minha Aposta',
+                      subtitle: 'Informe seus palpites para os jogos',
+                    ),
+                  ),
+                ],
               ),
               if (_loading)
                 const Padding(
@@ -147,7 +158,6 @@ class _LoginState extends State<Login> {
                 ),
             ],
           ),
-          BackScreenButton(),
         ],
       ),
     );
@@ -216,6 +226,7 @@ class _LoginState extends State<Login> {
         ),
       );
     } catch (e) {
+      debugPrint('Erro ao salvar aposta: $e');
       if (mounted) {
         CustomShowDialog.show(
           context,

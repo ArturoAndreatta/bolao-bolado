@@ -50,9 +50,20 @@ class _RegisterState extends State<Register> {
           CustomCard(
             color: const Color(0xFFF3F1EF),
             children: [
-              HeaderPaginas(
-                text: 'Criar conta',
-                subtitle: 'Preencha seus dados para se cadastrar',
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: BackScreenButton(floating: false),
+                  ),
+                  Expanded(
+                    child: HeaderPaginas(
+                      text: 'Criar conta',
+                      subtitle: 'Preencha seus dados para se cadastrar',
+                    ),
+                  ),
+                ],
               ),
               Form(
                 key: _formKey,
@@ -145,7 +156,6 @@ class _RegisterState extends State<Register> {
               ),
             ],
           ),
-          BackScreenButton(),
         ],
       ),
     );

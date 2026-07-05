@@ -12,6 +12,7 @@ import 'package:bolao_bolado/widgets/chat_sala.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -64,6 +65,10 @@ class _ParticipantsState extends State<Participants> {
   String? _salaId;
   bool _isAdmin = false;
   String? _sorteio;
+  DateTime? _dataSorteio;
+  double _premioSala = 0;
+  String _busca = '';
+  final FocusNode _buscaFocusNode = FocusNode();
 
   // Ordenação padrão: valor decrescente
   int _colunaOrdenada = 1; // 0=nome, 1=valor, 2=cotas, 3=premio, 4=data
@@ -76,6 +81,24 @@ class _ParticipantsState extends State<Participants> {
   void initState() {
     super.initState();
     _load();
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
+    _buscaFocusNode.dispose();
+    super.dispose();
+  }
+
+  bool _onKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.keyF &&
+        HardwareKeyboard.instance.isControlPressed) {
+      _buscaFocusNode.requestFocus();
+      return true;
+    }
+    return false;
   }
 
   Future<void> _load() async {
@@ -91,6 +114,8 @@ class _ParticipantsState extends State<Participants> {
         .doc(salaId)
         .get();
     final sorteio = salaDoc.data()?['sorteio']?.toString();
+    final dataSorteio = (salaDoc.data()?['dataHora'] as Timestamp?)?.toDate();
+    final premioSala = (salaDoc.data()?['premio'] as num?)?.toDouble() ?? 0;
     setState(() {
       _salaId = salaId;
       _rowsData = [
@@ -99,6 +124,8 @@ class _ParticipantsState extends State<Participants> {
       ];
       _isAdmin = isAdmin;
       _sorteio = sorteio;
+      _dataSorteio = dataSorteio;
+      _premioSala = premioSala;
       _ordenar();
       _loading = false;
     });
@@ -176,12 +203,11 @@ class _ParticipantsState extends State<Participants> {
 
   // ── Layout Desktop: card de participantes + chat lateral ────────────────
   Widget _layoutDesktop(String? currentUid) {
-    const double chatWidth = 320;
     const double chatHeight = 520;
 
     return CustomCard(
       color: const Color(0xFFF3F1EF),
-      maxWidth: 1080,
+      maxWidth: 1106,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -223,6 +249,7 @@ class _ParticipantsState extends State<Participants> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
+                    flex: 7,
                     child: _cardParticipantes(
                       currentUid,
                       expandirConteudo: true,
@@ -231,10 +258,7 @@ class _ParticipantsState extends State<Participants> {
                   ),
                   if (_salaId != null) const SizedBox(width: 16),
                   if (_salaId != null)
-                    SizedBox(
-                      width: chatWidth,
-                      child: ChatSala(salaId: _salaId!),
-                    ),
+                    Expanded(flex: 3, child: ChatSala(salaId: _salaId!)),
                 ],
               ),
             ),
@@ -247,20 +271,15 @@ class _ParticipantsState extends State<Participants> {
   Widget _layoutMobile(String? currentUid) {
     return Column(
       children: [
-        CustomCard(
-          color: const Color(0xFFF3F1EF),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
-              child: _SeletorAbas(
-                abaAtiva: _abaAtiva,
-                onSelecionar: (i) => setState(() => _abaAtiva = i),
-              ),
-            ),
-          ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+          child: _SeletorAbas(
+            abaAtiva: _abaAtiva,
+            onSelecionar: (i) => setState(() => _abaAtiva = i),
+          ),
         ),
         if (_abaAtiva == 0)
-          _cardParticipantes(currentUid)
+          _cardParticipantesMobile(currentUid)
         else if (_salaId != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
@@ -269,6 +288,88 @@ class _ParticipantsState extends State<Participants> {
               child: ChatSala(salaId: _salaId!),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _cardParticipantesMobile(String? currentUid) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: CircularProgressIndicator(
+          strokeWidth: 5,
+          color: Color(0xFF7CC8B5),
+        ),
+      );
+    }
+
+    final termo = _busca.trim().toLowerCase();
+    final linhasFiltradas = termo.isEmpty
+        ? _rowsData
+        : _rowsData
+              .where(
+                (item) => (item['nome'] ?? '')
+                    .toString()
+                    .toLowerCase()
+                    .contains(termo),
+              )
+              .toList();
+
+    return CustomCard(
+      color: const Color(0xFFF3F1EF),
+      children: [
+        HeaderPaginas(
+          text: 'Participantes',
+          subtitle: 'Visualize quem está participando',
+          trailing: _isAdmin ? _botaoEditarSala() : null,
+        ),
+        const SizedBox(height: 12),
+        _PainelEstatisticas(
+          rows: _rowsData,
+          currentUid: currentUid,
+          sorteio: _sorteio,
+          dataSorteio: _dataSorteio,
+          premioSala: _premioSala,
+        ),
+        const SizedBox(height: 14),
+        _BarraBuscaOrdenacao(
+          busca: _busca,
+          onBuscaChanged: (v) => setState(() => _busca = v),
+          colunaOrdenada: _colunaOrdenada,
+          ascendente: _ascendente,
+          onOrdenarPor: _onCabecalhoTap,
+        ),
+        const SizedBox(height: 12),
+        linhasFiltradas.isEmpty
+            ? Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.sentiment_dissatisfied_outlined,
+                      size: 48,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _rowsData.isEmpty
+                          ? 'Nenhuma aposta ainda.'
+                          : 'Nenhum participante encontrado.',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : _ListaParticipantes(
+                rows: linhasFiltradas,
+                currentUid: currentUid,
+              ),
+        const SizedBox(height: 14),
+        _RodapeLista(total: linhasFiltradas.length),
       ],
     );
   }
@@ -299,6 +400,18 @@ class _ParticipantsState extends State<Participants> {
     bool expandirConteudo = false,
     bool mostrarCabecalho = true,
   }) {
+    final termo = _busca.trim().toLowerCase();
+    final linhasFiltradas = termo.isEmpty
+        ? _rowsData
+        : _rowsData
+              .where(
+                (item) => (item['nome'] ?? '')
+                    .toString()
+                    .toLowerCase()
+                    .contains(termo),
+              )
+              .toList();
+
     final conteudo = _loading
         ? const Padding(
             padding: EdgeInsets.symmetric(vertical: 40),
@@ -308,13 +421,13 @@ class _ParticipantsState extends State<Participants> {
             ),
           )
         : _TabelaApostas(
-            rows: _rowsData,
+            rows: linhasFiltradas,
             colunaOrdenada: _colunaOrdenada,
             ascendente: _ascendente,
             onCabecalhoTap: _onCabecalhoTap,
             currentUid: currentUid,
             alturaFixa: expandirConteudo,
-            mensagemVazio: _rowsData.isEmpty
+            mensagemVazio: linhasFiltradas.isEmpty
                 ? _textoSelecionavel(
                     context: context,
                     child: Column(
@@ -344,6 +457,7 @@ class _ParticipantsState extends State<Participants> {
               rows: _rowsData,
               currentUid: currentUid,
               sorteio: _sorteio,
+              premioSala: _premioSala,
             ),
           );
 
@@ -379,6 +493,12 @@ class _ParticipantsState extends State<Participants> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             painelEstatisticas,
+            _CampoBusca(
+              busca: _busca,
+              onBuscaChanged: (v) => setState(() => _busca = v),
+              focusNode: _buscaFocusNode,
+            ),
+            const SizedBox(height: 12),
             Expanded(child: SelectionArea(child: conteudo)),
           ],
         ),
@@ -466,11 +586,15 @@ class _PainelEstatisticas extends StatelessWidget {
   final List<Map<String, dynamic>> rows;
   final String? currentUid;
   final String? sorteio;
+  final DateTime? dataSorteio;
+  final double premioSala;
 
   const _PainelEstatisticas({
     required this.rows,
     required this.currentUid,
     this.sorteio,
+    this.dataSorteio,
+    this.premioSala = 0,
   });
 
   @override
@@ -481,11 +605,6 @@ class _PainelEstatisticas extends StatelessWidget {
       0,
       (soma, item) => soma + ((item['cotas'] as num?)?.toInt() ?? 0),
     );
-    final totalPremio = rows.fold<double>(
-      0,
-      (soma, item) => soma + ((item['premio'] as num?)?.toDouble() ?? 0),
-    );
-
     Map<String, dynamic>? meuRegistro;
     for (final item in rows) {
       if (item['uid'] == currentUid) {
@@ -512,43 +631,108 @@ class _PainelEstatisticas extends StatelessWidget {
 
     final isMobile = Responsive.isMobile(context);
 
+    if (isMobile) {
+      final diasRestantes = dataSorteio?.difference(DateTime.now()).inDays;
+      final dataFormatada = dataSorteio != null
+          ? DateFormat('dd/MM/yyyy').format(dataSorteio!)
+          : '—';
+
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _BannerChance(percentual: chancePercentual, fracao: chanceFracao),
+          const SizedBox(height: 10),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _CardEstatisticaIcone(
+                    icone: Icons.savings_outlined,
+                    corIcone: const Color(0xFF2E7D32),
+                    corFundoIcone: const Color(0xFFE3F3E9),
+                    titulo: 'Prêmio Total',
+                    valor: formatoMoeda.format(premioSala),
+                    corValor: const Color(0xFF2E7D32),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _CardEstatisticaIcone(
+                    icone: Icons.local_activity_outlined,
+                    corIcone: const Color(0xFFCB8A2C),
+                    corFundoIcone: const Color(0xFFFBEED9),
+                    titulo: 'Cotas',
+                    valor: totalCotas.toString(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _CardEstatisticaIcone(
+                    icone: Icons.people_alt_outlined,
+                    corIcone: const Color(0xFF487DE5),
+                    corFundoIcone: const Color(0xFFE1E9FB),
+                    titulo: 'Jogadores',
+                    valor: rows.length.toString(),
+                    corValor: const Color(0xFF487DE5),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _CardEstatisticaIcone(
+                    icone: Icons.calendar_month_outlined,
+                    corIcone: const Color(0xFF7C5CD9),
+                    corFundoIcone: const Color(0xFFEAE3F8),
+                    titulo: 'Data do Sorteio',
+                    valor: dataFormatada,
+                    rodape: diasRestantes != null && diasRestantes >= 0
+                        ? 'Em $diasRestantes dias'
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     final cardChance = _CardEstatistica(
       destaque: true,
       icone: Icons.emoji_events_outlined,
       titulo: 'Chance de ganhar',
       valor: '$chancePercentual%\n$chanceFracao',
-      valorPequeno: true,
+      fontSizeValor: 26,
       infoTooltip: 'Sua chance é calculada com base no total de cotas.',
     );
     final cardCotas = _CardEstatistica(
       titulo: 'Cotas',
+      fontSizeValor: 30,
       valor: totalCotas.toString(),
     );
     final cardPremio = _CardEstatistica(
-      titulo: 'Total do Prêmio',
-      valor: formatoMoeda.format(totalPremio),
+      titulo: 'Prêmio Total',
+      fontSizeValor: 19,
+      valor: formatoMoeda.format(premioSala),
       corValor: const Color(0xFF2E7D32),
     );
     final cardJogadores = _CardEstatistica(
       titulo: 'Jogadores',
       valor: rows.length.toString(),
+      fontSizeValor: 30,
       corValor: const Color(0xFF487DE5),
     );
 
     final cards = [cardChance, cardPremio, cardCotas, cardJogadores];
     const flexes = [2, 2, 1, 1];
-
-    if (isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final card in cards) ...[
-            card,
-            if (card != cards.last) const SizedBox(height: 10),
-          ],
-        ],
-      );
-    }
 
     return IntrinsicHeight(
       child: Row(
@@ -564,23 +748,194 @@ class _PainelEstatisticas extends StatelessWidget {
   }
 }
 
+class _BannerChance extends StatelessWidget {
+  final String percentual;
+  final String fracao;
+
+  const _BannerChance({required this.percentual, required this.fracao});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFDF4E3),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF2D9A8), width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFBEED9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.emoji_events_outlined,
+              size: 22,
+              color: Color(0xFFCB8A2C),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Chance de ganhar',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF8A6116),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message:
+                          'Sua chance é calculada com base no total de cotas.',
+                      child: Icon(
+                        Icons.info_outline,
+                        size: 13,
+                        color: const Color(0xFF8A6116).withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '$percentual%',
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      fracao,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardEstatisticaIcone extends StatelessWidget {
+  final IconData icone;
+  final Color corIcone;
+  final Color corFundoIcone;
+  final String titulo;
+  final String valor;
+  final Color? corValor;
+  final String? rodape;
+
+  const _CardEstatisticaIcone({
+    required this.icone,
+    required this.corIcone,
+    required this.corFundoIcone,
+    required this.titulo,
+    required this.valor,
+    this.corValor,
+    this.rodape,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEFEFE),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: corFundoIcone,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icone, size: 18, color: corIcone),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            titulo,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            valor,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: corValor ?? const Color(0xFF1F2937),
+            ),
+          ),
+          if (rodape != null) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAE3F8),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                rodape!,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF7C5CD9),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _CardEstatistica extends StatelessWidget {
   final String titulo;
   final String valor;
   final bool destaque;
-  final bool valorPequeno;
   final IconData? icone;
   final Color? corValor;
   final String? infoTooltip;
+  final double fontSizeValor;
 
   const _CardEstatistica({
     required this.titulo,
     required this.valor,
     this.destaque = false,
-    this.valorPequeno = false,
     this.icone,
     this.corValor,
     this.infoTooltip,
+    this.fontSizeValor = 24,
   });
 
   @override
@@ -602,7 +957,7 @@ class _CardEstatistica extends StatelessWidget {
           Row(
             children: [
               if (icone != null) ...[
-                Icon(icone, size: 16, color: const Color(0xFFCB8A2C)),
+                Icon(icone, size: 18, color: const Color(0xFFCB8A2C)),
                 const SizedBox(width: 6),
               ],
               Flexible(
@@ -610,7 +965,7 @@ class _CardEstatistica extends StatelessWidget {
                   titulo,
                   softWrap: true,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: destaque
                         ? const Color(0xFF8A6116)
@@ -624,7 +979,7 @@ class _CardEstatistica extends StatelessWidget {
                   message: infoTooltip!,
                   child: Icon(
                     Icons.info_outline,
-                    size: 13,
+                    size: 15,
                     color: Colors.grey.shade500,
                   ),
                 ),
@@ -636,7 +991,7 @@ class _CardEstatistica extends StatelessWidget {
             valor,
             softWrap: true,
             style: TextStyle(
-              fontSize: valorPequeno ? 13 : 20,
+              fontSize: fontSizeValor,
               fontWeight: FontWeight.w700,
               color: corValor ?? const Color(0xFF1F2937),
             ),
@@ -1004,6 +1359,399 @@ class _CelulaLinha extends StatelessWidget {
               : const Color(0xFF1F2937),
         ),
       ),
+    );
+  }
+}
+
+class _CampoBusca extends StatefulWidget {
+  final String busca;
+  final void Function(String) onBuscaChanged;
+  final FocusNode? focusNode;
+
+  const _CampoBusca({
+    required this.busca,
+    required this.onBuscaChanged,
+    this.focusNode,
+  });
+
+  @override
+  State<_CampoBusca> createState() => _CampoBuscaState();
+}
+
+class _CampoBuscaState extends State<_CampoBusca> {
+  FocusNode? _focusNode;
+  bool _focado = false;
+
+  FocusNode get _effectiveFocusNode => widget.focusNode ?? _focusNode!;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.focusNode == null) _focusNode = FocusNode();
+    _effectiveFocusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CampoBusca oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      oldWidget.focusNode?.removeListener(_onFocusChange);
+      _focusNode?.removeListener(_onFocusChange);
+      if (widget.focusNode == null) _focusNode ??= FocusNode();
+      _effectiveFocusNode.addListener(_onFocusChange);
+    }
+  }
+
+  void _onFocusChange() {
+    setState(() => _focado = _effectiveFocusNode.hasFocus);
+  }
+
+  @override
+  void dispose() {
+    _effectiveFocusNode.removeListener(_onFocusChange);
+    _focusNode?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEFEFE),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: _focado ? const Color(0xFF487DE5) : const Color(0xFFE5E7EB),
+          width: _focado ? 1.5 : 1,
+        ),
+        boxShadow: _focado
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF487DE5).withValues(alpha: 0.15),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.search,
+            size: 18,
+            color: _focado ? const Color(0xFF487DE5) : Colors.grey.shade500,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Focus(
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.escape) {
+                  _effectiveFocusNode.unfocus();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextField(
+                focusNode: _effectiveFocusNode,
+                onChanged: widget.onBuscaChanged,
+                decoration: InputDecoration(
+                  isCollapsed: true,
+                  border: InputBorder.none,
+                  hintText: 'Buscar participante...',
+                  hintStyle: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BarraBuscaOrdenacao extends StatelessWidget {
+  final String busca;
+  final void Function(String) onBuscaChanged;
+  final int colunaOrdenada;
+  final bool ascendente;
+  final void Function(int) onOrdenarPor;
+
+  const _BarraBuscaOrdenacao({
+    required this.busca,
+    required this.onBuscaChanged,
+    required this.colunaOrdenada,
+    required this.ascendente,
+    required this.onOrdenarPor,
+  });
+
+  static const Map<int, String> _opcoes = {
+    1: 'Valor',
+    0: 'Nome',
+    2: 'Cotas',
+    3: 'Prêmio',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEFEFE),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.search, size: 18, color: Colors.grey.shade500),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    onChanged: onBuscaChanged,
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      border: InputBorder.none,
+                      hintText: 'Buscar participante...',
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        PopupMenuButton<int>(
+          onSelected: onOrdenarPor,
+          offset: const Offset(0, 48),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          itemBuilder: (context) => _opcoes.entries
+              .map(
+                (e) => PopupMenuItem<int>(value: e.key, child: Text(e.value)),
+              )
+              .toList(),
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEFEFE),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  ascendente ? Icons.arrow_upward : Icons.arrow_downward,
+                  size: 15,
+                  color: const Color(0xFF487DE5),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _opcoes[colunaOrdenada] ?? 'Valor',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF487DE5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEFEFE),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+          ),
+          child: Icon(Icons.tune, size: 18, color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+}
+
+const List<Color> _coresAvatar = [
+  Color(0xFF2E7D32),
+  Color(0xFF487DE5),
+  Color(0xFF7C5CD9),
+  Color(0xFFCB8A2C),
+  Color(0xFFD9534F),
+  Color(0xFF17A398),
+];
+
+Color _corAvatarPara(String nome) {
+  final soma = nome.codeUnits.fold<int>(0, (acc, c) => acc + c);
+  return _coresAvatar[soma % _coresAvatar.length];
+}
+
+class _ListaParticipantes extends StatelessWidget {
+  final List<Map<String, dynamic>> rows;
+  final String? currentUid;
+
+  const _ListaParticipantes({required this.rows, required this.currentUid});
+
+  @override
+  Widget build(BuildContext context) {
+    final formatoMoeda = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < rows.length; i++) ...[
+          _LinhaParticipante(
+            posicao: i + 1,
+            nome: rows[i]['nome']?.toString() ?? '—',
+            valor: formatoMoeda.format(
+              (rows[i]['valor'] as num?)?.toDouble() ?? 0,
+            ),
+            cotas: (rows[i]['cotas'] as num?)?.toInt() ?? 0,
+            destacado: rows[i]['uid'] == currentUid,
+          ),
+          if (i < rows.length - 1)
+            Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+        ],
+      ],
+    );
+  }
+}
+
+class _LinhaParticipante extends StatelessWidget {
+  final int posicao;
+  final String nome;
+  final String valor;
+  final int cotas;
+  final bool destacado;
+
+  const _LinhaParticipante({
+    required this.posicao,
+    required this.nome,
+    required this.valor,
+    required this.cotas,
+    required this.destacado,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final inicial = nome.trim().isNotEmpty ? nome.trim()[0].toUpperCase() : '?';
+    final cor = _corAvatarPara(nome);
+
+    return Container(
+      color: destacado ? const Color(0xFFDCFCE7) : Colors.transparent,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 22,
+            child: Text(
+              posicao.toString(),
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            ),
+          ),
+          const SizedBox(width: 6),
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: cor,
+            child: Text(
+              inicial,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              nome,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: destacado ? FontWeight.w700 : FontWeight.w600,
+                color: const Color(0xFF1F2937),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                valor,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                cotas == 1 ? '1 cota' : '$cotas cotas',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RodapeLista extends StatelessWidget {
+  final int total;
+
+  const _RodapeLista({required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.people_outline, size: 15, color: Colors.grey.shade500),
+            const SizedBox(width: 6),
+            Text(
+              'Mostrando $total participantes',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Text(
+              'Atualizado agora',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.refresh, size: 15, color: Colors.grey.shade500),
+          ],
+        ),
+      ],
     );
   }
 }

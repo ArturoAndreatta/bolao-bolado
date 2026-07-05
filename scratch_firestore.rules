@@ -1,0 +1,68 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Coleção de usuários ──────────────────────────────────────────────
+    match /usuarios/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Notificações (avisos de novas apostas para o admin) ──────────────
+    match /notificacoes/{notifId} {
+      // Leitura: qualquer autenticado (o painel admin já restringe a UI a admins)
+      allow read: if request.auth != null;
+
+      // Criação: só usuário logado, não anônimo, criando notificação sobre si mesmo
+      allow create: if request.auth != null
+                     && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                     && request.auth.uid == request.resource.data.uid;
+
+      // Atualização (marcar como verificada): só admin
+      allow update: if request.auth != null
+                     && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.isAdmin == true;
+
+      allow delete: if false;
+    }
+
+    // ── Salas e subcoleções ──────────────────────────────────────────────
+    match /Salas/{salaId} {
+      // Qualquer pessoa autenticada pode ver a lista de salas (Consultar Salas)
+      allow read: if request.auth != null;
+      // Criação de sala: só usuário logado (não anônimo)
+      allow create: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow update, delete: if false; // ajuste futuro: apenas o criador da sala
+
+      // ── Participantes (apostas) ────────────────────────────────────────
+      match /Participantes/{uid} {
+        // Leitura: qualquer autenticado pode ver a lista (tela Participantes)
+        allow read: if request.auth != null;
+
+        // Escrita: o próprio usuário (criação/edição da própria aposta) OU admin (marcar verificado)
+        allow write: if request.auth != null
+                      && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                      && (request.auth.uid == uid
+                          || get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.isAdmin == true);
+      }
+
+      // ── Mensagens do chat ───────────────────────────────────────────────
+      match /Mensagens/{mensagemId} {
+        // Leitura: qualquer usuário autenticado (mesmo anônimo) pode LER
+        allow read: if request.auth != null;
+
+        // Escrita: só quem está logado (não anônimo) E tem doc em Participantes
+        allow create: if request.auth != null
+                       && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                       && request.auth.uid == request.resource.data.autorUid
+                       && request.resource.data.texto is string
+                       && request.resource.data.texto.size() > 0
+                       && request.resource.data.texto.size() <= 200
+                       && exists(/databases/$(database)/documents/Salas/$(salaId)/Participantes/$(request.auth.uid));
+
+        // Mensagens não podem ser editadas ou deletadas (histórico imutável)
+        allow update, delete: if false;
+      }
+    }
+  }
+}
