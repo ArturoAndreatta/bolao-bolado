@@ -1,5 +1,6 @@
 import 'package:bolao_bolado/pages/admin/painel_admin.dart';
 import 'package:bolao_bolado/pages/auth/signup.dart';
+import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
 import 'package:bolao_bolado/pages/home_page.dart';
 import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/participants.dart';
@@ -7,6 +8,7 @@ import 'package:bolao_bolado/pages/consultar_salas.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:bolao_bolado/components/shell/avatar_picker_dialog.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -199,35 +201,60 @@ class _AppDrawerState extends State<AppDrawer> {
                         );
                       },
                     ),
-                    _DrawerItem(
-                      icon: Icons.search,
-                      label: 'Consultar Salas',
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).push(
-                          PageRouteBuilder(
-                            transitionDuration: Duration.zero,
-                            reverseTransitionDuration: Duration.zero,
-                            pageBuilder: (_, _, _) => const ConsultarSalas(),
-                          ),
-                        );
-                      },
-                    ),
-                    if (_isAdmin)
+                    if (_isAdmin) ...[
                       _DrawerItem(
-                        icon: Icons.admin_panel_settings_outlined,
-                        label: 'Painel ADM',
+                        icon: Icons.add_business_outlined,
+                        label: 'Cadastrar Sala',
                         onTap: () {
                           Navigator.of(context).pop();
                           Navigator.of(context).push(
                             PageRouteBuilder(
                               transitionDuration: Duration.zero,
                               reverseTransitionDuration: Duration.zero,
-                              pageBuilder: (_, _, _) => const PainelAdmin(),
+                              pageBuilder: (_, _, _) => const CadastrarSala(),
                             ),
                           );
                         },
                       ),
+                      _DrawerItem(
+                        icon: Icons.search,
+                        label: 'Consultar Salas',
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          Navigator.of(context).push(
+                            PageRouteBuilder(
+                              transitionDuration: Duration.zero,
+                              reverseTransitionDuration: Duration.zero,
+                              pageBuilder: (_, _, _) => const ConsultarSalas(),
+                            ),
+                          );
+                        },
+                      ),
+                      StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        stream: FirebaseFirestore.instance
+                            .collection('notificacoes')
+                            .where('verificado', isEqualTo: false)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          final pendentes = snapshot.data?.docs.length ?? 0;
+                          return _DrawerItem(
+                            icon: Icons.admin_panel_settings_outlined,
+                            label: 'Painel ADM',
+                            badgeCount: pendentes,
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              Navigator.of(context).push(
+                                PageRouteBuilder(
+                                  transitionDuration: Duration.zero,
+                                  reverseTransitionDuration: Duration.zero,
+                                  pageBuilder: (_, _, _) => const PainelAdmin(),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
                     const _DrawerDivider(),
                   ],
                 ],
@@ -306,12 +333,14 @@ class _DrawerItem extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool isDestructive;
+  final int badgeCount;
 
   const _DrawerItem({
     required this.icon,
     required this.label,
     required this.onTap,
     this.isDestructive = false,
+    this.badgeCount = 0,
   });
 
   @override
@@ -331,14 +360,35 @@ class _DrawerItem extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 20),
               const SizedBox(width: 14),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
+              if (badgeCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    badgeCount > 99 ? '99+' : '$badgeCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

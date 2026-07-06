@@ -44,6 +44,9 @@ Future<List<Map<String, Object?>>> getBets() async {
   final firestore = FirebaseFirestore.instance;
   final salaId = await buscarSalaPrincipalId();
 
+  final salaDoc = await firestore.collection('Salas').doc(salaId).get();
+  final premioSala = (salaDoc.data()?['premio'] as num?)?.toDouble() ?? 0;
+
   final snapshot = await firestore
       .collection('Salas')
       .doc(salaId)
@@ -51,13 +54,12 @@ Future<List<Map<String, Object?>>> getBets() async {
       .orderBy('data-hora', descending: true)
       .get();
 
-  return snapshot.docs.map((doc) {
+  final participantes = snapshot.docs.map((doc) {
     final dados = doc.data();
     final uid = doc.id; // doc ID É o uid do usuário logado
     final nome = dados['nome']?.toString() ?? '';
     final valor = double.tryParse(dados['valor'].toString()) ?? 0;
     final cotas = (valor / 6).floor();
-    final premio = cotas * 1500;
     final dataHora = dados['data-hora'];
     final verificado = dados['verificado'] == true;
 
@@ -65,11 +67,21 @@ Future<List<Map<String, Object?>>> getBets() async {
       'nome': nome,
       'valor': valor,
       'cotas': cotas,
-      'premio': premio,
       'data-hora': dataHora,
       'uid': uid,
       'verificado': verificado,
     };
+  }).toList();
+
+  final totalCotas = participantes.fold<int>(
+    0,
+    (soma, item) => soma + (item['cotas'] as int),
+  );
+
+  return participantes.map((item) {
+    final cotas = item['cotas'] as int;
+    final premio = totalCotas > 0 ? (cotas / totalCotas) * premioSala : 0.0;
+    return {...item, 'premio': premio};
   }).toList();
 }
 

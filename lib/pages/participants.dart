@@ -203,11 +203,11 @@ class _ParticipantsState extends State<Participants> {
 
   // ── Layout Desktop: card de participantes + chat lateral ────────────────
   Widget _layoutDesktop(String? currentUid) {
-    const double chatHeight = 520;
+    const double chatHeight = 640;
 
     return CustomCard(
       color: const Color(0xFFF3F1EF),
-      maxWidth: 1106,
+      maxWidth: 1112,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -709,9 +709,23 @@ class _PainelEstatisticas extends StatelessWidget {
       destaque: true,
       icone: Icons.emoji_events_outlined,
       titulo: 'Chance de ganhar',
-      valor: '$chancePercentual%\n$chanceFracao',
+      valor: '$chancePercentual%',
       fontSizeValor: 26,
       infoTooltip: 'Sua chance é calculada com base no total de cotas.',
+      valorWidget: _ChanceFracaoReveal(
+        percentual: chancePercentual,
+        fracao: chanceFracao,
+        percentualStyle: const TextStyle(
+          fontSize: 26,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF1F2937),
+        ),
+        fracaoStyle: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey.shade600,
+        ),
+      ),
     );
     final cardCotas = _CardEstatistica(
       titulo: 'Cotas',
@@ -743,6 +757,57 @@ class _PainelEstatisticas extends StatelessWidget {
             if (i != cards.length - 1) const SizedBox(width: 12),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ChanceFracaoReveal extends StatefulWidget {
+  final String percentual;
+  final String fracao;
+  final TextStyle percentualStyle;
+  final TextStyle fracaoStyle;
+
+  const _ChanceFracaoReveal({
+    required this.percentual,
+    required this.fracao,
+    required this.percentualStyle,
+    required this.fracaoStyle,
+  });
+
+  @override
+  State<_ChanceFracaoReveal> createState() => _ChanceFracaoRevealState();
+}
+
+class _ChanceFracaoRevealState extends State<_ChanceFracaoReveal> {
+  bool _revelado = false;
+
+  void _toggle() => setState(() => _revelado = !_revelado);
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _revelado = true),
+      onExit: (_) => setState(() => _revelado = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: _toggle,
+        child: Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('${widget.percentual}%', style: widget.percentualStyle),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: _revelado
+                  ? Padding(
+                      key: const ValueKey('fracao'),
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(widget.fracao, style: widget.fracaoStyle),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('vazio')),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -808,27 +873,19 @@ class _BannerChance extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      '$percentual%',
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1F2937),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      fracao,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
+                _ChanceFracaoReveal(
+                  percentual: percentual,
+                  fracao: fracao,
+                  percentualStyle: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1F2937),
+                  ),
+                  fracaoStyle: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
               ],
             ),
@@ -927,6 +984,7 @@ class _CardEstatistica extends StatelessWidget {
   final Color? corValor;
   final String? infoTooltip;
   final double fontSizeValor;
+  final Widget? valorWidget;
 
   const _CardEstatistica({
     required this.titulo,
@@ -936,12 +994,13 @@ class _CardEstatistica extends StatelessWidget {
     this.corValor,
     this.infoTooltip,
     this.fontSizeValor = 24,
+    this.valorWidget,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: destaque ? const Color(0xFFFDF4E3) : const Color(0xFFFEFEFE),
         borderRadius: BorderRadius.circular(10),
@@ -987,15 +1046,16 @@ class _CardEstatistica extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            valor,
-            softWrap: true,
-            style: TextStyle(
-              fontSize: fontSizeValor,
-              fontWeight: FontWeight.w700,
-              color: corValor ?? const Color(0xFF1F2937),
-            ),
-          ),
+          valorWidget ??
+              Text(
+                valor,
+                softWrap: true,
+                style: TextStyle(
+                  fontSize: fontSizeValor,
+                  fontWeight: FontWeight.w700,
+                  color: corValor ?? const Color(0xFF1F2937),
+                ),
+              ),
         ],
       ),
     );
@@ -1006,7 +1066,7 @@ class _CardEstatistica extends StatelessWidget {
 const double _wNome = 205;
 const double _wValor = 110;
 const double _wCotas = 80;
-const double _wPremio = 125;
+const double _wPremio = 140;
 const double _wData = 155;
 const double _larguraTotal = _wNome + _wValor + _wCotas + _wPremio + _wData;
 
