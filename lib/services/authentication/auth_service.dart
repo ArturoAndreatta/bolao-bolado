@@ -25,13 +25,13 @@ class AuthService {
 
     await credential.user!.updateDisplayName(nome);
 
-    // Sorteia avatar aleatório no cadastro
-    final avatarAleatorio = AvatarService.sortearAleatorio();
+    // Sorteia uma cor aleatória da paleta para o avatar (exceto a cor do admin)
+    final corAleatoria = AvatarService.sortearCorAleatoria();
 
     await _firestore.collection('usuarios').doc(credential.user!.uid).set({
       'nome': nome,
       'email': email,
-      'avatar': avatarAleatorio,
+      'avatarColor': corAleatoria,
       'criadoEm': FieldValue.serverTimestamp(),
     });
 

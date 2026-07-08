@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/pages/home_page.dart';
 import 'package:flutter/material.dart';
 
 class BackScreenButton extends StatelessWidget {
@@ -5,6 +6,18 @@ class BackScreenButton extends StatelessWidget {
   final VoidCallback? onTap;
 
   const BackScreenButton({super.key, this.floating = true, this.onTap});
+
+  void _voltar(BuildContext context) {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomePage()),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,13 +29,10 @@ class BackScreenButton extends StatelessWidget {
         color: const Color(0xFFF9FAFB),
         elevation: 1.5,
         shadowColor: Colors.black12,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
           borderRadius: BorderRadius.circular(999),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: onTap ??
-                (Navigator.of(context).canPop()
-                    ? () => Navigator.pop(context)
-                    : null),
+          onTap: onTap ?? () => _voltar(context),
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: isMobile ? 12 : 14,

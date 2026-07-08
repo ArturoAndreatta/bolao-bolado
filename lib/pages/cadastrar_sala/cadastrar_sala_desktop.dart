@@ -1,6 +1,5 @@
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
-import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
@@ -40,8 +39,8 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
   bool get _editando => widget.salaId != null;
 
   static const double _fieldMaxWidth = 540;
-  static const double _halfWidth = 242;
   static const double _gap = 15.0;
+  static const double _halfWidth = (_fieldMaxWidth - _gap) / 2;
 
   @override
   void initState() {
@@ -95,20 +94,73 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
     }
   }
 
-  Widget _row(Widget left, Widget right) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final halfWidth = (constraints.maxWidth - _gap) / 2;
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: halfWidth, child: left),
-            SizedBox(width: _gap),
-            SizedBox(width: halfWidth, child: right),
-          ],
+  Future<void> _salvar() async {
+    if (_saving) return;
+    final navigator = Navigator.of(context);
+    if (!_formKey.currentState!.validate()) {
+      CustomShowDialog.show(context, "Preencha os campos obrigatórios!");
+      return;
+    }
+    final dataHora = juntarDataHora(dataController.text, horaController.text);
+    setState(() => _saving = true);
+    try {
+      final dados = {
+        'nome': nameController.text,
+        'descricao': descricaoController.text,
+        'sorteio': sorteio,
+        'dataHora': Timestamp.fromDate(dataHora),
+        'premio': double.parse(
+          premioController.text.replaceAll('.', '').replaceAll(',', '.'),
+        ),
+        'valorMaximo': valorMaximoApostaController.text.isNotEmpty
+            ? double.parse(
+                valorMaximoApostaController.text
+                    .replaceAll('.', '')
+                    .replaceAll(',', '.'),
+              )
+            : null,
+        'senha': senhaSalaController.text,
+        'chavePix': chavePixController.text,
+      };
+      if (_editando) {
+        await firestore.collection('Salas').doc(widget.salaId).update(dados);
+      } else {
+        await firestore.collection('Salas').add(dados);
+      }
+      if (_editando) {
+        navigator.pop();
+      } else {
+        navigator.push(
+          PageRouteBuilder(
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            pageBuilder: (_, _, _) => ConsultarSalas(),
+          ),
         );
-      },
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomShowDialog.show(context, 'Não foi possível salvar a sala: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Widget _row(Widget left, Widget right) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: _fieldMaxWidth),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: _halfWidth, child: left),
+          SizedBox(width: _gap),
+          SizedBox(width: _halfWidth, child: right),
+        ],
+      ),
     );
   }
 
@@ -130,22 +182,11 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
           CustomCard(
             color: Color(0xFFF3F1EF),
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: BackScreenButton(floating: false),
-                  ),
-                  Expanded(
-                    child: HeaderPaginas(
-                      text: _editando ? 'Editar Sala' : 'Criar Sala',
-                      subtitle: _editando
-                          ? 'Atualize as configurações da sala'
-                          : 'Configure sua nova sala de apostas',
-                    ),
-                  ),
-                ],
+              HeaderPaginas(
+                text: _editando ? 'Editar Sala' : 'Criar Sala',
+                subtitle: _editando
+                    ? 'Atualize as configurações da sala'
+                    : 'Configure sua nova sala de apostas',
               ),
               Form(
                 key: _formKey,
@@ -291,74 +332,14 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
                       icon: Icons.key,
                       controller: chavePixController,
                       textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _salvar(),
                       maxWidth: _fieldMaxWidth,
                       isRequired: true,
                     ),
                     SizedBox(height: 20),
                     PrimaryButton(
                       text: _editando ? 'Salvar Alterações' : 'Confirmar',
-                      onTap: () async {
-                        if (_saving) return;
-                        final navigator = Navigator.of(context);
-                        if (!_formKey.currentState!.validate()) {
-                          CustomShowDialog.show(
-                            context,
-                            "Preencha os campos obrigatórios!",
-                          );
-                          return;
-                        }
-                        final dataHora = juntarDataHora(
-                          dataController.text,
-                          horaController.text,
-                        );
-                        setState(() => _saving = true);
-                        try {
-                          final dados = {
-                            'nome': nameController.text,
-                            'descricao': descricaoController.text,
-                            'sorteio': sorteio,
-                            'dataHora': Timestamp.fromDate(dataHora),
-                            'premio': double.parse(
-                              premioController.text
-                                  .replaceAll('.', '')
-                                  .replaceAll(',', '.'),
-                            ),
-                            'valorMaximo':
-                                valorMaximoApostaController.text.isNotEmpty
-                                ? double.parse(
-                                    valorMaximoApostaController.text
-                                        .replaceAll('.', '')
-                                        .replaceAll(',', '.'),
-                                  )
-                                : null,
-                            'senha': senhaSalaController.text,
-                            'chavePix': chavePixController.text,
-                          };
-                          if (_editando) {
-                            await firestore
-                                .collection('Salas')
-                                .doc(widget.salaId)
-                                .update(dados);
-                          } else {
-                            await firestore.collection('Salas').add(dados);
-                          }
-                          if (_editando) {
-                            navigator.pop();
-                          } else {
-                            navigator.push(
-                              PageRouteBuilder(
-                                transitionDuration: Duration.zero,
-                                reverseTransitionDuration: Duration.zero,
-                                pageBuilder: (_, _, _) => ConsultarSalas(),
-                              ),
-                            );
-                          }
-                        } finally {
-                          if (mounted) {
-                            setState(() => _saving = false);
-                          }
-                        }
-                      },
+                      onTap: _salvar,
                     ),
                     SizedBox(height: 20),
                   ],

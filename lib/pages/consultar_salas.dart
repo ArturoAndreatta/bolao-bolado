@@ -1,5 +1,4 @@
 import 'package:bolao_bolado/components/shell/default_layout.dart';
-import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
@@ -69,20 +68,9 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
           CustomCard(
             color: Color(0xFFF3F1EF),
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: BackScreenButton(floating: false),
-                  ),
-                  Expanded(
-                    child: HeaderPaginas(
-                      text: 'Consultar Salas',
-                      subtitle: 'Veja e acompanhe as salas que você participa',
-                    ),
-                  ),
-                ],
+              HeaderPaginas(
+                text: 'Consultar Salas',
+                subtitle: 'Veja e acompanhe as salas que você participa',
               ),
               CustomCard(
                 isChild: true,

@@ -1,10 +1,12 @@
-import 'package:bolao_bolado/components/shared/back_screen_button.dart';
+import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
+import 'package:bolao_bolado/components/shared/custom_fields.dart';
+import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/core/responsive.dart';
-import 'package:bolao_bolado/models/bet.dart';
+import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +26,12 @@ class _PainelAdminState extends State<PainelAdmin> {
   String? _salaId;
   List<Map<String, dynamic>> _bets = [];
   bool _carregandoStats = true;
+
+  // Instanciada uma única vez: se streamApostasPendentes() fosse chamada
+  // direto no build(), cada setState() (ex: ao carregar stats) recriaria a
+  // Query e o StreamBuilder reiniciaria do zero, piscando a lista.
+  final Stream<QuerySnapshot<Map<String, dynamic>>> _apostasPendentesStream =
+      streamApostasPendentes();
 
   // Apostas fake para testar o layout sem tocar no Firestore.
   // Ative pelo botão "Simular apostas" no painel.
@@ -106,14 +114,136 @@ class _PainelAdminState extends State<PainelAdmin> {
     });
   }
 
-  Future<void> _confirmarAposta(String notificacaoId, String uid) async {
-    if (_salaId == null) return;
-    await verificarAposta(
-      salaId: _salaId!,
-      uid: uid,
-      notificacaoId: notificacaoId,
-    );
+  Future<void> _confirmarAposta(
+    DocumentReference<Map<String, dynamic>> participanteRef,
+  ) async {
+    await verificarApostaPorReferencia(participanteRef);
     _carregarStats();
+  }
+
+  Future<void> _abrirDialogApostaManual() async {
+    if (_salaId == null) return;
+
+    final nameController = TextEditingController();
+    final valueController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool salvando = false;
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            Future<void> salvar() async {
+              if (!formKey.currentState!.validate()) return;
+
+              final nome = nameController.text.trim();
+              final valor = valueController.text
+                  .trim()
+                  .replaceAll('.', '')
+                  .replaceAll(',', '.');
+              final valorNum = double.tryParse(valor) ?? 0;
+
+              if (valorNum == 0 || valorNum % 6 != 0) {
+                CustomShowDialog.show(
+                  dialogContext,
+                  "O valor deve ser divisível por 6!",
+                );
+                return;
+              }
+
+              setDialogState(() => salvando = true);
+              try {
+                await criarApostaManual(
+                  salaId: _salaId!,
+                  nome: nome,
+                  valor: valor,
+                );
+                if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                _carregarStats();
+              } catch (e) {
+                debugPrint('Erro ao salvar aposta manual: $e');
+                setDialogState(() => salvando = false);
+                if (dialogContext.mounted) {
+                  CustomShowDialog.show(
+                    dialogContext,
+                    "Erro ao salvar aposta. Tente novamente.",
+                  );
+                }
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFFFEFEFE),
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              title: const Text(
+                'Lançar aposta manual',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              ),
+              content: Form(
+                key: formKey,
+                child: SizedBox(
+                  width: 340,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CustomField(
+                        hint: 'Nome',
+                        icon: Icons.person_outline,
+                        controller: nameController,
+                        textInputAction: TextInputAction.next,
+                        maxWidth: 400,
+                        isRequired: true,
+                      ),
+                      const SizedBox(height: 15),
+                      CustomField(
+                        hint: 'Valor',
+                        icon: Icons.attach_money,
+                        isNumeric: true,
+                        controller: valueController,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => salvar(),
+                        maxWidth: 400,
+                        isRequired: true,
+                        prefix: const Text('R\$ '),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: salvando
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                salvando
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF7CC8B5),
+                            strokeWidth: 3,
+                          ),
+                        ),
+                      )
+                    : PrimaryButton(
+                        text: 'Salvar',
+                        width: 120,
+                        onTap: salvar,
+                      ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -128,20 +258,9 @@ class _PainelAdminState extends State<PainelAdmin> {
             children: [
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 730),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(left: 20),
-                      child: BackScreenButton(floating: false),
-                    ),
-                    Expanded(
-                      child: HeaderPaginas(
-                        text: 'Painel ADM',
-                        subtitle: 'Gerencie apostas e verificações',
-                      ),
-                    ),
-                  ],
+                child: HeaderPaginas(
+                  text: 'Painel ADM',
+                  subtitle: 'Gerencie apostas e verificações',
                 ),
               ),
               if (_loading)
@@ -169,7 +288,7 @@ class _PainelAdminState extends State<PainelAdmin> {
     );
   }
 
-  Widget _dashboardStats() {
+  Widget _dashboardStats(AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot) {
     if (_carregandoStats) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 20),
@@ -216,14 +335,14 @@ class _PainelAdminState extends State<PainelAdmin> {
           color: const Color(0xFF487DE5),
         ),
         const SizedBox(height: 12),
-        _cardPendentesStat(),
+        _cardPendentesStat(pendentesSnapshot),
       ],
     );
   }
 
-  // Conta direto da coleção 'notificacoes' (mesma fonte usada pela lista de
+  // Conta direto de Salas/*/Participantes (mesma fonte usada pela lista de
   // apostas pendentes) para o número deste card nunca divergir da lista.
-  Widget _cardPendentesStat() {
+  Widget _cardPendentesStat(AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot) {
     if (_fakePendentes != null) {
       final totalPendentes = _fakePendentes!.length;
       return _StatTile(
@@ -238,72 +357,95 @@ class _PainelAdminState extends State<PainelAdmin> {
       );
     }
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: _firestore
-          .collection('notificacoes')
-          .where('verificado', isEqualTo: false)
-          .snapshots(),
-      builder: (context, snapshot) {
-        final totalPendentes = snapshot.data?.docs.length ?? 0;
-        return _StatTile(
-          icon: Icons.pending_actions_outlined,
-          label: totalPendentes > 0
-              ? 'Aguardando verificação'
-              : 'Tudo verificado',
-          value: '$totalPendentes pendentes',
-          color: totalPendentes > 0
-              ? const Color(0xFFEF4444)
-              : const Color(0xFF2E7D32),
-        );
-      },
+    // Em erro (ex: permissão negada), não assume 0 — mantém visível que algo
+    // falhou em vez de mostrar "tudo verificado".
+    if (snapshot.hasError) {
+      return const _StatTile(
+        icon: Icons.pending_actions_outlined,
+        label: 'Erro ao carregar',
+        value: '—',
+        color: Color(0xFFEF4444),
+      );
+    }
+    final totalPendentes = snapshot.data?.docs.length ?? 0;
+    return _StatTile(
+      icon: Icons.pending_actions_outlined,
+      label: totalPendentes > 0 ? 'Aguardando verificação' : 'Tudo verificado',
+      value: '$totalPendentes pendentes',
+      color: totalPendentes > 0
+          ? const Color(0xFFEF4444)
+          : const Color(0xFF2E7D32),
     );
   }
 
   Widget _conteudoPainel() {
     final isMobile = Responsive.isMobile(context);
 
-    return CustomCard(
-      isChild: true,
-      color: const Color(0xFFFEFEFE),
-      children: [
-        const SizedBox(height: 10),
-        if (isMobile)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _dashboardStats(),
-              const SizedBox(height: 24),
-              SizedBox(height: 520, child: _cardApostasPendentes()),
-            ],
-          )
-        else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              const espacamento = 20.0;
-              final larguraStats = (constraints.maxWidth - espacamento) * 3 / 5;
-              const alturaTiles = 640.0;
+    // Único StreamBuilder para toda a página: card de estatística e lista
+    // compartilham o mesmo snapshot, evitando que duas subscriptions
+    // independentes da mesma query divirjam em estado (uma com erro, outra
+    // sem) por causa de timing entre o cache local e o servidor.
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _apostasPendentesStream,
+      builder: (context, pendentesSnapshot) {
+        if (pendentesSnapshot.hasError) {
+          // ignore: avoid_print
+          print('Erro ao carregar apostas pendentes: ${pendentesSnapshot.error}');
+        }
 
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        return CustomCard(
+          isChild: true,
+          color: const Color(0xFFFEFEFE),
+          children: [
+            const SizedBox(height: 10),
+            if (isMobile)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(width: larguraStats, child: _dashboardStats()),
-                  const SizedBox(width: espacamento),
-                  Expanded(
-                    child: SizedBox(
-                      height: alturaTiles,
-                      child: _cardApostasPendentes(),
-                    ),
+                  _dashboardStats(pendentesSnapshot),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 520,
+                    child: _cardApostasPendentes(pendentesSnapshot),
                   ),
                 ],
-              );
-            },
-          ),
-        const SizedBox(height: 10),
-      ],
+              )
+            else
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const espacamento = 20.0;
+                  final larguraStats =
+                      (constraints.maxWidth - espacamento) * 3 / 5;
+                  const alturaTiles = 640.0;
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: larguraStats,
+                        child: _dashboardStats(pendentesSnapshot),
+                      ),
+                      const SizedBox(width: espacamento),
+                      Expanded(
+                        child: SizedBox(
+                          height: alturaTiles,
+                          child: _cardApostasPendentes(pendentesSnapshot),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            const SizedBox(height: 10),
+          ],
+        );
+      },
     );
   }
 
-  Widget _cardApostasPendentes() {
+  Widget _cardApostasPendentes(
+    AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -326,6 +468,11 @@ class _PainelAdminState extends State<PainelAdmin> {
                   ),
                 ),
               ),
+              IconButton(
+                tooltip: 'Lançar aposta manual',
+                onPressed: _abrirDialogApostaManual,
+                icon: const Icon(Icons.person_add_alt_1_outlined, size: 20),
+              ),
               if (_fakePendentes == null)
                 IconButton(
                   tooltip: 'Simular apostas (dev)',
@@ -344,141 +491,147 @@ class _PainelAdminState extends State<PainelAdmin> {
           if (_fakePendentes != null)
             Expanded(child: _listaApostasFake(_fakePendentes!))
           else
-            Expanded(
-              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: _firestore
-                    .collection('notificacoes')
-                    .where('verificado', isEqualTo: false)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF7CC8B5),
-                        strokeWidth: 5,
-                      ),
-                    );
-                  }
+            Expanded(child: _corpoListaPendentes(snapshot)),
+        ],
+      ),
+    );
+  }
 
-                  // Ordenado no cliente: 'data-hora' usa serverTimestamp() e
-                  // fica null no snapshot otimista local antes da confirmação
-                  // do servidor. Ordenar via query nesse campo fazia docs
-                  // recém-criados sumirem da lista até o valor sincronizar.
-                  final docs = [...snapshot.data?.docs ?? []]
-                    ..sort((a, b) {
-                      final tsA = a.data()['data-hora'] as Timestamp?;
-                      final tsB = b.data()['data-hora'] as Timestamp?;
-                      if (tsA == null && tsB == null) return 0;
-                      if (tsA == null) return -1;
-                      if (tsB == null) return 1;
-                      return tsB.compareTo(tsA);
-                    });
+  Widget _corpoListaPendentes(
+    AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot,
+  ) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF7CC8B5),
+          strokeWidth: 5,
+        ),
+      );
+    }
 
-                  if (docs.isEmpty) {
-                    return const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.check_circle_outline,
-                            size: 40,
-                            color: Color(0xFF2E7D32),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Nenhuma aposta pendente de verificação.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final formatoMoeda = NumberFormat.currency(
-                    locale: 'pt_BR',
-                    symbol: 'R\$',
-                  );
-
-                  return SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (var index = 0; index < docs.length; index++) ...[
-                          if (index > 0) const SizedBox(height: 12),
-                          Builder(
-                            builder: (context) {
-                              final doc = docs[index];
-                              final dados = doc.data();
-                              final nome = dados['nome']?.toString() ?? '—';
-                              final uid = dados['uid']?.toString() ?? '';
-                              final valor =
-                                  double.tryParse(dados['valor'].toString()) ??
-                                  0;
-
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFEFEFE),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            nome,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF1F2937),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            formatoMoeda.format(valor),
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFF2E7D32),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    IconButton(
-                                      tooltip: 'Confirmar aposta',
-                                      onPressed: () =>
-                                          _confirmarAposta(doc.id, uid),
-                                      icon: const Text(
-                                        '✅',
-                                        style: TextStyle(fontSize: 22),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ],
-                    ),
-                  );
-                },
-              ),
+    if (snapshot.hasError) {
+      // Sem isso, um erro na query (ex: permissão negada ou índice do
+      // collectionGroup ausente) cai no caso `docs.isEmpty` e a lista
+      // mostra "tudo verificado" mesmo havendo apostas pendentes.
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 40,
+              color: Color(0xFFEF4444),
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Erro ao carregar apostas pendentes:\n${snapshot.error}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Ordenado no cliente: 'data-hora' usa serverTimestamp() e
+    // fica null no snapshot otimista local antes da confirmação
+    // do servidor. Ordenar via query nesse campo fazia docs
+    // recém-criados sumirem da lista até o valor sincronizar.
+    final docs = [...snapshot.data?.docs ?? []]
+      ..sort((a, b) {
+        final tsA = a.data()['data-hora'] as Timestamp?;
+        final tsB = b.data()['data-hora'] as Timestamp?;
+        if (tsA == null && tsB == null) return 0;
+        if (tsA == null) return -1;
+        if (tsB == null) return 1;
+        return tsB.compareTo(tsA);
+      });
+
+    if (docs.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.check_circle_outline,
+              size: 40,
+              color: Color(0xFF2E7D32),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Nenhuma aposta pendente de verificação.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final formatoMoeda = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var index = 0; index < docs.length; index++) ...[
+            if (index > 0) const SizedBox(height: 12),
+            Builder(
+              builder: (context) {
+                final doc = docs[index];
+                final dados = doc.data();
+                final nome = dados['nome']?.toString() ?? '—';
+                final valor = double.tryParse(dados['valor'].toString()) ?? 0;
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEFEFE),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              nome,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              formatoMoeda.format(valor),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2E7D32),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Confirmar aposta',
+                        onPressed: () => _confirmarAposta(doc.reference),
+                        icon: const Text('✅', style: TextStyle(fontSize: 22)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
         ],
       ),
     );

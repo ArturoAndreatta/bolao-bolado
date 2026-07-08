@@ -1,4 +1,4 @@
-import 'package:bolao_bolado/components/shared/branding/logo.dart';
+import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:flutter/material.dart';
 
@@ -6,12 +6,16 @@ class HeaderPaginas extends StatelessWidget {
   final String text;
   final String subtitle;
   final Widget? trailing;
+  final bool showBackButton;
+  final VoidCallback? onBackTap;
 
   const HeaderPaginas({
     super.key,
     required this.text,
     required this.subtitle,
     this.trailing,
+    this.showBackButton = true,
+    this.onBackTap,
   });
 
   @override
@@ -19,21 +23,16 @@ class HeaderPaginas extends StatelessWidget {
     final isMobile = Responsive.isMobile(context);
 
     return Padding(
-      padding: EdgeInsets.symmetric(
-        // horizontal: isMobile ? 16 : 24,
-        // vertical: isMobile ? 4 : 2,
-      ),
+      padding: const EdgeInsets.fromLTRB(15, 0, 10, 0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // SizedBox(
-          // width: isMobile ? 72 : 80,
-          // height: isMobile ? 44 : 48,
-          // child: Logo(isSmall: true, logo: 'images/logo4.png'),
-          // ),
+          if (showBackButton)
+            BackScreenButton(floating: false, onTap: onBackTap),
           const SizedBox(width: 14),
           Container(
             width: 1,
-            height: isMobile ? 50 : 36,
+            height: isMobile ? 50 : 40,
             color: Colors.grey.shade300,
           ),
 
@@ -41,7 +40,7 @@ class HeaderPaginas extends StatelessWidget {
 
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(0, 4, 0, 4),
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -53,16 +52,18 @@ class HeaderPaginas extends StatelessWidget {
                       fontSize: isMobile ? 24 : 21,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF1F2937),
+                      height: 1.0,
                     ),
                   ),
 
-                  const SizedBox(height: 0),
+                  const SizedBox(height: 4),
 
                   Text(
                     subtitle,
                     style: TextStyle(
                       fontSize: isMobile ? 15 : 14,
                       color: Colors.grey.shade600,
+                      height: 1.0,
                     ),
                   ),
                 ],

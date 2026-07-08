@@ -22,7 +22,14 @@ class _ChatSalaState extends State<ChatSala> {
   bool _podeEnviar = false;
   bool _verificandoPermissao = true;
   bool _enviando = false;
-  String? _avatarAtual;
+
+  // Criada uma única vez em initState: se fosse aberta direto no build(),
+  // cada rebuild do widget pai (ex: nova aposta atualizando a tela de
+  // participantes) geraria uma nova instância de Stream, forçando o
+  // StreamBuilder a descartar a subscription antiga e reiniciar o chat
+  // (efeito de "recarregar" mesmo sem nenhuma mensagem nova).
+  late final Stream<List<Mensagem>> _mensagensStream = _chatService
+      .mensagensStream(widget.salaId);
 
   @override
   void initState() {
@@ -39,17 +46,10 @@ class _ChatSalaState extends State<ChatSala> {
 
   Future<void> _verificarPermissao() async {
     final pode = await _chatService.usuarioPodeParticipar(widget.salaId);
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-
-    String? avatar;
-    if (uid != null) {
-      avatar = await AvatarService.buscarAvatar(uid);
-    }
 
     if (mounted) {
       setState(() {
         _podeEnviar = pode;
-        _avatarAtual = avatar;
         _verificandoPermissao = false;
       });
     }
@@ -82,7 +82,6 @@ class _ChatSalaState extends State<ChatSala> {
         salaId: widget.salaId,
         texto: texto,
         autorNome: user.displayName ?? 'Participante',
-        autorAvatar: _avatarAtual,
       );
       _textoController.clear();
       _scrollParaFinal();
@@ -112,7 +111,7 @@ class _ChatSalaState extends State<ChatSala> {
             _CabecalhoChat(),
             Expanded(
               child: StreamBuilder<List<Mensagem>>(
-                stream: _chatService.mensagensStream(widget.salaId),
+                stream: _mensagensStream,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
@@ -387,20 +386,28 @@ class _BolhaMensagem extends StatelessWidget {
   }
 
   Widget _avatar() {
+    return FutureBuilder<Color>(
+      future: AvatarService.buscarCor(mensagem.autorUid),
+      builder: (context, snapshot) {
+        return _avatarCirculo(snapshot.data ?? const Color(0xFFE5E7EB));
+      },
+    );
+  }
+
+  Widget _avatarCirculo(Color cor) {
     return CircleAvatar(
       radius: 14,
-      backgroundColor: const Color(0xFFE5E7EB),
-      backgroundImage: mensagem.autorAvatar != null
-          ? AssetImage(mensagem.autorAvatar!)
-          : null,
-      child: mensagem.autorAvatar == null
-          ? Text(
-              mensagem.autorNome.isNotEmpty
-                  ? mensagem.autorNome[0].toUpperCase()
-                  : '?',
-              style: const TextStyle(fontSize: 11, color: Color(0xFF1F2937)),
-            )
-          : null,
+      backgroundColor: cor,
+      child: Text(
+        mensagem.autorNome.isNotEmpty
+            ? mensagem.autorNome[0].toUpperCase()
+            : '?',
+        style: const TextStyle(
+          fontSize: 11,
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

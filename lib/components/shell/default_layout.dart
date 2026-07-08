@@ -1,4 +1,3 @@
-import 'package:bolao_bolado/components/shared/branding/logo.dart';
 import 'package:bolao_bolado/components/shell/footer.dart';
 import 'package:bolao_bolado/components/shell/gradient_decoration.dart';
 import 'package:bolao_bolado/core/responsive.dart';
@@ -7,7 +6,13 @@ import 'package:flutter/material.dart';
 class DefaultLayout extends StatelessWidget {
   final Widget child;
   final Widget? drawer;
-  const DefaultLayout({super.key, required this.child, this.drawer});
+  final void Function(bool isOpened)? onDrawerChanged;
+  const DefaultLayout({
+    super.key,
+    required this.child,
+    this.drawer,
+    this.onDrawerChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +22,7 @@ class DefaultLayout extends StatelessWidget {
       decoration: GradientDecoration.backgroundGradient(),
       child: Scaffold(
         drawer: drawer,
+        onDrawerChanged: onDrawerChanged,
         backgroundColor: Colors.transparent,
         bottomNavigationBar: isMobile ? null : const Footer(),
         appBar: drawer != null
@@ -26,6 +32,11 @@ class DefaultLayout extends StatelessWidget {
                 scrolledUnderElevation: 0,
                 automaticallyImplyLeading: true,
                 iconTheme: const IconThemeData(color: Color(0xFF1F2937)),
+                centerTitle: true,
+                title: SizedBox(
+                  height: 50,
+                  child: Image.asset('images/logo4.png', fit: BoxFit.contain),
+                ),
               )
             : null,
         body: Stack(

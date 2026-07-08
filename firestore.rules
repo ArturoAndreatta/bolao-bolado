@@ -6,22 +6,17 @@ service cloud.firestore {
     // ── Coleção de usuários ──────────────────────────────────────────────
     match /usuarios/{uid} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
-    }
 
-    // ── Notificações (avisos de novas apostas para o admin) ──────────────
-    match /notificacoes/{notifId} {
-      // Leitura: qualquer autenticado (o painel admin já restringe a UI a admins)
-      allow read: if request.auth != null;
-
-      // Criação: só usuário logado, não anônimo, criando notificação sobre si mesmo
+      // Criação do próprio documento: não pode nascer já como admin.
       allow create: if request.auth != null
-                     && request.auth.token.firebase.sign_in_provider != 'anonymous'
-                     && request.auth.uid == request.resource.data.uid;
+                     && request.auth.uid == uid
+                     && request.resource.data.get('isAdmin', false) == false;
 
-      // Atualização (marcar como verificada): só admin
+      // Atualização: o próprio usuário pode editar seus dados, mas não pode
+      // alterar seu próprio campo isAdmin (só via console/admin SDK).
       allow update: if request.auth != null
-                     && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.isAdmin == true;
+                     && request.auth.uid == uid
+                     && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false);
 
       allow delete: if false;
     }
@@ -32,7 +27,11 @@ service cloud.firestore {
       allow read: if request.auth != null;
       // Criação de sala: só usuário logado (não anônimo)
       allow create: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
-      allow update, delete: if false; // ajuste futuro: apenas o criador da sala
+      // Atualização: apenas admin (edição de sala pelo painel admin)
+      allow update: if request.auth != null
+                     && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                     && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.isAdmin == true;
+      allow delete: if false; // ajuste futuro: apenas o criador da sala
 
       // ── Participantes (apostas) ────────────────────────────────────────
       match /Participantes/{uid} {
@@ -63,6 +62,16 @@ service cloud.firestore {
         // Mensagens não podem ser editadas ou deletadas (histórico imutável)
         allow update, delete: if false;
       }
+    }
+
+    // Regra explícita para collection group queries (ex: painel admin
+    // listando apostas pendentes de TODAS as salas de uma vez via
+    // collectionGroup('Participantes')). A regra aninhada em
+    // Salas/{salaId}/Participantes/{uid} cobre leitura de uma sala por vez,
+    // mas não é aplicada a queries de collection group — precisa desta
+    // declaração own no nível raiz.
+    match /{path=**}/Participantes/{uid} {
+      allow read: if request.auth != null;
     }
   }
 }

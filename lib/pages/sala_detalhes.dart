@@ -4,7 +4,7 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/models/sala.dart';
 import 'package:bolao_bolado/widgets/participants_table.dart';
-import 'package:bolao_bolado/models/bet.dart';
+import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 

@@ -44,7 +44,6 @@ class ChatService {
     required String salaId,
     required String texto,
     required String autorNome,
-    String? autorAvatar,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.isAnonymous) {
@@ -64,7 +63,6 @@ class ChatService {
       texto: textoLimpo,
       autorUid: user.uid,
       autorNome: autorNome,
-      autorAvatar: autorAvatar,
     );
 
     await _firestore

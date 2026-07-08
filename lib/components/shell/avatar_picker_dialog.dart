@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 
 Future<void> mostrarEscolhaAvatar(
   BuildContext context, {
-  required String avatarAtual,
-  required void Function(String novoAvatar) onSelecionado,
+  required Color corAtual,
+  required void Function(Color novaCor) onSelecionado,
+  bool isAdmin = false,
 }) async {
   final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -14,15 +15,19 @@ Future<void> mostrarEscolhaAvatar(
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => _AvatarBottomSheet(
-        avatarAtual: avatarAtual,
+        corAtual: corAtual,
         onSelecionado: onSelecionado,
+        isAdmin: isAdmin,
       ),
     );
   } else {
     await showDialog(
       context: context,
-      builder: (_) =>
-          _AvatarDialog(avatarAtual: avatarAtual, onSelecionado: onSelecionado),
+      builder: (_) => _AvatarDialog(
+        corAtual: corAtual,
+        onSelecionado: onSelecionado,
+        isAdmin: isAdmin,
+      ),
     );
   }
 }
@@ -30,22 +35,27 @@ Future<void> mostrarEscolhaAvatar(
 // ─── Dialog (desktop) ────────────────────────────────────────────────────────
 
 class _AvatarDialog extends StatefulWidget {
-  final String avatarAtual;
-  final void Function(String) onSelecionado;
+  final Color corAtual;
+  final void Function(Color) onSelecionado;
+  final bool isAdmin;
 
-  const _AvatarDialog({required this.avatarAtual, required this.onSelecionado});
+  const _AvatarDialog({
+    required this.corAtual,
+    required this.onSelecionado,
+    this.isAdmin = false,
+  });
 
   @override
   State<_AvatarDialog> createState() => _AvatarDialogState();
 }
 
 class _AvatarDialogState extends State<_AvatarDialog> {
-  late String _selecionado;
+  late Color _selecionada;
 
   @override
   void initState() {
     super.initState();
-    _selecionado = widget.avatarAtual;
+    _selecionada = widget.corAtual;
   }
 
   @override
@@ -59,7 +69,7 @@ class _AvatarDialogState extends State<_AvatarDialog> {
         side: BorderSide(color: Colors.grey.shade200, width: 1),
       ),
       title: const Text(
-        'Escolha seu avatar',
+        'Escolha a cor do seu avatar',
         style: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
@@ -68,9 +78,10 @@ class _AvatarDialogState extends State<_AvatarDialog> {
       ),
       content: SizedBox(
         width: 320,
-        child: _GridAvatares(
-          selecionado: _selecionado,
-          onTap: (avatar) => setState(() => _selecionado = avatar),
+        child: _GridCores(
+          selecionada: _selecionada,
+          onTap: (cor) => setState(() => _selecionada = cor),
+          isAdmin: widget.isAdmin,
         ),
       ),
       actions: [
@@ -80,8 +91,8 @@ class _AvatarDialogState extends State<_AvatarDialog> {
         ),
         ElevatedButton(
           onPressed: () async {
-            await AvatarService.salvarAvatar(_selecionado);
-            widget.onSelecionado(_selecionado);
+            await AvatarService.salvarCor(_selecionada.toARGB32());
+            widget.onSelecionado(_selecionada);
             if (context.mounted) Navigator.of(context).pop();
           },
           style: ElevatedButton.styleFrom(
@@ -101,12 +112,14 @@ class _AvatarDialogState extends State<_AvatarDialog> {
 // ─── Bottom Sheet (mobile) ───────────────────────────────────────────────────
 
 class _AvatarBottomSheet extends StatefulWidget {
-  final String avatarAtual;
-  final void Function(String) onSelecionado;
+  final Color corAtual;
+  final void Function(Color) onSelecionado;
+  final bool isAdmin;
 
   const _AvatarBottomSheet({
-    required this.avatarAtual,
+    required this.corAtual,
     required this.onSelecionado,
+    this.isAdmin = false,
   });
 
   @override
@@ -114,12 +127,12 @@ class _AvatarBottomSheet extends StatefulWidget {
 }
 
 class _AvatarBottomSheetState extends State<_AvatarBottomSheet> {
-  late String _selecionado;
+  late Color _selecionada;
 
   @override
   void initState() {
     super.initState();
-    _selecionado = widget.avatarAtual;
+    _selecionada = widget.corAtual;
   }
 
   @override
@@ -144,7 +157,7 @@ class _AvatarBottomSheetState extends State<_AvatarBottomSheet> {
             ),
           ),
           const Text(
-            'Escolha seu avatar',
+            'Escolha a cor do seu avatar',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -152,17 +165,18 @@ class _AvatarBottomSheetState extends State<_AvatarBottomSheet> {
             ),
           ),
           const SizedBox(height: 20),
-          _GridAvatares(
-            selecionado: _selecionado,
-            onTap: (avatar) => setState(() => _selecionado = avatar),
+          _GridCores(
+            selecionada: _selecionada,
+            onTap: (cor) => setState(() => _selecionada = cor),
+            isAdmin: widget.isAdmin,
           ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () async {
-                await AvatarService.salvarAvatar(_selecionado);
-                widget.onSelecionado(_selecionado);
+                await AvatarService.salvarCor(_selecionada.toARGB32());
+                widget.onSelecionado(_selecionada);
                 if (context.mounted) Navigator.of(context).pop();
               },
               style: ElevatedButton.styleFrom(
@@ -185,17 +199,22 @@ class _AvatarBottomSheetState extends State<_AvatarBottomSheet> {
   }
 }
 
-// ─── Grid de avatares compartilhado ─────────────────────────────────────────
+// ─── Grid de cores compartilhado ─────────────────────────────────────────────
 
-class _GridAvatares extends StatelessWidget {
-  final String selecionado;
-  final void Function(String) onTap;
+class _GridCores extends StatelessWidget {
+  final Color selecionada;
+  final void Function(Color) onTap;
+  final bool isAdmin;
 
-  const _GridAvatares({required this.selecionado, required this.onTap});
+  const _GridCores({
+    required this.selecionada,
+    required this.onTap,
+    this.isAdmin = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final avatares = AvatarService.todosAvatares;
+    final cores = isAdmin ? [...kCoresAvatar, kCorBaseAdmin] : kCoresAvatar;
 
     return GridView.builder(
       shrinkWrap: true,
@@ -205,13 +224,13 @@ class _GridAvatares extends StatelessWidget {
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
-      itemCount: avatares.length,
+      itemCount: cores.length,
       itemBuilder: (context, index) {
-        final avatar = avatares[index];
-        final isSelected = avatar == selecionado;
+        final cor = cores[index];
+        final isSelected = cor.toARGB32() == selecionada.toARGB32();
 
         return GestureDetector(
-          onTap: () => onTap(avatar),
+          onTap: () => onTap(cor),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             decoration: BoxDecoration(
@@ -232,10 +251,7 @@ class _GridAvatares extends StatelessWidget {
                     ]
                   : null,
             ),
-            child: CircleAvatar(
-              backgroundImage: AssetImage(avatar),
-              backgroundColor: Colors.grey.shade200,
-            ),
+            child: CircleAvatar(backgroundColor: cor),
           ),
         );
       },

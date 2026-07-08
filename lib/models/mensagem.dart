@@ -5,7 +5,6 @@ class Mensagem {
   final String texto;
   final String autorUid;
   final String autorNome;
-  final String? autorAvatar;
   final DateTime? criadoEm;
 
   Mensagem({
@@ -13,7 +12,6 @@ class Mensagem {
     required this.texto,
     required this.autorUid,
     required this.autorNome,
-    this.autorAvatar,
     this.criadoEm,
   });
 
@@ -24,7 +22,6 @@ class Mensagem {
       texto: data['texto'] ?? '',
       autorUid: data['autorUid'] ?? '',
       autorNome: data['autorNome'] ?? 'Anônimo',
-      autorAvatar: data['autorAvatar'],
       criadoEm: (data['criadoEm'] as Timestamp?)?.toDate(),
     );
   }
@@ -34,7 +31,6 @@ class Mensagem {
       'texto': texto,
       'autorUid': autorUid,
       'autorNome': autorNome,
-      'autorAvatar': autorAvatar,
       'criadoEm': FieldValue.serverTimestamp(),
     };
   }

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:math';
+import 'package:bolao_bolado/bolao_bolado.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
@@ -9,6 +11,7 @@ import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/pages.dart';
 import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/components/shared/constants/phrases.dart';
+import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -19,8 +22,12 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with RouteAware {
+  static const _fraseInterval = Duration(seconds: 5);
+
   late String frase;
+  Timer? _fraseTimer;
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -28,9 +35,46 @@ class _HomePageState extends State<HomePage> {
     _sortearFrase();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context) as PageRoute);
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    _stopTimer();
+    super.dispose();
+  }
+
+  @override
+  void didPush() => _startTimer();
+
+  @override
+  void didPopNext() => _startTimer();
+
+  @override
+  void didPushNext() => _stopTimer();
+
+  @override
+  void didPop() => _stopTimer();
+
+  void _startTimer() {
+    _stopTimer();
+    _fraseTimer = Timer.periodic(_fraseInterval, (_) => _sortearFrase());
+  }
+
+  void _stopTimer() {
+    _fraseTimer?.cancel();
+    _fraseTimer = null;
+  }
+
   void _sortearFrase() {
     final random = Random();
-    frase = phrases[random.nextInt(phrases.length)];
+    final novaFrase = phrases[random.nextInt(phrases.length)];
+    if (!mounted) return;
+    setState(() => frase = novaFrase);
   }
 
   @override
@@ -56,29 +100,36 @@ class _HomePageState extends State<HomePage> {
                       text: ' ao Bolão Bolado!',
                       style: TextStyle(fontWeight: FontWeight.w500),
                     ),
-                    TextSpan(
-                      text: '\n$frase',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontStyle: FontStyle.italic,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
                   ],
                 ),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 25),
                 softWrap: true,
               ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                child: Text(
+                  frase,
+                  key: ValueKey(frase),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w500,
+                    fontStyle: FontStyle.italic,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
               SizedBox(height: 20),
               PrimaryButton(
-                text: 'Acessar',
+                text: _authService.isLoggedIn ? 'Minha Aposta' : 'Acessar',
                 onTap: () {
                   Navigator.of(context).push(
                     PageRouteBuilder(
                       transitionDuration: Duration.zero,
                       reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) => Signup(),
+                      pageBuilder: (_, _, _) =>
+                          _authService.isLoggedIn ? Login() : Signup(),
                     ),
                   );
                 },

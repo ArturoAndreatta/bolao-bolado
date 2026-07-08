@@ -1,6 +1,5 @@
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
-import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
@@ -92,6 +91,61 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
     }
   }
 
+  Future<void> _salvar() async {
+    if (_saving) return;
+    final navigator = Navigator.of(context);
+    if (!_formKey.currentState!.validate()) {
+      CustomShowDialog.show(context, "Preencha os campos obrigatórios!");
+      return;
+    }
+    final dataHora = juntarDataHora(dataController.text, horaController.text);
+    setState(() => _saving = true);
+    try {
+      final dados = {
+        'nome': nameController.text,
+        'descricao': descricaoController.text,
+        'sorteio': sorteio,
+        'dataHora': Timestamp.fromDate(dataHora),
+        'premio': double.parse(
+          premioController.text.replaceAll('.', '').replaceAll(',', '.'),
+        ),
+        'valorMaximo': valorMaximoApostaController.text.isNotEmpty
+            ? double.parse(
+                valorMaximoApostaController.text
+                    .replaceAll('.', '')
+                    .replaceAll(',', '.'),
+              )
+            : null,
+        'senha': senhaSalaController.text,
+        'chavePix': chavePixController.text,
+      };
+      if (_editando) {
+        await firestore.collection('Salas').doc(widget.salaId).update(dados);
+      } else {
+        await firestore.collection('Salas').add(dados);
+      }
+      if (_editando) {
+        navigator.pop();
+      } else {
+        navigator.push(
+          PageRouteBuilder(
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            pageBuilder: (_, _, _) => ConsultarSalas(),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomShowDialog.show(context, 'Não foi possível salvar a sala: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loadingSala) {
@@ -110,22 +164,11 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
           CustomCard(
             color: Color(0xFFF3F1EF),
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: BackScreenButton(floating: false),
-                  ),
-                  Expanded(
-                    child: HeaderPaginas(
-                      text: _editando ? 'Editar Sala' : 'Criar Sala',
-                      subtitle: _editando
-                          ? 'Atualize as configurações da sala'
-                          : 'Configure sua nova sala de apostas',
-                    ),
-                  ),
-                ],
+              HeaderPaginas(
+                text: _editando ? 'Editar Sala' : 'Criar Sala',
+                subtitle: _editando
+                    ? 'Atualize as configurações da sala'
+                    : 'Configure sua nova sala de apostas',
               ),
               Form(
                 key: _formKey,
@@ -269,74 +312,14 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                       icon: Icons.key,
                       controller: chavePixController,
                       textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _salvar(),
                       maxWidth: 480,
                       isRequired: true,
                     ),
                     SizedBox(height: 20),
                     PrimaryButton(
                       text: _editando ? 'Salvar Alterações' : 'Confirmar',
-                      onTap: () async {
-                        if (_saving) return;
-                        final navigator = Navigator.of(context);
-                        if (!_formKey.currentState!.validate()) {
-                          CustomShowDialog.show(
-                            context,
-                            "Preencha os campos obrigatórios!",
-                          );
-                          return;
-                        }
-                        final dataHora = juntarDataHora(
-                          dataController.text,
-                          horaController.text,
-                        );
-                        setState(() => _saving = true);
-                        try {
-                          final dados = {
-                            'nome': nameController.text,
-                            'descricao': descricaoController.text,
-                            'sorteio': sorteio,
-                            'dataHora': Timestamp.fromDate(dataHora),
-                            'premio': double.parse(
-                              premioController.text
-                                  .replaceAll('.', '')
-                                  .replaceAll(',', '.'),
-                            ),
-                            'valorMaximo':
-                                valorMaximoApostaController.text.isNotEmpty
-                                ? double.parse(
-                                    valorMaximoApostaController.text
-                                        .replaceAll('.', '')
-                                        .replaceAll(',', '.'),
-                                  )
-                                : null,
-                            'senha': senhaSalaController.text,
-                            'chavePix': chavePixController.text,
-                          };
-                          if (_editando) {
-                            await firestore
-                                .collection('Salas')
-                                .doc(widget.salaId)
-                                .update(dados);
-                          } else {
-                            await firestore.collection('Salas').add(dados);
-                          }
-                          if (_editando) {
-                            navigator.pop();
-                          } else {
-                            navigator.push(
-                              PageRouteBuilder(
-                                transitionDuration: Duration.zero,
-                                reverseTransitionDuration: Duration.zero,
-                                pageBuilder: (_, _, _) => ConsultarSalas(),
-                              ),
-                            );
-                          }
-                        } finally {
-                          if (mounted) {
-                            setState(() => _saving = false);
-                          }
-                        }
-                      },
+                      onTap: _salvar,
                     ),
                     SizedBox(height: 20),
                   ],

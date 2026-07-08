@@ -1,4 +1,3 @@
-import 'package:bolao_bolado/pages/auth/signup.dart';
 import 'package:bolao_bolado/pages/home_page.dart';
 import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
@@ -13,6 +12,8 @@ class BolaoBolado extends StatefulWidget {
   State<BolaoBolado> createState() => _BolaoBoladoState();
 }
 
+final routeObserver = RouteObserver<PageRoute>();
+
 class _BolaoBoladoState extends State<BolaoBolado> {
   final AuthService _authService = AuthService();
 
@@ -22,6 +23,7 @@ class _BolaoBoladoState extends State<BolaoBolado> {
       title: 'Bolão Bolado',
       theme: ThemeData(useMaterial3: true),
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [routeObserver],
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR'), Locale('en', 'US')],
       localizationsDelegates: const [

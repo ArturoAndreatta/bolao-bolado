@@ -1,4 +1,3 @@
-import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
@@ -50,20 +49,9 @@ class _RegisterState extends State<Register> {
           CustomCard(
             color: const Color(0xFFF3F1EF),
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: BackScreenButton(floating: false),
-                  ),
-                  Expanded(
-                    child: HeaderPaginas(
-                      text: 'Criar conta',
-                      subtitle: 'Preencha seus dados para se cadastrar',
-                    ),
-                  ),
-                ],
+              HeaderPaginas(
+                text: 'Criar conta',
+                subtitle: 'Preencha seus dados para se cadastrar',
               ),
               Form(
                 key: _formKey,
@@ -99,6 +87,7 @@ class _RegisterState extends State<Register> {
                       maxWidth: 480,
                       obscure: _obscureSenha,
                       suffix: IconButton(
+                        focusNode: FocusNode(skipTraversal: true),
                         onPressed: () =>
                             setState(() => _obscureSenha = !_obscureSenha),
                         icon: Icon(
@@ -118,6 +107,7 @@ class _RegisterState extends State<Register> {
                       maxWidth: 480,
                       obscure: _obscureConfirmar,
                       suffix: IconButton(
+                        focusNode: FocusNode(skipTraversal: true),
                         onPressed: () => setState(
                           () => _obscureConfirmar = !_obscureConfirmar,
                         ),

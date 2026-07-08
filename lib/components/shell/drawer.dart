@@ -7,21 +7,30 @@ import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/pages/consultar_salas.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
+import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/components/shell/avatar_picker_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class AppDrawer extends StatefulWidget {
-  const AppDrawer({super.key});
+  final void Function(Color novaCor)? onAvatarChanged;
+
+  const AppDrawer({super.key, this.onAvatarChanged});
 
   @override
   State<AppDrawer> createState() => _AppDrawerState();
 }
 
 class _AppDrawerState extends State<AppDrawer> {
-  String? _avatarAtual;
+  Color? _corAvatarAtual;
   bool _isAdmin = false;
+
+  // Instanciada uma única vez: se streamApostasPendentes() fosse chamada
+  // direto no build(), cada setState() (ex: ao carregar avatar/isAdmin)
+  // recriaria a Query e o badge piscaria durante a sincronização.
+  final Stream<QuerySnapshot<Map<String, dynamic>>> _apostasPendentesStream =
+      streamApostasPendentes();
 
   @override
   void initState() {
@@ -31,10 +40,10 @@ class _AppDrawerState extends State<AppDrawer> {
   }
 
   Future<void> _carregarAvatar() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    final avatar = await AvatarService.buscarAvatar(uid);
-    if (mounted) setState(() => _avatarAtual = avatar);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) return;
+    final cor = await AvatarService.buscarCor(user.uid, email: user.email);
+    if (mounted) setState(() => _corAvatarAtual = cor);
   }
 
   Future<void> _carregarIsAdmin() async {
@@ -77,12 +86,14 @@ class _AppDrawerState extends State<AppDrawer> {
                     child: GestureDetector(
                       onTap: isLoggedIn
                           ? () async {
-                              if (_avatarAtual == null) return;
+                              if (_corAvatarAtual == null) return;
                               await mostrarEscolhaAvatar(
                                 context,
-                                avatarAtual: _avatarAtual!,
-                                onSelecionado: (novoAvatar) {
-                                  setState(() => _avatarAtual = novoAvatar);
+                                corAtual: _corAvatarAtual!,
+                                isAdmin: _isAdmin,
+                                onSelecionado: (novaCor) {
+                                  setState(() => _corAvatarAtual = novaCor);
+                                  widget.onAvatarChanged?.call(novaCor);
                                 },
                               );
                             }
@@ -100,12 +111,10 @@ class _AppDrawerState extends State<AppDrawer> {
                               ),
                             ),
                             child: ClipOval(
-                              child: _avatarAtual != null
-                                  ? Image.asset(
-                                      _avatarAtual!,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          _avatarFallback(inicial),
+                              child: _corAvatarAtual != null
+                                  ? _avatarFallback(
+                                      inicial,
+                                      cor: _corAvatarAtual,
                                     )
                                   : _avatarFallback(inicial),
                             ),
@@ -231,10 +240,7 @@ class _AppDrawerState extends State<AppDrawer> {
                         },
                       ),
                       StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                        stream: FirebaseFirestore.instance
-                            .collection('notificacoes')
-                            .where('verificado', isEqualTo: false)
-                            .snapshots(),
+                        stream: _apostasPendentesStream,
                         builder: (context, snapshot) {
                           final pendentes = snapshot.data?.docs.length ?? 0;
                           return _DrawerItem(
@@ -311,9 +317,9 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 
-  Widget _avatarFallback(String inicial) {
+  Widget _avatarFallback(String inicial, {Color? cor}) {
     return Container(
-      color: const Color(0xFF487DE5),
+      color: cor ?? const Color(0xFF487DE5),
       child: Center(
         child: Text(
           inicial,

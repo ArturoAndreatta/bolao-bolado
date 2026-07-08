@@ -1,11 +1,11 @@
 {
-    "name": "",
-    "short_name": "",
+    "name": "Bolão Bolado",
+    "short_name": "Bolão Bolado",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "",
+    "description": "Organize e participe de bolões com seus amigos de forma simples e divertida.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

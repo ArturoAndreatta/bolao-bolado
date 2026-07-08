@@ -5,7 +5,6 @@ import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
-import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:flutter/material.dart';
 
@@ -39,20 +38,9 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
           CustomCard(
             color: const Color(0xFFF3F1EF),
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: BackScreenButton(floating: false),
-                  ),
-                  Expanded(
-                    child: HeaderPaginas(
-                      text: 'Recuperar senha',
-                      subtitle: 'Informe seu e-mail para redefinir a senha',
-                    ),
-                  ),
-                ],
+              HeaderPaginas(
+                text: 'Recuperar senha',
+                subtitle: 'Informe seu e-mail para redefinir a senha',
               ),
               Form(
                 key: _formKey,

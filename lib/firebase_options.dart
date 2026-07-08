@@ -85,5 +85,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'bolaobolado-app.firebasestorage.app',
     iosBundleId: 'com.example.bolaoBolado',
   );
-
 }
