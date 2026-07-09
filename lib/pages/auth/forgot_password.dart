@@ -5,8 +5,10 @@ import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class RecuperarSenha extends StatefulWidget {
   final String? email;
@@ -42,6 +44,7 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
               HeaderPaginas(
                 text: 'Recuperar senha',
                 subtitle: 'Informe seu e-mail para redefinir a senha',
+                onBack: () => context.go(AppRoutes.signup),
               ),
               Form(
                 key: _formKey,
@@ -86,6 +89,7 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
                         controller: emailController,
                         textInputAction: TextInputAction.done,
                         maxWidth: 480,
+                        autofocus: true,
                       ),
                       const SizedBox(height: 20),
                       _loading

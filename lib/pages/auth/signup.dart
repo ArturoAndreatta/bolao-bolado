@@ -62,6 +62,7 @@ class _SignupState extends State<Signup> {
                       controller: emailController,
                       textInputAction: TextInputAction.next,
                       maxWidth: 480,
+                      autofocus: true,
                     ),
                     const SizedBox(height: 15),
                     CustomField(

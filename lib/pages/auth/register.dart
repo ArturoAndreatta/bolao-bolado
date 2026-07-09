@@ -53,6 +53,7 @@ class _RegisterState extends State<Register> {
               HeaderPaginas(
                 text: 'Criar conta',
                 subtitle: 'Preencha seus dados para se cadastrar',
+                onBack: () => context.go(AppRoutes.signup),
               ),
               Form(
                 key: _formKey,
@@ -67,6 +68,7 @@ class _RegisterState extends State<Register> {
                       controller: nomeController,
                       textInputAction: TextInputAction.next,
                       maxWidth: 480,
+                      autofocus: true,
                     ),
                     const SizedBox(height: 15),
                     CustomField(

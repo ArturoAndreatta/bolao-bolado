@@ -127,6 +127,7 @@ class _CadastrarSalaMobileState extends State<CadastrarSalaMobile> {
                       textInputAction: TextInputAction.next,
                       maxWidth: 480,
                       isRequired: true,
+                      autofocus: true,
                     ),
                     SizedBox(height: 15),
                     CustomField(

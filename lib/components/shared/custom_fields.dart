@@ -22,6 +22,7 @@ class CustomField extends StatelessWidget {
   // Validação adicional, aplicada depois da checagem de obrigatório/numérico.
   // Retorne null para indicar que o valor passou nessa checagem extra.
   final String? Function(String?)? validator;
+  final bool autofocus;
 
   const CustomField({
     super.key,
@@ -40,6 +41,7 @@ class CustomField extends StatelessWidget {
     this.prefix,
     this.isRequired = false,
     this.validator,
+    this.autofocus = false,
   });
 
   String? _validate(String? value) {
@@ -63,6 +65,7 @@ class CustomField extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: maxWidth!),
       child: TextFormField(
         controller: controller,
+        autofocus: autofocus,
         readOnly: readOnly!,
         keyboardType: keyboardType,
         textInputAction: textInputAction,

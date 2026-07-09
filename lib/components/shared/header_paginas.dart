@@ -7,6 +7,7 @@ class HeaderPaginas extends StatelessWidget {
   final String subtitle;
   final Widget? trailing;
   final bool showBackButton;
+  final VoidCallback? onBack;
 
   const HeaderPaginas({
     super.key,
@@ -14,6 +15,7 @@ class HeaderPaginas extends StatelessWidget {
     required this.subtitle,
     this.trailing,
     this.showBackButton = true,
+    this.onBack,
   });
 
   @override
@@ -25,7 +27,8 @@ class HeaderPaginas extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (showBackButton) const BackScreenButton(floating: false),
+          if (showBackButton)
+            BackScreenButton(floating: false, onTap: onBack),
           const SizedBox(width: 14),
           Container(
             width: 1,

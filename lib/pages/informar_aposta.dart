@@ -231,6 +231,7 @@ class _LoginState extends State<Login> {
                         textInputAction: TextInputAction.next,
                         maxWidth: 480,
                         isRequired: true,
+                        autofocus: true,
                       ),
                       const SizedBox(height: 15),
                       CustomField(

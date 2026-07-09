@@ -147,6 +147,7 @@ class _CadastrarSalaDesktopState extends State<CadastrarSalaDesktop> {
                       textInputAction: TextInputAction.next,
                       maxWidth: _fieldMaxWidth,
                       isRequired: true,
+                      autofocus: true,
                     ),
                     SizedBox(height: _gap),
                     CustomField(

@@ -107,15 +107,18 @@ class _ParticipantsState extends State<Participants> {
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final isLoggedIn = AuthService().isLoggedIn;
 
     return DefaultLayout(
       drawer: AppDrawer(onAvatarChanged: (_) => _load()),
-      child: isMobile ? _layoutMobile(currentUid) : _layoutDesktop(currentUid),
+      child: isMobile
+          ? _layoutMobile(currentUid)
+          : _layoutDesktop(currentUid, isLoggedIn),
     );
   }
 
   // ── Layout Desktop: card de participantes + chat lateral ────────────────
-  Widget _layoutDesktop(String? currentUid) {
+  Widget _layoutDesktop(String? currentUid, bool isLoggedIn) {
     // Altura fixa para alinhar painel de participantes e chat lado a lado
     const double chatHeight = 510;
 
@@ -128,8 +131,10 @@ class _ParticipantsState extends State<Participants> {
           subtitle: 'Visualize quem está participando',
           trailing: _isAdmin ? _botoesAdminDesktop() : null,
           // Participants é sempre acessada via context.go (login ou
-          // "Visualizar" na Home), nunca empilhada — não há para onde voltar.
-          showBackButton: false,
+          // "Visualizar" na Home), nunca empilhada. Usuário logado não tem
+          // para onde voltar; visitante (deslogado ou sessão anônima) veio da Home.
+          showBackButton: !isLoggedIn,
+          onBack: () => context.go(AppRoutes.home),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
