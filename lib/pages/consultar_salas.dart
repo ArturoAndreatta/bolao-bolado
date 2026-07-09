@@ -4,9 +4,10 @@ import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/models/sala.dart';
-import 'package:bolao_bolado/pages/sala_detalhes.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class ConsultarSalas extends StatefulWidget {
   const ConsultarSalas({super.key});
@@ -47,6 +48,8 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
     });
   }
 
+  // Filtro é feito em memória sobre a lista já carregada (sem nova query ao Firestore),
+  // pois a base de salas tende a ser pequena e a busca precisa responder a cada tecla digitada.
   void _filtrar() {
     final busca = _buscaController.text.trim().toLowerCase();
     setState(() {
@@ -59,6 +62,8 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
   @override
   Widget build(BuildContext context) {
     final altura = MediaQuery.of(context).size.height;
+    // Limita a altura da lista a uma faixa razoável para não estourar em telas pequenas
+    // nem ficar desproporcional em telas grandes.
     final alturaLista = (altura * 0.5).clamp(260.0, 500.0);
 
     return DefaultLayout(
@@ -129,15 +134,7 @@ class _SalaCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.of(context).push(
-            PageRouteBuilder(
-              transitionDuration: Duration.zero,
-              reverseTransitionDuration: Duration.zero,
-              pageBuilder: (_, _, _) => SalaDetalhes(sala: sala),
-            ),
-          );
-        },
+        onTap: () => context.go(AppRoutes.salaDetalhes, extra: sala),
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(

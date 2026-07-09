@@ -1,5 +1,6 @@
-import 'package:bolao_bolado/pages/home_page.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class BackScreenButton extends StatelessWidget {
   final bool floating;
@@ -8,15 +9,11 @@ class BackScreenButton extends StatelessWidget {
   const BackScreenButton({super.key, this.floating = true, this.onTap});
 
   void _voltar(BuildContext context) {
-    final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
-      navigator.pop();
+    if (context.canPop()) {
+      context.pop();
       return;
     }
-    navigator.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const HomePage()),
-      (route) => false,
-    );
+    context.go(AppRoutes.home);
   }
 
   @override

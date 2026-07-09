@@ -3,9 +3,11 @@ import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/models/sala.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/widgets/participants_table.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 class SalaDetalhes extends StatefulWidget {
@@ -28,6 +30,8 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
 
   Future<void> _carregarApostas() async {
     setState(() => _loading = true);
+    // Atenção: getBets() sempre busca as apostas da sala "principal" (via
+    // buscarSalaPrincipalId), não necessariamente as de widget.sala.
     final data = await getBets();
     setState(() {
       _apostas = data;
@@ -90,7 +94,7 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => context.pop(),
             child: Text('Fechar'),
           ),
         ],
@@ -128,6 +132,8 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height;
+    // Limita a altura da tabela a uma faixa razoável para não estourar em telas muito
+    // pequenas nem ficar desproporcional em telas muito grandes.
     final heightTable = (height * 0.45).clamp(260.0, 420.0);
 
     const widthNome = 140.0;
@@ -147,7 +153,10 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    BackScreenButton(floating: false),
+                    BackScreenButton(
+                      floating: false,
+                      onTap: () => context.go(AppRoutes.consultarSalas),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(

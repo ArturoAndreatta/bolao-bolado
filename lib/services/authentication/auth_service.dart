@@ -14,6 +14,8 @@ class AuthService {
     required String senha,
     required String nome,
   }) async {
+    // Usuário anônimo é descartável: some app pode logar anonimamente antes
+    // de cadastrar, então a conta anônima é apagada pra não sobrar lixo no Auth.
     if (_auth.currentUser != null && _auth.currentUser!.isAnonymous) {
       await _auth.currentUser!.delete();
     }
@@ -54,6 +56,8 @@ class AuthService {
 
   Future<void> logout() async {
     await _auth.signOut();
+    // App sempre mantém alguma sessão ativa (mesmo anônima) pra permitir
+    // leitura de dados públicos sem forçar login imediato.
     await _auth.signInAnonymously();
   }
 

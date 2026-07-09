@@ -1,10 +1,4 @@
-import 'package:bolao_bolado/pages/admin/painel_admin.dart';
-import 'package:bolao_bolado/pages/auth/signup.dart';
-import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
-import 'package:bolao_bolado/pages/home_page.dart';
-import 'package:bolao_bolado/pages/informar_aposta.dart';
-import 'package:bolao_bolado/pages/participants.dart';
-import 'package:bolao_bolado/pages/consultar_salas.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
@@ -12,6 +6,7 @@ import 'package:bolao_bolado/components/shell/avatar_picker_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class AppDrawer extends StatefulWidget {
   final void Function(Color novaCor)? onAvatarChanged;
@@ -186,28 +181,18 @@ class _AppDrawerState extends State<AppDrawer> {
                       icon: Icons.how_to_vote_outlined,
                       label: 'Minha Aposta',
                       onTap: () {
+                        final router = GoRouter.of(context);
                         Navigator.of(context).pop();
-                        Navigator.of(context).push(
-                          PageRouteBuilder(
-                            transitionDuration: Duration.zero,
-                            reverseTransitionDuration: Duration.zero,
-                            pageBuilder: (_, _, _) => const Login(),
-                          ),
-                        );
+                        router.go(AppRoutes.informarAposta);
                       },
                     ),
                     _DrawerItem(
                       icon: Icons.people_outline,
                       label: 'Participantes',
                       onTap: () {
+                        final router = GoRouter.of(context);
                         Navigator.of(context).pop();
-                        Navigator.of(context).push(
-                          PageRouteBuilder(
-                            transitionDuration: Duration.zero,
-                            reverseTransitionDuration: Duration.zero,
-                            pageBuilder: (_, _, _) => const Participants(),
-                          ),
-                        );
+                        router.go(AppRoutes.participants);
                       },
                     ),
                     if (_isAdmin) ...[
@@ -215,28 +200,18 @@ class _AppDrawerState extends State<AppDrawer> {
                         icon: Icons.add_business_outlined,
                         label: 'Cadastrar Sala',
                         onTap: () {
+                          final router = GoRouter.of(context);
                           Navigator.of(context).pop();
-                          Navigator.of(context).push(
-                            PageRouteBuilder(
-                              transitionDuration: Duration.zero,
-                              reverseTransitionDuration: Duration.zero,
-                              pageBuilder: (_, _, _) => const CadastrarSala(),
-                            ),
-                          );
+                          router.go(AppRoutes.cadastrarSala);
                         },
                       ),
                       _DrawerItem(
                         icon: Icons.search,
                         label: 'Consultar Salas',
                         onTap: () {
+                          final router = GoRouter.of(context);
                           Navigator.of(context).pop();
-                          Navigator.of(context).push(
-                            PageRouteBuilder(
-                              transitionDuration: Duration.zero,
-                              reverseTransitionDuration: Duration.zero,
-                              pageBuilder: (_, _, _) => const ConsultarSalas(),
-                            ),
-                          );
+                          router.go(AppRoutes.consultarSalas);
                         },
                       ),
                       StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -248,14 +223,9 @@ class _AppDrawerState extends State<AppDrawer> {
                             label: 'Painel ADM',
                             badgeCount: pendentes,
                             onTap: () {
+                              final router = GoRouter.of(context);
                               Navigator.of(context).pop();
-                              Navigator.of(context).push(
-                                PageRouteBuilder(
-                                  transitionDuration: Duration.zero,
-                                  reverseTransitionDuration: Duration.zero,
-                                  pageBuilder: (_, _, _) => const PainelAdmin(),
-                                ),
-                              );
+                              router.go(AppRoutes.painelAdmin);
                             },
                           );
                         },
@@ -279,18 +249,14 @@ class _AppDrawerState extends State<AppDrawer> {
                       label: 'Sair',
                       isDestructive: true,
                       onTap: () async {
+                        // Captura o GoRouter antes de fechar o drawer: o
+                        // context do item do drawer é desmontado junto com
+                        // o Drawer, então usá-lo depois do pop (mesmo que
+                        // "mounted") pode não navegar mais.
+                        final router = GoRouter.of(context);
                         Navigator.of(context).pop();
                         await AuthService().logout();
-                        if (context.mounted) {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            PageRouteBuilder(
-                              transitionDuration: Duration.zero,
-                              reverseTransitionDuration: Duration.zero,
-                              pageBuilder: (_, _, _) => const HomePage(),
-                            ),
-                            (route) => false,
-                          );
-                        }
+                        router.go(AppRoutes.home);
                       },
                     )
                   else
@@ -298,14 +264,9 @@ class _AppDrawerState extends State<AppDrawer> {
                       icon: Icons.login,
                       label: 'Entrar',
                       onTap: () {
+                        final router = GoRouter.of(context);
                         Navigator.of(context).pop();
-                        Navigator.of(context).push(
-                          PageRouteBuilder(
-                            transitionDuration: Duration.zero,
-                            reverseTransitionDuration: Duration.zero,
-                            pageBuilder: (_, _, _) => const Signup(),
-                          ),
-                        );
+                        router.go(AppRoutes.signup);
                       },
                     ),
                 ],

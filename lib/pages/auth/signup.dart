@@ -5,14 +5,11 @@ import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
-import 'package:bolao_bolado/pages/auth/forgot_password.dart';
-import 'package:bolao_bolado/pages/auth/register.dart';
-import 'package:bolao_bolado/pages/pages.dart';
-import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/core/responsive.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class Signup extends StatefulWidget {
   const Signup({super.key});
@@ -38,8 +35,6 @@ class _SignupState extends State<Signup> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final isDesktopWeb = kIsWeb && width >= 900;
     final isMobile = Responsive.isMobile(context);
 
     return DefaultLayout(
@@ -135,26 +130,6 @@ class _SignupState extends State<Signup> {
               ),
             ],
           ),
-          Positioned(
-            top: 10,
-            left: isDesktopWeb ? 500 : 250,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(30),
-                onTap: () {
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      transitionDuration: Duration.zero,
-                      reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) => Pages(),
-                    ),
-                  );
-                },
-                child: Container(padding: const EdgeInsets.all(20)),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -175,14 +150,7 @@ class _SignupState extends State<Signup> {
       );
 
       if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          PageRouteBuilder(
-            transitionDuration: Duration.zero,
-            reverseTransitionDuration: Duration.zero,
-            pageBuilder: (_, _, _) => const Participants(),
-          ),
-          (route) => false,
-        );
+        context.go(AppRoutes.participants);
       }
     } on Exception catch (e) {
       if (mounted) {
@@ -194,25 +162,24 @@ class _SignupState extends State<Signup> {
   }
 
   void _irParaCadastro() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-        pageBuilder: (_, _, _) => Register(email: emailController.text),
-      ),
+    context.go(
+      Uri(
+        path: AppRoutes.register,
+        queryParameters: {'email': emailController.text},
+      ).toString(),
     );
   }
 
   void _recuperarSenha() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-        pageBuilder: (_, _, _) => RecuperarSenha(email: emailController.text),
-      ),
+    context.go(
+      Uri(
+        path: AppRoutes.forgotPassword,
+        queryParameters: {'email': emailController.text},
+      ).toString(),
     );
   }
 
+  // Traduz os códigos de erro do FirebaseAuth para mensagens em português
   String _traduzirErro(String erro) {
     if (erro.contains('user-not-found') ||
         erro.contains('wrong-password') ||

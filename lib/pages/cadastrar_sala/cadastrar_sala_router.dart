@@ -12,6 +12,8 @@ class CadastrarSala extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Responsive.isMobile define o breakpoint que decide entre a versão
+        // mobile e a desktop desta página (ver core/responsive.dart).
         final isMobile = Responsive.isMobile(context);
 
         if (isMobile) {
@@ -24,6 +26,8 @@ class CadastrarSala extends StatelessWidget {
   }
 }
 
+// Combina os campos separados de data (dd/mm/aaaa) e hora (hh:mm) dos
+// formulários de cadastro/edição de sala em um único DateTime.
 DateTime juntarDataHora(String data, String hora) {
   final separadorData = data.split('/');
   final dia = int.parse(separadorData[0]);

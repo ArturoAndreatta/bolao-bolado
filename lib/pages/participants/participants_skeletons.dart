@@ -1,81 +1,6 @@
+import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart';
 import 'package:flutter/material.dart';
-
-/// Efeito shimmer aplicado a qualquer child (usado nos placeholders de skeleton).
-class Shimmer extends StatefulWidget {
-  final Widget child;
-
-  const Shimmer({super.key, required this.child});
-
-  @override
-  State<Shimmer> createState() => _ShimmerState();
-}
-
-class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return ShaderMask(
-          blendMode: BlendMode.srcATop,
-          shaderCallback: (bounds) {
-            final dx = _controller.value * 2 - 1;
-            return LinearGradient(
-              begin: Alignment(-1 + dx, 0),
-              end: Alignment(1 + dx, 0),
-              colors: const [
-                Color(0xFFE5E7EB),
-                Color(0xFFF3F4F6),
-                Color(0xFFE5E7EB),
-              ],
-              stops: const [0.35, 0.5, 0.65],
-            ).createShader(bounds);
-          },
-          child: child,
-        );
-      },
-      child: widget.child,
-    );
-  }
-}
-
-/// Bloco retangular usado como placeholder de texto/ícone dentro do skeleton.
-class SkeletonBox extends StatelessWidget {
-  final double width;
-  final double height;
-  final double radius;
-
-  const SkeletonBox({
-    super.key,
-    required this.width,
-    required this.height,
-    this.radius = 6,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE5E7EB),
-        borderRadius: BorderRadius.circular(radius),
-      ),
-    );
-  }
-}
 
 /// Placeholder de um card de estatística (mesmo formato de [CardEstatistica]).
 class SkeletonCardEstatistica extends StatelessWidget {
@@ -138,6 +63,8 @@ class SkeletonEstatisticasDesktop extends StatelessWidget {
 class SkeletonTabela extends StatelessWidget {
   const SkeletonTabela({super.key});
 
+  // Reusa as mesmas larguras de coluna de TabelaApostas para que o skeleton
+  // não "pule" quando os dados reais chegam e substituem o placeholder.
   static const List<double> _larguras = [wNome, wValor, wCotas, wPremio, wData];
 
   @override

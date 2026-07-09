@@ -10,6 +10,21 @@ const double wPremio = 140;
 const double wData = 155;
 const double larguraTotal = wNome + wValor + wCotas + wPremio + wData;
 
+// Compara o timestamp atual de um uid com o último visto e já atualiza o
+// registro em `conhecidos`. Usado para decidir se uma linha deve animar a
+// entrada (uid inédito, ou mesmo uid com timestamp diferente = reenviado).
+bool detectarLinhaNova(
+  Map<String, int?> conhecidos,
+  String? uid,
+  int? tsAtual,
+) {
+  if (uid == null) return false;
+  final tsConhecido = conhecidos[uid];
+  final isNova = !conhecidos.containsKey(uid) || tsConhecido != tsAtual;
+  conhecidos[uid] = tsAtual;
+  return isNova;
+}
+
 class TabelaApostas extends StatefulWidget {
   final List<Map<String, dynamic>> rows;
   final int colunaOrdenada;
@@ -17,6 +32,8 @@ class TabelaApostas extends StatefulWidget {
   final void Function(int) onCabecalhoTap;
   final String? currentUid;
   final Widget? mensagemVazio;
+  // Usado no card desktop, onde a tabela precisa ocupar o espaço disponível
+  // e rolar internamente; no mobile a tabela cresce com o conteúdo.
   final bool alturaFixa;
 
   const TabelaApostas({
@@ -144,13 +161,13 @@ class _TabelaApostasState extends State<TabelaApostas> {
             final tsAtual = dataHora is Timestamp
                 ? dataHora.millisecondsSinceEpoch
                 : null;
-            final tsConhecido = uid == null ? null : _timestampsConhecidos[uid];
-            final isNova =
-                uid != null &&
-                (!_timestampsConhecidos.containsKey(uid) ||
-                    tsConhecido != tsAtual);
-            if (uid != null) _timestampsConhecidos[uid] = tsAtual;
+            final isNova = detectarLinhaNova(
+              _timestampsConhecidos,
+              uid,
+              tsAtual,
+            );
 
+            // Prioridade visual: edição pós-verificação > verificado > zebra (par/ímpar)
             return LinhaEntrandoAnimada(
               key: ValueKey('$uid-${tsAtual ?? index}'),
               animar: isNova,

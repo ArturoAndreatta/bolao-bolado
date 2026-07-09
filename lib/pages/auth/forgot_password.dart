@@ -19,6 +19,7 @@ class RecuperarSenha extends StatefulWidget {
 class _RecuperarSenhaState extends State<RecuperarSenha> {
   late final emailController = TextEditingController(text: widget.email);
   bool _loading = false;
+  // Controla a troca entre o formulário de e-mail e a tela de confirmação de envio
   bool _enviado = false;
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
@@ -115,6 +116,7 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
       if (mounted) setState(() => _enviado = true);
     } on Exception catch (e) {
       if (mounted) {
+        // Firebase retorna 'user-not-found' quando o e-mail não está cadastrado
         final msg = e.toString().contains('user-not-found')
             ? 'E-mail não encontrado.'
             : 'Erro ao enviar e-mail. Tente novamente.';

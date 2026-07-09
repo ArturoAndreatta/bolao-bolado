@@ -7,13 +7,15 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
+import 'package:bolao_bolado/components/shared/skeletons.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/services/bet/preco_cota.dart';
-import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 class Login extends StatefulWidget {
@@ -56,6 +58,8 @@ class _LoginState extends State<Login> {
     final salaId = await buscarSalaPrincipalId();
     if (!mounted) return;
 
+    // Escuta a sala em tempo real: prêmio e sorteio podem mudar enquanto o usuário
+    // está preenchendo o formulário, então o preço da cota é recalculado a cada emissão.
     _salaSubscription = _firestore
         .collection('Salas')
         .doc(salaId)
@@ -68,6 +72,8 @@ class _LoginState extends State<Login> {
           });
         });
 
+    // Soma as cotas de todos os outros participantes (exclui o próprio usuário) para
+    // manter o cálculo de prêmio estimado atualizado em tempo real.
     _betsSubscription = streamBets().listen((bets) {
       if (!mounted) return;
       final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -91,6 +97,8 @@ class _LoginState extends State<Login> {
 
   void _onValorAlterado() => setState(() {});
 
+  // Converte o texto no formato pt_BR (ponto de milhar, vírgula decimal) para número
+  // antes de calcular quantas cotas o valor informado compra.
   int get _minhasCotas {
     final valor = valueController.text.trim();
     final valorEditado = valor.replaceAll('.', '').replaceAll(',', '.');
@@ -98,6 +106,8 @@ class _LoginState extends State<Login> {
     return (valorNum / _precoCota).floor();
   }
 
+  // Prêmio é proporcional à fração de cotas do usuário em relação ao total da sala
+  // (minhas cotas + cotas de todos os outros participantes, vindas do stream em tempo real).
   double get _meuPremio {
     final minhasCotas = _minhasCotas;
     final totalCotas = _totalCotasOutros + minhasCotas;
@@ -137,6 +147,7 @@ class _LoginState extends State<Login> {
     setState(() => _loading = false);
   }
 
+  // Formata o valor salvo (número puro) para o padrão pt_BR exibido no campo (1.234,56).
   String _formatarValor(String valor) {
     try {
       final numero = double.parse(valor);
@@ -162,12 +173,53 @@ class _LoginState extends State<Login> {
                 subtitle: 'Informe seus palpites para os jogos',
               ),
               if (_loading)
-                const Padding(
-                  padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(
-                    color: Color(0xFF7CC8B5),
-                    strokeWidth: 5,
-                  ),
+                CustomCard(
+                  isChild: true,
+                  children: [
+                    const SizedBox(height: 20),
+                    const Shimmer(
+                      child: SkeletonCampoFormulario(maxWidth: 480),
+                    ),
+                    const SizedBox(height: 15),
+                    const Shimmer(
+                      child: SkeletonCampoFormulario(maxWidth: 480),
+                    ),
+                    const SizedBox(height: 15),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: Shimmer(
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              flex: 2,
+                              child: SkeletonBox(
+                                width: double.infinity,
+                                height: 62,
+                                radius: 10,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: SkeletonBox(
+                                width: double.infinity,
+                                height: 62,
+                                radius: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Shimmer(
+                      child: SkeletonBox(
+                        width: 480,
+                        height: 48,
+                        radius: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 )
               else
                 Form(
@@ -258,9 +310,9 @@ class _LoginState extends State<Login> {
     final nome = nameController.text.trim();
     final valor = valueController.text.trim();
     final valorEditado = valor.replaceAll('.', '').replaceAll(',', '.');
-    final navigator = Navigator.of(context);
 
     final valorNum = double.tryParse(valorEditado) ?? 0;
+    // Regra de negócio: valor da aposta precisa ser múltiplo do preço da cota (6 números da Mega-Sena).
     if (valorNum == 0 || valorNum % 6 != 0) {
       CustomShowDialog.show(context, "O valor deve ser divisível por 6!");
       return;
@@ -281,6 +333,8 @@ class _LoginState extends State<Login> {
           .collection('Participantes')
           .doc(user.uid);
 
+      // Busca direto do servidor (ignora cache local) para saber com certeza se a aposta
+      // já havia sido verificada por um admin antes desta edição.
       final apostaAnterior = await apostaRef.get(
         const GetOptions(source: Source.server),
       );
@@ -292,17 +346,14 @@ class _LoginState extends State<Login> {
         'valor': valorEditado,
         'uid': user.uid,
         'data-hora': FieldValue.serverTimestamp(),
+        // Apostas feitas/editadas por admin já entram verificadas; participantes comuns
+        // sempre precisam de nova verificação manual.
         'verificado': isAdmin ? true : false,
+        // Sinaliza para o admin que uma aposta já aprovada foi alterada e precisa ser revista.
         'editadoAposVerificacao': isAdmin ? false : jaEstavaVerificada,
       });
 
-      navigator.push(
-        PageRouteBuilder(
-          transitionDuration: Duration.zero,
-          reverseTransitionDuration: Duration.zero,
-          pageBuilder: (_, _, _) => const Participants(),
-        ),
-      );
+      if (mounted) context.go(AppRoutes.participants);
     } catch (e) {
       debugPrint('Erro ao salvar aposta: $e');
       if (mounted) {

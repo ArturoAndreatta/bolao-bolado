@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+// Campo de busca usado no desktop (sem seletor de ordenação, que fica no
+// cabeçalho clicável da tabela) e reaproveitado dentro de BarraBuscaOrdenacao
+// (mobile), que só adiciona o seletor de ordenação ao lado.
 class CampoBusca extends StatefulWidget {
   final String busca;
   final void Function(String) onBuscaChanged;
@@ -85,6 +88,7 @@ class _CampoBuscaState extends State<CampoBusca> {
           Expanded(
             child: Focus(
               onKeyEvent: (node, event) {
+                // Esc tira o foco do campo sem limpar o texto digitado
                 if (event is KeyDownEvent &&
                     event.logicalKey == LogicalKeyboardKey.escape) {
                   _effectiveFocusNode.unfocus();
@@ -114,6 +118,8 @@ class _CampoBuscaState extends State<CampoBusca> {
   }
 }
 
+// Busca + seletor de ordenação combinados: usado no mobile, onde não há
+// cabeçalho de tabela clicável para ordenar (a lista usa cards, não colunas).
 class BarraBuscaOrdenacao extends StatelessWidget {
   final String busca;
   final void Function(String) onBuscaChanged;
@@ -130,6 +136,8 @@ class BarraBuscaOrdenacao extends StatelessWidget {
     required this.onOrdenarPor,
   });
 
+  // Índices correspondem às colunas de TabelaApostas (mesma convenção de
+  // ordenação); ordem do mapa é a ordem de exibição no menu, não os índices.
   static const Map<int, String> _opcoes = {
     1: 'Valor',
     0: 'Nome',
@@ -142,36 +150,7 @@ class BarraBuscaOrdenacao extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEFEFE),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.search, size: 18, color: Colors.grey.shade500),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    onChanged: onBuscaChanged,
-                    decoration: InputDecoration(
-                      isCollapsed: true,
-                      border: InputBorder.none,
-                      hintText: 'Buscar participante...',
-                      hintStyle: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: CampoBusca(busca: busca, onBuscaChanged: onBuscaChanged),
         ),
         const SizedBox(width: 8),
         PopupMenuButton<int>(

@@ -3,6 +3,7 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
+import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/core/responsive.dart';
@@ -10,6 +11,7 @@ import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 class PainelAdmin extends StatefulWidget {
@@ -82,6 +84,8 @@ class _PainelAdminState extends State<PainelAdmin> {
 
   Future<void> _verificarAcesso() async {
     final user = FirebaseAuth.instance.currentUser;
+    // Usuário anônimo nunca é admin: painel exige conta cadastrada com
+    // flag isAdmin no Firestore.
     if (user == null || user.isAnonymous) {
       setState(() {
         _autorizado = false;
@@ -144,6 +148,8 @@ class _PainelAdminState extends State<PainelAdmin> {
                   .replaceAll(',', '.');
               final valorNum = double.tryParse(valor) ?? 0;
 
+              // Cota do bolão custa R$6, então qualquer valor lançado
+              // manualmente precisa ser múltiplo desse preço.
               if (valorNum == 0 || valorNum % 6 != 0) {
                 CustomShowDialog.show(
                   dialogContext,
@@ -159,7 +165,7 @@ class _PainelAdminState extends State<PainelAdmin> {
                   nome: nome,
                   valor: valor,
                 );
-                if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                if (dialogContext.mounted) dialogContext.pop();
                 _carregarStats();
               } catch (e) {
                 debugPrint('Erro ao salvar aposta manual: $e');
@@ -216,9 +222,7 @@ class _PainelAdminState extends State<PainelAdmin> {
               ),
               actions: [
                 TextButton(
-                  onPressed: salvando
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(),
+                  onPressed: salvando ? null : () => dialogContext.pop(),
                   child: const Text('Cancelar'),
                 ),
                 salvando
@@ -233,11 +237,7 @@ class _PainelAdminState extends State<PainelAdmin> {
                           ),
                         ),
                       )
-                    : PrimaryButton(
-                        text: 'Salvar',
-                        width: 120,
-                        onTap: salvar,
-                      ),
+                    : PrimaryButton(text: 'Salvar', width: 120, onTap: salvar),
               ],
             );
           },
@@ -264,13 +264,7 @@ class _PainelAdminState extends State<PainelAdmin> {
                 ),
               ),
               if (_loading)
-                const Padding(
-                  padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(
-                    color: Color(0xFF7CC8B5),
-                    strokeWidth: 5,
-                  ),
-                )
+                _skeletonPainelCompleto()
               else if (!_autorizado)
                 const Padding(
                   padding: EdgeInsets.all(40),
@@ -288,15 +282,11 @@ class _PainelAdminState extends State<PainelAdmin> {
     );
   }
 
-  Widget _dashboardStats(AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot) {
+  Widget _dashboardStats(
+    AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot,
+  ) {
     if (_carregandoStats) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 20),
-        child: CircularProgressIndicator(
-          color: Color(0xFF7CC8B5),
-          strokeWidth: 5,
-        ),
-      );
+      return const SkeletonDashboardStats();
     }
 
     final formatoMoeda = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
@@ -342,7 +332,9 @@ class _PainelAdminState extends State<PainelAdmin> {
 
   // Conta direto de Salas/*/Participantes (mesma fonte usada pela lista de
   // apostas pendentes) para o número deste card nunca divergir da lista.
-  Widget _cardPendentesStat(AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot) {
+  Widget _cardPendentesStat(
+    AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot,
+  ) {
     if (_fakePendentes != null) {
       final totalPendentes = _fakePendentes!.length;
       return _StatTile(
@@ -378,9 +370,63 @@ class _PainelAdminState extends State<PainelAdmin> {
     );
   }
 
-  Widget _conteudoPainel() {
+  // Skeleton do painel completo (stats + card de pendentes lado a lado),
+  // exibido enquanto _verificarAcesso() ainda não resolveu se o usuário é
+  // admin. Usa o mesmo layout responsivo do conteúdo real para o card de
+  // apostas pendentes já aparecer na posição final, sem pulos de layout.
+  Widget _skeletonPainelCompleto() {
+    return CustomCard(
+      isChild: true,
+      color: const Color(0xFFFEFEFE),
+      children: [
+        const SizedBox(height: 10),
+        _layoutStatsEPendentes(
+          stats: const SkeletonDashboardStats(),
+          pendentes: _cardApostasPendentesShell(
+            const SingleChildScrollView(child: SkeletonListaApostasPendentes()),
+            acoesHabilitadas: false,
+          ),
+        ),
+        const SizedBox(height: 10),
+      ],
+    );
+  }
+
+  // Layout responsivo compartilhado entre o conteúdo real e o skeleton:
+  // no mobile empilha stats e pendentes, no desktop divide em duas colunas.
+  Widget _layoutStatsEPendentes({required Widget stats, required Widget pendentes}) {
     final isMobile = Responsive.isMobile(context);
 
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          stats,
+          const SizedBox(height: 24),
+          SizedBox(height: 520, child: pendentes),
+        ],
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const espacamento = 20.0;
+        final larguraStats = (constraints.maxWidth - espacamento) * 3 / 5;
+        const alturaTiles = 470.0;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: larguraStats, child: stats),
+            const SizedBox(width: espacamento),
+            Expanded(child: SizedBox(height: alturaTiles, child: pendentes)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _conteudoPainel() {
     // Único StreamBuilder para toda a página: card de estatística e lista
     // compartilham o mesmo snapshot, evitando que duas subscriptions
     // independentes da mesma query divirjam em estado (uma com erro, outra
@@ -389,8 +435,9 @@ class _PainelAdminState extends State<PainelAdmin> {
       stream: _apostasPendentesStream,
       builder: (context, pendentesSnapshot) {
         if (pendentesSnapshot.hasError) {
-          // ignore: avoid_print
-          print('Erro ao carregar apostas pendentes: ${pendentesSnapshot.error}');
+          debugPrint(
+            'Erro ao carregar apostas pendentes: ${pendentesSnapshot.error}',
+          );
         }
 
         return CustomCard(
@@ -398,44 +445,10 @@ class _PainelAdminState extends State<PainelAdmin> {
           color: const Color(0xFFFEFEFE),
           children: [
             const SizedBox(height: 10),
-            if (isMobile)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _dashboardStats(pendentesSnapshot),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    height: 520,
-                    child: _cardApostasPendentes(pendentesSnapshot),
-                  ),
-                ],
-              )
-            else
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  const espacamento = 20.0;
-                  final larguraStats =
-                      (constraints.maxWidth - espacamento) * 3 / 5;
-                  const alturaTiles = 640.0;
-
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: larguraStats,
-                        child: _dashboardStats(pendentesSnapshot),
-                      ),
-                      const SizedBox(width: espacamento),
-                      Expanded(
-                        child: SizedBox(
-                          height: alturaTiles,
-                          child: _cardApostasPendentes(pendentesSnapshot),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+            _layoutStatsEPendentes(
+              stats: _dashboardStats(pendentesSnapshot),
+              pendentes: _cardApostasPendentes(pendentesSnapshot),
+            ),
             const SizedBox(height: 10),
           ],
         );
@@ -443,9 +456,9 @@ class _PainelAdminState extends State<PainelAdmin> {
     );
   }
 
-  Widget _cardApostasPendentes(
-    AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot,
-  ) {
+  // Moldura do card de apostas pendentes (fundo, título, botões de ação),
+  // compartilhada entre o conteúdo real e o skeleton de carregamento inicial.
+  Widget _cardApostasPendentesShell(Widget corpo, {bool acoesHabilitadas = true}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -470,30 +483,37 @@ class _PainelAdminState extends State<PainelAdmin> {
               ),
               IconButton(
                 tooltip: 'Lançar aposta manual',
-                onPressed: _abrirDialogApostaManual,
+                onPressed: acoesHabilitadas ? _abrirDialogApostaManual : null,
                 icon: const Icon(Icons.person_add_alt_1_outlined, size: 20),
               ),
               if (_fakePendentes == null)
                 IconButton(
                   tooltip: 'Simular apostas (dev)',
-                  onPressed: () => _gerarApostasFake(),
+                  onPressed: acoesHabilitadas ? () => _gerarApostasFake() : null,
                   icon: const Icon(Icons.auto_awesome, size: 20),
                 )
               else
                 IconButton(
                   tooltip: 'Limpar simulação',
-                  onPressed: _limparApostasFake,
+                  onPressed: acoesHabilitadas ? _limparApostasFake : null,
                   icon: const Icon(Icons.close, size: 20),
                 ),
             ],
           ),
           const SizedBox(height: 12),
-          if (_fakePendentes != null)
-            Expanded(child: _listaApostasFake(_fakePendentes!))
-          else
-            Expanded(child: _corpoListaPendentes(snapshot)),
+          Expanded(child: corpo),
         ],
       ),
+    );
+  }
+
+  Widget _cardApostasPendentes(
+    AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot,
+  ) {
+    return _cardApostasPendentesShell(
+      _fakePendentes != null
+          ? _listaApostasFake(_fakePendentes!)
+          : _corpoListaPendentes(snapshot),
     );
   }
 
@@ -501,11 +521,8 @@ class _PainelAdminState extends State<PainelAdmin> {
     AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot,
   ) {
     if (snapshot.connectionState == ConnectionState.waiting) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFF7CC8B5),
-          strokeWidth: 5,
-        ),
+      return const SingleChildScrollView(
+        child: SkeletonListaApostasPendentes(),
       );
     }
 
@@ -517,11 +534,7 @@ class _PainelAdminState extends State<PainelAdmin> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline,
-              size: 40,
-              color: Color(0xFFEF4444),
-            ),
+            const Icon(Icons.error_outline, size: 40, color: Color(0xFFEF4444)),
             const SizedBox(height: 8),
             Text(
               'Erro ao carregar apostas pendentes:\n${snapshot.error}',

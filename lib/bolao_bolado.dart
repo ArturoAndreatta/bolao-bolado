@@ -1,29 +1,17 @@
-import 'package:bolao_bolado/pages/home_page.dart';
-import 'package:bolao_bolado/pages/participants.dart';
-import 'package:bolao_bolado/services/authentication/auth_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-class BolaoBolado extends StatefulWidget {
+class BolaoBolado extends StatelessWidget {
   const BolaoBolado({super.key});
 
   @override
-  State<BolaoBolado> createState() => _BolaoBoladoState();
-}
-
-final routeObserver = RouteObserver<PageRoute>();
-
-class _BolaoBoladoState extends State<BolaoBolado> {
-  final AuthService _authService = AuthService();
-
-  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Bolão Bolado',
       theme: ThemeData(useMaterial3: true),
       debugShowCheckedModeBanner: false,
-      navigatorObservers: [routeObserver],
+      routerConfig: appRouter,
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR'), Locale('en', 'US')],
       localizationsDelegates: const [
@@ -31,27 +19,6 @@ class _BolaoBoladoState extends State<BolaoBolado> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: StreamBuilder<User?>(
-        stream: _authService.authStateChanges,
-        builder: (context, snapshot) {
-          // Ainda carregando
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          final user = snapshot.data;
-
-          // Usuário logado de verdade (não anônimo) → Visualizar
-          if (user != null && !user.isAnonymous) {
-            return const Participants();
-          }
-
-          // Não logado ou anônimo → Home
-          return const HomePage();
-        },
-      ),
     );
   }
 }

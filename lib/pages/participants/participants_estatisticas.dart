@@ -129,7 +129,7 @@ class PainelEstatisticas extends StatelessWidget {
         percentual: chancePercentual,
         fracao: chanceFracao,
         percentualStyle: const TextStyle(
-          fontSize: 26,
+          fontSize: 20,
           fontWeight: FontWeight.w700,
           color: Color(0xFF1F2937),
         ),
@@ -142,14 +142,14 @@ class PainelEstatisticas extends StatelessWidget {
     );
     final cardCotas = CardEstatistica(
       titulo: 'Cotas',
-      fontSizeValor: 30,
+      fontSizeValor: 20,
       valor: totalCotas.toString(),
     );
     final cardPremio = CardPremioTotal(premioSala: premioSala, mobile: false);
     final cardJogadores = CardEstatistica(
       titulo: 'Jogadores',
       valor: rows.length.toString(),
-      fontSizeValor: 30,
+      fontSizeValor: 20,
       corValor: const Color(0xFF487DE5),
     );
 
@@ -262,16 +262,21 @@ class _ChanceFracaoRevealState extends State<ChanceFracaoReveal> {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: _toggle,
-        child: Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text('${widget.percentual}%', style: widget.percentualStyle),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 150),
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              layoutBuilder: (currentChild, previousChildren) =>
+                  currentChild ?? const SizedBox.shrink(),
               child: _revelado
                   ? Padding(
                       key: const ValueKey('fracao'),
-                      padding: const EdgeInsets.only(left: 8),
+                      padding: EdgeInsets.zero,
                       child: Text(widget.fracao, style: widget.fracaoStyle),
                     )
                   : const SizedBox.shrink(key: ValueKey('vazio')),

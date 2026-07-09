@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+// Tabela simples de participantes usada em sala_detalhes.dart. Não confundir
+// com TabelaApostas (lib/pages/participants/participants_tabela.dart), que é
+// a tabela completa (ordenação, animação de linha nova) da tela de Participantes.
 class ParticipantsTable extends StatelessWidget {
   final bool loading;
   final double heightTable;

@@ -1,4 +1,5 @@
-import 'package:bolao_bolado/pages/participants/participants_tabela.dart';
+import 'package:bolao_bolado/pages/participants/participants_tabela.dart'
+    show LinhaEntrandoAnimada, detectarLinhaNova;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,7 @@ const List<Color> coresAvatar = [
   Color(0xFF17A398),
 ];
 
+// Deriva cor determinística a partir do nome (mesmo participante = mesma cor sempre)
 Color corAvatarPara(String nome) {
   final soma = nome.codeUnits.fold<int>(0, (acc, c) => acc + c);
   return coresAvatar[soma % coresAvatar.length];
@@ -32,6 +34,8 @@ class ListaParticipantes extends StatefulWidget {
 }
 
 class _ListaParticipantesState extends State<ListaParticipantes> {
+  // Mesmo mecanismo usado em TabelaApostas: guarda o último timestamp por uid
+  // para detectar linhas novas/recriadas e disparar a animação de entrada.
   final Map<String, int?> _timestampsConhecidos = {};
 
   @override
@@ -50,14 +54,11 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
               final tsAtual = dataHora is Timestamp
                   ? dataHora.millisecondsSinceEpoch
                   : null;
-              final tsConhecido = uid == null
-                  ? null
-                  : _timestampsConhecidos[uid];
-              final isNova =
-                  uid != null &&
-                  (!_timestampsConhecidos.containsKey(uid) ||
-                      tsConhecido != tsAtual);
-              if (uid != null) _timestampsConhecidos[uid] = tsAtual;
+              final isNova = detectarLinhaNova(
+                _timestampsConhecidos,
+                uid,
+                tsAtual,
+              );
 
               return LinhaEntrandoAnimada(
                 key: ValueKey(
@@ -121,6 +122,7 @@ class LinhaParticipante extends StatelessWidget {
   Widget build(BuildContext context) {
     final inicial = nome.trim().isNotEmpty ? nome.trim()[0].toUpperCase() : '?';
     final cor = corAvatar ?? corAvatarPara(nome);
+    // Prioridade visual: edição pós-verificação > verificado/destacado > normal
     final corFundo = alterada
         ? const Color(0xFFFEF3C7)
         : verificado

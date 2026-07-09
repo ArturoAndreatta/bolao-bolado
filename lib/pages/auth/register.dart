@@ -6,9 +6,10 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/core/responsive.dart';
-import 'package:bolao_bolado/pages/informar_aposta.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class Register extends StatefulWidget {
   final String? email;
@@ -156,6 +157,7 @@ class _RegisterState extends State<Register> {
       CustomShowDialog.show(context, "Preencha os campos obrigatórios!");
       return;
     }
+    // Validação de igualdade não é feita pelo Form, então é checada manualmente aqui
     if (senhaController.text != confirmarSenhaController.text) {
       CustomShowDialog.show(context, "As senhas não coincidem!");
       return;
@@ -171,15 +173,8 @@ class _RegisterState extends State<Register> {
       );
 
       if (mounted) {
-        // Cadastro novo → vai pra Participar
-        Navigator.of(context).pushAndRemoveUntil(
-          PageRouteBuilder(
-            transitionDuration: Duration.zero,
-            reverseTransitionDuration: Duration.zero,
-            pageBuilder: (_, _, _) => const Login(),
-          ),
-          (route) => false,
-        );
+        // Cadastro novo → vai pra tela de login/aposta
+        context.go(AppRoutes.informarAposta);
       }
     } on Exception catch (e) {
       if (mounted) {
@@ -190,6 +185,7 @@ class _RegisterState extends State<Register> {
     }
   }
 
+  // Traduz os códigos de erro do FirebaseAuth para mensagens em português
   String _traduzirErro(String erro) {
     if (erro.contains('email-already-in-use')) {
       return 'Este e-mail já está cadastrado.';

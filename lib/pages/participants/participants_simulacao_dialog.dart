@@ -1,6 +1,9 @@
 import 'package:bolao_bolado/dev/simulador_apostas.dart';
 import 'package:flutter/material.dart';
 
+// Diálogo apenas exibe/controla o SimuladorApostas recebido de participants.dart;
+// a instância é mantida no state da página pai para sobreviver ao fechar/reabrir
+// do diálogo e ser parada em dispose() caso a tela seja abandonada rodando.
 class DialogoSimulacaoApostas extends StatefulWidget {
   final SimuladorApostas simulador;
   final String salaId;
@@ -36,6 +39,8 @@ class _DialogoSimulacaoApostasState extends State<DialogoSimulacaoApostas> {
               ? null
               : () async {
                   setState(() => _limpando = true);
+                  // Para a simulação antes de limpar para evitar que o
+                  // gerador recrie apostas fictícias durante a limpeza.
                   widget.simulador.parar();
                   await widget.simulador.limparSimulados(widget.salaId);
                   if (mounted) setState(() => _limpando = false);

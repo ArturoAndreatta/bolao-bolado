@@ -1,19 +1,15 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:bolao_bolado/bolao_bolado.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/branding/logo.dart';
-import 'package:bolao_bolado/pages/auth/signup.dart';
-import 'package:bolao_bolado/pages/informar_aposta.dart';
-import 'package:bolao_bolado/pages/pages.dart';
-import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/components/shared/constants/phrases.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -60,6 +56,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
   @override
   void didPop() => _stopTimer();
 
+  // Timer só roda enquanto a HomePage está visível (ver RouteAware abaixo),
+  // evitando setState em segundo plano quando outra tela está no topo da pilha.
   void _startTimer() {
     _stopTimer();
     _fraseTimer = Timer.periodic(_fraseInterval, (_) => _sortearFrase());
@@ -79,10 +77,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final isDesktopWeb = kIsWeb && width >= 900;
     return DefaultLayout(
       drawer: AppDrawer(),
+      showLogo: false,
       child: Stack(
         children: [
           CustomCard(
@@ -124,52 +121,20 @@ class _HomePageState extends State<HomePage> with RouteAware {
               PrimaryButton(
                 text: _authService.isLoggedIn ? 'Minha Aposta' : 'Acessar',
                 onTap: () {
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      transitionDuration: Duration.zero,
-                      reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) =>
-                          _authService.isLoggedIn ? Login() : Signup(),
-                    ),
+                  context.go(
+                    _authService.isLoggedIn
+                        ? AppRoutes.informarAposta
+                        : AppRoutes.signup,
                   );
                 },
               ),
               const SizedBox(height: 20),
               SecondaryButton(
                 text: 'Visualizar',
-                onTap: () {
-                  final navigator = Navigator.of(context);
-                  navigator.push(
-                    PageRouteBuilder(
-                      transitionDuration: Duration.zero,
-                      reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) => const Participants(),
-                    ),
-                  );
-                },
+                onTap: () => context.go(AppRoutes.participants),
               ),
               SizedBox(height: 30),
             ],
-          ),
-          Positioned(
-            top: 10,
-            left: isDesktopWeb ? 500 : 250,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(30),
-                onTap: () {
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      transitionDuration: Duration.zero,
-                      reverseTransitionDuration: Duration.zero,
-                      pageBuilder: (_, _, _) => Pages(),
-                    ),
-                  );
-                },
-                child: Container(padding: EdgeInsets.all(20)),
-              ),
-            ),
           ),
         ],
       ),

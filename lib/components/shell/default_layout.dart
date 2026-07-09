@@ -7,11 +7,13 @@ class DefaultLayout extends StatelessWidget {
   final Widget child;
   final Widget? drawer;
   final void Function(bool isOpened)? onDrawerChanged;
+  final bool showLogo;
   const DefaultLayout({
     super.key,
     required this.child,
     this.drawer,
     this.onDrawerChanged,
+    this.showLogo = true,
   });
 
   @override
@@ -24,6 +26,8 @@ class DefaultLayout extends StatelessWidget {
         drawer: drawer,
         onDrawerChanged: onDrawerChanged,
         backgroundColor: Colors.transparent,
+        // Footer só aparece em telas maiores; no mobile o espaço é escasso
+        // e o rodapé atrapalharia o conteúdo principal.
         bottomNavigationBar: isMobile ? null : const Footer(),
         appBar: drawer != null
             ? AppBar(
@@ -33,10 +37,15 @@ class DefaultLayout extends StatelessWidget {
                 automaticallyImplyLeading: true,
                 iconTheme: const IconThemeData(color: Color(0xFF1F2937)),
                 centerTitle: true,
-                title: SizedBox(
-                  height: 50,
-                  child: Image.asset('images/logo4.png', fit: BoxFit.contain),
-                ),
+                title: showLogo
+                    ? SizedBox(
+                        height: 50,
+                        child: Image.asset(
+                          'images/logo4.png',
+                          fit: BoxFit.contain,
+                        ),
+                      )
+                    : null,
               )
             : null,
         body: Stack(
@@ -44,21 +53,6 @@ class DefaultLayout extends StatelessWidget {
             SingleChildScrollView(
               child: Center(child: Column(children: [child])),
             ),
-
-            // if (!isMobile)
-            //   Positioned(
-            //     right: 24,
-            //     bottom: 20,
-            //     child: IgnorePointer(
-            //       child: Opacity(
-            //         opacity: .95,
-            //         child: SizedBox(
-            //           width: 120,
-            //           child: Logo(isSmall: true, logo: 'images/logo4.png'),
-            //         ),
-            //       ),
-            //     ),
-            //   ),
           ],
         ),
       ),

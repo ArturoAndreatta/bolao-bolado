@@ -6,16 +6,17 @@ import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/dev/simulador_apostas.dart';
-import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
 import 'package:bolao_bolado/pages/participants/participants_painel.dart';
 import 'package:bolao_bolado/pages/participants/participants_simulacao_dialog.dart';
 import 'package:bolao_bolado/pages/participants/participants_skeletons.dart';
+import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/widgets/chat_sala.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class Participants extends StatefulWidget {
   const Participants({super.key});
@@ -57,6 +58,7 @@ class _ParticipantsState extends State<Participants> {
     try {
       final salaId = await buscarSalaPrincipalId();
       final user = FirebaseAuth.instance.currentUser;
+      // Usuário anônimo nunca é admin: evita checagem desnecessária no Firestore
       final isAdmin = user != null && !user.isAnonymous
           ? await AuthService().isAdmin(user.uid)
           : false;
@@ -65,8 +67,7 @@ class _ParticipantsState extends State<Participants> {
           .doc(salaId)
           .get();
       final sorteio = salaDoc.data()?['sorteio']?.toString();
-      final dataSorteio = (salaDoc.data()?['dataHora'] as Timestamp?)
-          ?.toDate();
+      final dataSorteio = (salaDoc.data()?['dataHora'] as Timestamp?)?.toDate();
       final premioSala = (salaDoc.data()?['premio'] as num?)?.toDouble() ?? 0;
 
       if (!mounted) return;
@@ -78,6 +79,7 @@ class _ParticipantsState extends State<Participants> {
         _premioSala = premioSala;
       });
 
+      // Cancela stream anterior antes de reabrir (ex: troca de sala via _load())
       unawaited(_betsSubscription?.cancel());
       _betsSubscription = streamBets().listen(
         (dataBets) {
@@ -88,6 +90,8 @@ class _ParticipantsState extends State<Participants> {
           });
         },
         onError: (_) {
+          // Erro no stream de apostas apenas encerra o loading; mantém a
+          // última lista carregada em vez de quebrar a tela.
           if (!mounted) return;
           setState(() => _loading = false);
         },
@@ -112,6 +116,7 @@ class _ParticipantsState extends State<Participants> {
 
   // ── Layout Desktop: card de participantes + chat lateral ────────────────
   Widget _layoutDesktop(String? currentUid) {
+    // Altura fixa para alinhar painel de participantes e chat lado a lado
     const double chatHeight = 510;
 
     return CustomCard(
@@ -122,6 +127,9 @@ class _ParticipantsState extends State<Participants> {
           text: 'Participantes',
           subtitle: 'Visualize quem está participando',
           trailing: _isAdmin ? _botoesAdminDesktop() : null,
+          // Participants é sempre acessada via context.go (login ou
+          // "Visualizar" na Home), nunca empilhada — não há para onde voltar.
+          showBackButton: false,
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
@@ -205,12 +213,11 @@ class _ParticipantsState extends State<Participants> {
         onPressed: _salaId == null
             ? null
             : () async {
-                await Navigator.of(context).push(
-                  PageRouteBuilder(
-                    transitionDuration: Duration.zero,
-                    reverseTransitionDuration: Duration.zero,
-                    pageBuilder: (_, _, _) => CadastrarSala(salaId: _salaId),
-                  ),
+                await context.push(
+                  Uri(
+                    path: AppRoutes.cadastrarSala,
+                    queryParameters: {'salaId': _salaId},
+                  ).toString(),
                 );
                 if (mounted) _load();
               },

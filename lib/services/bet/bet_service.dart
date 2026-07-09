@@ -168,6 +168,8 @@ List<Map<String, Object?>> calcularCotasEPremios(
 ]) {
   final comCotas = participantes.map((item) {
     final valor = double.tryParse(item['valor'].toString()) ?? 0;
+    // Arredonda pra baixo: valor apostado que não fecha uma cota inteira
+    // não gera cota parcial (evita fração de prêmio por dinheiro insuficiente).
     final cotas = (valor / precoCota).floor();
     return {...item, 'valor': valor, 'cotas': cotas};
   }).toList();
@@ -179,6 +181,8 @@ List<Map<String, Object?>> calcularCotasEPremios(
 
   return comCotas.map((item) {
     final cotas = item['cotas'] as int;
+    // Prêmio rateado proporcionalmente às cotas de cada um; se ninguém
+    // tem cota (totalCotas == 0), evita divisão por zero e não distribui nada.
     final premio = totalCotas > 0 ? (cotas / totalCotas) * premioSala : 0.0;
     return {...item, 'premio': premio};
   }).toList();
@@ -235,6 +239,8 @@ Future<void> criarApostaManual({
   required String valor,
 }) async {
   final firestore = FirebaseFirestore.instance;
+  // Prefixo 'manual_' + timestamp garante um ID único e imediatamente
+  // reconhecível como não vindo de Firebase Auth (uids reais nunca têm esse padrão).
   final id = 'manual_${DateTime.now().millisecondsSinceEpoch}';
 
   await firestore
@@ -255,7 +261,10 @@ Future<void> criarApostaManual({
 
 /// Marca a aposta de um participante como verificada. Também limpa o
 /// destaque de "alterada" já que a nova versão acabou de ser aprovada.
-Future<void> verificarAposta({required String salaId, required String uid}) async {
+Future<void> verificarAposta({
+  required String salaId,
+  required String uid,
+}) async {
   await FirebaseFirestore.instance
       .collection('Salas')
       .doc(salaId)

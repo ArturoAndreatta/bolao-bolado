@@ -55,6 +55,8 @@ class _ChatSalaState extends State<ChatSala> {
     }
   }
 
+  // A lista usa reverse:true (mensagem mais recente no topo visual), então
+  // "rolar para o final" na prática é rolar até o offset 0.
   void _scrollParaFinal() {
     if (!_scrollController.hasClients) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {

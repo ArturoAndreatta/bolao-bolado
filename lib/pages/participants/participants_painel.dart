@@ -70,6 +70,8 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
     super.dispose();
   }
 
+  // Atalho Ctrl+F foca a busca em vez de abrir o find do navegador,
+  // já que a lista de participantes costuma ser o alvo dessa busca.
   bool _onKeyEvent(KeyEvent event) {
     if (event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.keyF &&
@@ -134,6 +136,8 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
     required BuildContext context,
     required Widget child,
   }) {
+    // Seleção de texto só em web/desktop: em mobile atrapalharia gestos
+    // de scroll/toque na lista.
     final habilitarSelecao = kIsWeb || Responsive.isDesktop(context);
     return habilitarSelecao ? SelectionArea(child: child) : child;
   }
@@ -298,6 +302,7 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
               rows: widget.rowsData,
               currentUid: widget.currentUid,
               sorteio: widget.sorteio,
+              dataSorteio: widget.dataSorteio,
               premioSala: widget.premioSala,
             ),
           );
