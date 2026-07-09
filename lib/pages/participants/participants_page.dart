@@ -40,6 +40,10 @@ class _ParticipantsState extends State<Participants> {
   // Aba ativa no mobile: 0 = Participantes, 1 = Chat
   int _abaAtiva = 0;
 
+  // Altura do SeletorAbas + seu padding externo (Container padding 4*2 +
+  // conteúdo ~40 + Padding externo do wrapper 10 topo/baixo).
+  static const double _alturaSeletorAbas = 68;
+
   @override
   void initState() {
     super.initState();
@@ -201,8 +205,17 @@ class _ParticipantsState extends State<Participants> {
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
             child: SizedBox(
-              height: MediaQuery.of(context).size.height * 0.62,
-              child: ChatSala(salaId: _salaId!, autofocusCampoEnvio: true),
+              // Ocupa o restante da altura visível: tela menos status bar,
+              // AppBar e o espaço já usado pelo seletor de abas (não dá pra
+              // usar Expanded pois o body fica dentro de um
+              // SingleChildScrollView em DefaultLayout).
+              height:
+                  MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom -
+                  kToolbarHeight -
+                  _alturaSeletorAbas,
+              child: ChatSala(salaId: _salaId!),
             ),
           ),
       ],
