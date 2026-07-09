@@ -212,11 +212,7 @@ class _LoginState extends State<Login> {
                     ),
                     const SizedBox(height: 20),
                     const Shimmer(
-                      child: SkeletonBox(
-                        width: 480,
-                        height: 48,
-                        radius: 12,
-                      ),
+                      child: SkeletonBox(width: 480, height: 48, radius: 12),
                     ),
                     const SizedBox(height: 20),
                   ],

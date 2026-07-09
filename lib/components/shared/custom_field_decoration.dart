@@ -22,10 +22,7 @@ class CustomFieldDecoration {
       filled: true,
       fillColor: const Color(0xFFF3F4F6),
       suffixIcon: suffix,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

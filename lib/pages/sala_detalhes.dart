@@ -93,10 +93,7 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => context.pop(),
-            child: Text('Fechar'),
-          ),
+          TextButton(onPressed: () => context.pop(), child: Text('Fechar')),
         ],
       ),
     );

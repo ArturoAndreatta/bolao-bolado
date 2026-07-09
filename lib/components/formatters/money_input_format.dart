@@ -11,9 +11,7 @@ class MoneyInputFormat extends TextInputFormatter {
   // consome o campo.
   static double? parse(String valorFormatado) {
     if (valorFormatado.isEmpty) return null;
-    final normalizado = valorFormatado
-        .replaceAll('.', '')
-        .replaceAll(',', '.');
+    final normalizado = valorFormatado.replaceAll('.', '').replaceAll(',', '.');
     return double.tryParse(normalizado);
   }
 

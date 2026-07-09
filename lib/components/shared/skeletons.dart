@@ -248,7 +248,9 @@ class SkeletonFormulario extends StatelessWidget {
                 child: Row(
                   children: [
                     for (var i = 0; i < linha.length; i++) ...[
-                      Expanded(child: SkeletonCampoFormulario(maxWidth: linha[i])),
+                      Expanded(
+                        child: SkeletonCampoFormulario(maxWidth: linha[i]),
+                      ),
                       if (i != linha.length - 1) const SizedBox(width: 15),
                     ],
                   ],

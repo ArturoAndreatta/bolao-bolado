@@ -394,7 +394,10 @@ class _PainelAdminState extends State<PainelAdmin> {
 
   // Layout responsivo compartilhado entre o conteúdo real e o skeleton:
   // no mobile empilha stats e pendentes, no desktop divide em duas colunas.
-  Widget _layoutStatsEPendentes({required Widget stats, required Widget pendentes}) {
+  Widget _layoutStatsEPendentes({
+    required Widget stats,
+    required Widget pendentes,
+  }) {
     final isMobile = Responsive.isMobile(context);
 
     if (isMobile) {
@@ -419,7 +422,9 @@ class _PainelAdminState extends State<PainelAdmin> {
           children: [
             SizedBox(width: larguraStats, child: stats),
             const SizedBox(width: espacamento),
-            Expanded(child: SizedBox(height: alturaTiles, child: pendentes)),
+            Expanded(
+              child: SizedBox(height: alturaTiles, child: pendentes),
+            ),
           ],
         );
       },
@@ -458,7 +463,10 @@ class _PainelAdminState extends State<PainelAdmin> {
 
   // Moldura do card de apostas pendentes (fundo, título, botões de ação),
   // compartilhada entre o conteúdo real e o skeleton de carregamento inicial.
-  Widget _cardApostasPendentesShell(Widget corpo, {bool acoesHabilitadas = true}) {
+  Widget _cardApostasPendentesShell(
+    Widget corpo, {
+    bool acoesHabilitadas = true,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -489,7 +497,9 @@ class _PainelAdminState extends State<PainelAdmin> {
               if (_fakePendentes == null)
                 IconButton(
                   tooltip: 'Simular apostas (dev)',
-                  onPressed: acoesHabilitadas ? () => _gerarApostasFake() : null,
+                  onPressed: acoesHabilitadas
+                      ? () => _gerarApostasFake()
+                      : null,
                   icon: const Icon(Icons.auto_awesome, size: 20),
                 )
               else
