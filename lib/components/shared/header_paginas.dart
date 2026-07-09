@@ -27,8 +27,7 @@ class HeaderPaginas extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (showBackButton)
-            BackScreenButton(floating: false, onTap: onBack),
+          if (showBackButton) BackScreenButton(floating: false, onTap: onBack),
           const SizedBox(width: 14),
           Container(
             width: 1,

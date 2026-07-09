@@ -34,6 +34,7 @@ class _LoginState extends State<Login> {
   bool _loading = true;
   bool _saving = false;
   String? _salaId;
+  bool _apostaExistente = false;
 
   static final _formatoMoeda = NumberFormat.currency(
     locale: 'pt_BR',
@@ -141,6 +142,7 @@ class _LoginState extends State<Login> {
       final valor = dados['valor']?.toString() ?? '';
       if (valor.isNotEmpty) {
         valueController.text = _formatarValor(valor);
+        _apostaExistente = true;
       }
     }
 
@@ -231,7 +233,7 @@ class _LoginState extends State<Login> {
                         textInputAction: TextInputAction.next,
                         maxWidth: 480,
                         isRequired: true,
-                        autofocus: true,
+                        autofocus: !_apostaExistente,
                       ),
                       const SizedBox(height: 15),
                       CustomField(
@@ -244,6 +246,7 @@ class _LoginState extends State<Login> {
                         maxWidth: 480,
                         isRequired: true,
                         prefix: const Text('R\$ '),
+                        autofocus: _apostaExistente,
                       ),
                       const SizedBox(height: 15),
                       ConstrainedBox(

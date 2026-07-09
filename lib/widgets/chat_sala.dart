@@ -7,8 +7,13 @@ import 'package:intl/intl.dart';
 
 class ChatSala extends StatefulWidget {
   final String salaId;
+  final bool autofocusCampoEnvio;
 
-  const ChatSala({super.key, required this.salaId});
+  const ChatSala({
+    super.key,
+    required this.salaId,
+    this.autofocusCampoEnvio = false,
+  });
 
   @override
   State<ChatSala> createState() => _ChatSalaState();
@@ -221,6 +226,7 @@ class _ChatSalaState extends State<ChatSala> {
           Expanded(
             child: TextField(
               controller: _textoController,
+              autofocus: widget.autofocusCampoEnvio,
               maxLength: kLimiteCaracteresMensagem,
               minLines: 1,
               maxLines: 3,

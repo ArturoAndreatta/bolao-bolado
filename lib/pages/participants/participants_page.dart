@@ -202,7 +202,7 @@ class _ParticipantsState extends State<Participants> {
             padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
             child: SizedBox(
               height: MediaQuery.of(context).size.height * 0.62,
-              child: ChatSala(salaId: _salaId!),
+              child: ChatSala(salaId: _salaId!, autofocusCampoEnvio: true),
             ),
           ),
       ],
