@@ -70,40 +70,24 @@ class SkeletonTabela extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer(
-      child: Container(
-        constraints: const BoxConstraints(minWidth: larguraTotal),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              color: const Color(0xFFE9EAEC),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final w in _larguras)
-                    Container(
-                      width: w,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 14,
-                      ),
-                      child: const SkeletonBox(width: 60, height: 12),
-                    ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
-            for (var linha = 0; linha < 6; linha++) ...[
+      // Mesma rolagem horizontal da tabela real (participants_tabela.dart):
+      // sem ela, o Container com minWidth: larguraTotal estoura em telas
+      // menores que 690px (RenderFlex overflow no mobile).
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Container(
+          constraints: const BoxConstraints(minWidth: larguraTotal),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Container(
-                color: linha % 2 == 0
-                    ? const Color(0xFFFEFEFE)
-                    : const Color(0xFFF3F4F6),
+                color: const Color(0xFFE9EAEC),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -112,21 +96,43 @@ class SkeletonTabela extends StatelessWidget {
                         width: w,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
-                          vertical: 13,
+                          vertical: 14,
                         ),
-                        child: SkeletonBox(width: w * 0.6, height: 12),
+                        child: const SkeletonBox(width: 60, height: 12),
                       ),
                   ],
                 ),
               ),
-              if (linha < 5)
-                const Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Color(0xFFE5E7EB),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+              for (var linha = 0; linha < 6; linha++) ...[
+                Container(
+                  color: linha % 2 == 0
+                      ? const Color(0xFFFEFEFE)
+                      : const Color(0xFFF3F4F6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final w in _larguras)
+                        Container(
+                          width: w,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 13,
+                          ),
+                          child: SkeletonBox(width: w * 0.6, height: 12),
+                        ),
+                    ],
+                  ),
                 ),
+                if (linha < 5)
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFE5E7EB),
+                  ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

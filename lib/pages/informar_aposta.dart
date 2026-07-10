@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:bolao_bolado/components/shared/custom_field_decoration.dart';
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
+import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
@@ -251,24 +253,39 @@ class _LoginState extends State<Login> {
                       const SizedBox(height: 15),
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 480),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: _DisplayInfo(
-                                titulo: 'Prêmio estimado',
-                                valor: _formatoMoeda.format(_meuPremio),
+                        child: Responsive.isMobile(context)
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _DisplayInfo(
+                                    titulo: 'Prêmio estimado',
+                                    valor: _formatoMoeda.format(_meuPremio),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _DisplayInfo(
+                                    titulo: 'Cotas',
+                                    valor: _minhasCotas.toString(),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: _DisplayInfo(
+                                      titulo: 'Prêmio estimado',
+                                      valor: _formatoMoeda.format(_meuPremio),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _DisplayInfo(
+                                      titulo: 'Cotas',
+                                      valor: _minhasCotas.toString(),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _DisplayInfo(
-                                titulo: 'Cotas',
-                                valor: _minhasCotas.toString(),
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                       const SizedBox(height: 20),
                       _saving
@@ -368,6 +385,8 @@ class _LoginState extends State<Login> {
   }
 }
 
+// Mesma altura/cores/raio dos CustomField, para não chamar mais atenção
+// que os campos de formulário da mesma tela.
 class _DisplayInfo extends StatelessWidget {
   final String titulo;
   final String valor;
@@ -377,32 +396,28 @@ class _DisplayInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEFEFE),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
+        border: const Border.fromBorderSide(
+          BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             titulo,
             softWrap: true,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
           ),
-          const SizedBox(height: 6),
           Text(
             valor,
             softWrap: true,
             style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
               color: Color(0xFF1F2937),
             ),
           ),

@@ -9,7 +9,15 @@ class BolaoBolado extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Bolão Bolado',
-      theme: ThemeData(useMaterial3: true),
+      theme: ThemeData(
+        useMaterial3: true,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.iOS: FadeForwardsPageTransitionsBuilder(),
+            TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+          },
+        ),
+      ),
       debugShowCheckedModeBanner: false,
       routerConfig: appRouter,
       locale: const Locale('pt', 'BR'),

@@ -7,8 +7,15 @@ import 'package:intl/intl.dart';
 
 class ChatSala extends StatefulWidget {
   final String salaId;
+  // No mobile o chat já está dentro da aba "Chat", então o cabeçalho
+  // repetindo "Chat da Sala" é redundante.
+  final bool mostrarCabecalho;
 
-  const ChatSala({super.key, required this.salaId});
+  const ChatSala({
+    super.key,
+    required this.salaId,
+    this.mostrarCabecalho = true,
+  });
 
   @override
   State<ChatSala> createState() => _ChatSalaState();
@@ -110,7 +117,7 @@ class _ChatSalaState extends State<ChatSala> {
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-            _CabecalhoChat(),
+            if (widget.mostrarCabecalho) _CabecalhoChat(),
             Expanded(
               child: StreamBuilder<List<Mensagem>>(
                 stream: _mensagensStream,
@@ -314,10 +321,22 @@ class _BolhaMensagem extends StatelessWidget {
 
   const _BolhaMensagem({required this.mensagem, required this.isMinha});
 
+  String _formatarDataHora(DateTime dataHora) {
+    final agora = DateTime.now();
+    final mesmoDia = agora.year == dataHora.year &&
+        agora.month == dataHora.month &&
+        agora.day == dataHora.day;
+
+    if (mesmoDia) {
+      return DateFormat('HH:mm').format(dataHora);
+    }
+    return DateFormat('dd/MM/yyyy HH:mm').format(dataHora);
+  }
+
   @override
   Widget build(BuildContext context) {
     final horario = mensagem.criadoEm != null
-        ? DateFormat('HH:mm').format(mensagem.criadoEm!)
+        ? _formatarDataHora(mensagem.criadoEm!)
         : '';
 
     return Padding(
@@ -388,8 +407,10 @@ class _BolhaMensagem extends StatelessWidget {
   }
 
   Widget _avatar() {
-    return FutureBuilder<Color>(
-      future: AvatarService.buscarCor(mensagem.autorUid),
+    final cache = AvatarColorCache.instance;
+    return StreamBuilder<Color>(
+      initialData: cache.corConhecida(mensagem.autorUid),
+      stream: cache.corStream(mensagem.autorUid),
       builder: (context, snapshot) {
         return _avatarCirculo(snapshot.data ?? const Color(0xFFE5E7EB));
       },

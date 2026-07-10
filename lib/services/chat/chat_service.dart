@@ -4,6 +4,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 const int kLimiteCaracteresMensagem = 200;
 
+/// Limita o histórico carregado no chat às mensagens mais recentes: sem
+/// isso, a stream re-sincroniza a coleção inteira a cada reconexão, o que
+/// fica caro conforme o histórico da sala cresce.
+const int kLimiteMensagensChat = 100;
+
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -15,6 +20,7 @@ class ChatService {
         .doc(salaId)
         .collection('Mensagens')
         .orderBy('criadoEm', descending: true)
+        .limit(kLimiteMensagensChat)
         .snapshots()
         .map((snapshot) {
           return snapshot.docs.map((doc) => Mensagem.fromDoc(doc)).toList();

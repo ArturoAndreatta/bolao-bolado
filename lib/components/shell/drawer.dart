@@ -255,8 +255,8 @@ class _AppDrawerState extends State<AppDrawer> {
                         // "mounted") pode não navegar mais.
                         final router = GoRouter.of(context);
                         Navigator.of(context).pop();
-                        await AuthService().logout();
                         router.go(AppRoutes.home);
+                        await AuthService().logout();
                       },
                     )
                   else

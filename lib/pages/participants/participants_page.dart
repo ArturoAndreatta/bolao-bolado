@@ -44,6 +44,9 @@ class _ParticipantsState extends State<Participants> {
   // conteúdo ~40 + Padding externo do wrapper 10 topo/baixo).
   static const double _alturaSeletorAbas = 68;
 
+  // Folga extra para o chat não ficar colado no fundo da tela.
+  static const double _folgaInferior = 32;
+
   @override
   void initState() {
     super.initState();
@@ -206,7 +209,7 @@ class _ParticipantsState extends State<Participants> {
             padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
             child: SizedBox(
               // Ocupa o restante da altura visível: tela menos status bar,
-              // AppBar e o espaço já usado pelo seletor de abas (não dá pra
+              // AppBar, seletor de abas e uma folga inferior (não dá pra
               // usar Expanded pois o body fica dentro de um
               // SingleChildScrollView em DefaultLayout).
               height:
@@ -214,8 +217,9 @@ class _ParticipantsState extends State<Participants> {
                   MediaQuery.of(context).padding.top -
                   MediaQuery.of(context).padding.bottom -
                   kToolbarHeight -
-                  _alturaSeletorAbas,
-              child: ChatSala(salaId: _salaId!),
+                  _alturaSeletorAbas -
+                  _folgaInferior,
+              child: ChatSala(salaId: _salaId!, mostrarCabecalho: false),
             ),
           ),
       ],

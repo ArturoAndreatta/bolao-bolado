@@ -52,6 +52,7 @@ class _AppInitState extends State<_AppInit> {
     // Exibe a splash enquanto Firebase/login anônimo não terminam de inicializar
     if (!_pronto) {
       return const MaterialApp(
+        title: 'Bolão Bolado',
         debugShowCheckedModeBanner: false,
         home: SplashScreen(),
       );

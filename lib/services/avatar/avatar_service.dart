@@ -82,3 +82,48 @@ class AvatarService {
     return Color(novaCor);
   }
 }
+
+/// Cache reativo de cores de avatar por uid, compartilhado entre chat e
+/// lista de participantes/apostas.
+///
+/// Sem isso, cada bolha de mensagem no chat (`FutureBuilder` por item) e
+/// cada emissão de `streamBets()` disparavam um `.get()` no Firestore por
+/// uid — N leituras a cada mensagem nova ou aposta alterada. Aqui, cada uid
+/// é observado por uma única `snapshots()` compartilhada entre todos os
+/// consumidores: a cor é buscada uma vez e depois atualizada automaticamente
+/// caso o usuário a troque, sem exigir novas buscas manuais.
+class AvatarColorCache {
+  AvatarColorCache._();
+  static final AvatarColorCache instance = AvatarColorCache._();
+
+  final Map<String, Stream<Color>> _streams = {};
+  final Map<String, Color> _ultimoValor = {};
+
+  /// Stream com a cor atual do avatar do [uid], atualizada em tempo real.
+  Stream<Color> corStream(String uid, {String? email}) {
+    return _streams.putIfAbsent(uid, () {
+      final stream = FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(uid)
+          .snapshots()
+          .map((doc) {
+            final dados = doc.data();
+            final corValue = dados?['avatarColor'] as int?;
+            if (corValue != null) return Color(corValue);
+
+            final dataEmail = email ?? dados?['email'] as String?;
+            if (dataEmail == kEmailAdmin) return kCorBaseAdmin;
+
+            return const Color(0xFFE5E7EB);
+          })
+          .asBroadcastStream();
+
+      stream.listen((cor) => _ultimoValor[uid] = cor);
+      return stream;
+    });
+  }
+
+  /// Último valor conhecido em memória (sem novas leituras), usado para
+  /// não esperar o primeiro evento do stream ao montar listas grandes.
+  Color? corConhecida(String uid) => _ultimoValor[uid];
+}

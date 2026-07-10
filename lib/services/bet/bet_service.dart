@@ -188,31 +188,24 @@ List<Map<String, Object?>> calcularCotasEPremios(
   }).toList();
 }
 
-/// Busca a cor de avatar (ARGB int) de cada uid em `usuarios/{uid}`.
-/// A cor salva em `avatarColor` tem prioridade; a conta admin só recebe
-/// [kCorBaseAdmin] como padrão quando nenhuma cor tiver sido gravada.
+/// Busca a cor de avatar (ARGB int) de cada uid em `usuarios/{uid}`, usando
+/// o cache reativo compartilhado ([AvatarColorCache]) em vez de um `.get()`
+/// por uid a cada emissão do stream de apostas — evita repetir a mesma
+/// leitura para participantes cuja cor já foi observada antes.
 Future<Map<String, int>> _buscarCoresAvatar(List<String> uids) async {
   if (uids.isEmpty) return {};
 
-  final firestore = FirebaseFirestore.instance;
-  final docs = await Future.wait(
-    uids.map((uid) => firestore.collection('usuarios').doc(uid).get()),
+  final cache = AvatarColorCache.instance;
+  final cores = <String, int>{};
+
+  await Future.wait(
+    uids.map((uid) async {
+      final conhecida = cache.corConhecida(uid);
+      final cor = conhecida ?? await cache.corStream(uid).first;
+      cores[uid] = cor.toARGB32();
+    }),
   );
 
-  final cores = <String, int>{};
-  for (final doc in docs) {
-    final dados = doc.data();
-    if (dados == null) continue;
-
-    final corValue = dados['avatarColor'] as int?;
-    if (corValue != null) {
-      cores[doc.id] = corValue;
-      continue;
-    }
-
-    final email = dados['email']?.toString();
-    if (email == kEmailAdmin) cores[doc.id] = kCorBaseAdmin.toARGB32();
-  }
   return cores;
 }
 
@@ -223,11 +216,20 @@ Future<Map<String, int>> _buscarCoresAvatar(List<String> uids) async {
 /// em Salas/{salaId}/Participantes/{uid} é a fonte única de verdade sobre o
 /// estado da aposta (`verificado`), então reapostar antes da verificação
 /// apenas atualiza esse documento em vez de gerar entradas duplicadas.
+/// Cache do stream em nível de módulo: `drawer.dart` (badge) e
+/// `painel_admin.dart` abrem essa stream simultaneamente sempre que o
+/// admin está no painel, então sem cache seriam dois listeners
+/// `collectionGroup` idênticos rodando ao mesmo tempo (leituras em dobro).
+/// `.asBroadcastStream()` permite múltiplos `listen()` sobre a mesma
+/// subscription Firestore.
+Stream<QuerySnapshot<Map<String, dynamic>>>? _apostasPendentesStream;
+
 Stream<QuerySnapshot<Map<String, dynamic>>> streamApostasPendentes() {
-  return FirebaseFirestore.instance
+  return _apostasPendentesStream ??= FirebaseFirestore.instance
       .collectionGroup('Participantes')
       .where('verificado', isEqualTo: false)
-      .snapshots();
+      .snapshots()
+      .asBroadcastStream();
 }
 
 /// Cria (ou atualiza) uma aposta em nome de alguém sem conta no app,
