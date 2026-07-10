@@ -323,7 +323,8 @@ class _BolhaMensagem extends StatelessWidget {
 
   String _formatarDataHora(DateTime dataHora) {
     final agora = DateTime.now();
-    final mesmoDia = agora.year == dataHora.year &&
+    final mesmoDia =
+        agora.year == dataHora.year &&
         agora.month == dataHora.month &&
         agora.day == dataHora.day;
 
