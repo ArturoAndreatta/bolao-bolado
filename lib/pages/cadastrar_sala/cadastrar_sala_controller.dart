@@ -1,9 +1,9 @@
+import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/formatters/money_input_format.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 // Opções do dropdown "Sorteio", únicas para CadastrarSalaDesktop e
 // CadastrarSalaMobile (antes duplicadas, hardcoded, em cada tela).
@@ -53,18 +53,13 @@ class CadastrarSalaController {
     final doc = await firestore.collection('Salas').doc(salaId).get();
     final dados = doc.data();
     if (dados != null) {
-      final formatoMoeda = NumberFormat.currency(
-        locale: 'pt_BR',
-        symbol: '',
-        decimalDigits: 2,
-      );
       nameController.text = dados['nome']?.toString() ?? '';
       descricaoController.text = dados['descricao']?.toString() ?? '';
       sorteio = dados['sorteio']?.toString();
       final dataHora = dados['dataHora'];
       if (dataHora is Timestamp) {
         final dt = dataHora.toDate();
-        dataController.text = DateFormat('dd/MM/yyyy').format(dt);
+        dataController.text = Formatters.data.format(dt);
         horaSelecionada = TimeOfDay(hour: dt.hour, minute: dt.minute);
         horaController.text = CustomTimeField.format(horaSelecionada!);
       }
@@ -73,11 +68,13 @@ class CadastrarSalaController {
       // MoneyInputFormat exibiria durante a digitação.
       final premio = (dados['premio'] as num?)?.toDouble();
       if (premio != null) {
-        premioController.text = formatoMoeda.format(premio).trim();
+        premioController.text = Formatters.moedaSemSimbolo
+            .format(premio)
+            .trim();
       }
       final valorMaximo = (dados['valorMaximo'] as num?)?.toDouble();
       if (valorMaximo != null) {
-        valorMaximoApostaController.text = formatoMoeda
+        valorMaximoApostaController.text = Formatters.moedaSemSimbolo
             .format(valorMaximo)
             .trim();
       }

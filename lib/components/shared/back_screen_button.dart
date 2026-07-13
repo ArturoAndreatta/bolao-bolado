@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/router/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -26,9 +27,9 @@ class BackScreenButton extends StatelessWidget {
         color: const Color(0xFFF9FAFB),
         elevation: 1.5,
         shadowColor: Colors.black12,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: AppRadii.circularCircle,
         child: InkWell(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: AppRadii.circularCircle,
           onTap: onTap ?? () => _voltar(context),
           child: Padding(
             padding: EdgeInsets.symmetric(

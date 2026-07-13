@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
 /// Efeito shimmer aplicado a qualquer child (usado nos placeholders de skeleton).
@@ -92,7 +93,7 @@ class SkeletonCampoFormulario extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: AppRadii.circularLg,
         ),
         child: Row(
           children: [
@@ -116,7 +117,7 @@ class SkeletonStatTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadii.circularMd,
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Row(
@@ -174,7 +175,7 @@ class SkeletonLinhaApostaPendente extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFFFEFEFE),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: AppRadii.circularSmd,
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Row(
@@ -213,6 +214,59 @@ class SkeletonListaApostasPendentes extends StatelessWidget {
             const SkeletonLinhaApostaPendente(),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Placeholder de um card de sala (mesmo formato de _SalaCard em consultar_salas.dart).
+class SkeletonCardSala extends StatelessWidget {
+  const SkeletonCardSala({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEFEFE),
+          borderRadius: AppRadii.circularMd,
+          border: Border.all(color: const Color(0xFFDDDDDD), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  SkeletonBox(width: 160, height: 16),
+                  SizedBox(height: 6),
+                  SkeletonBox(width: 100, height: 13),
+                ],
+              ),
+            ),
+            const SkeletonBox(width: 16, height: 16, radius: 4),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Skeleton de uma lista de salas (usado enquanto a lista carrega).
+class SkeletonListaSalas extends StatelessWidget {
+  final int itens;
+
+  const SkeletonListaSalas({super.key, this.itens = 5});
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [for (var i = 0; i < itens; i++) const SkeletonCardSala()],
       ),
     );
   }

@@ -153,7 +153,7 @@ class _SignupState extends State<Signup> {
       if (mounted) {
         context.go(AppRoutes.participants);
       }
-    } on Exception catch (e) {
+    } catch (e) {
       if (mounted) {
         CustomShowDialog.show(context, _traduzirErro(e.toString()));
       }

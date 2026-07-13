@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
 // Decoração compartilhada por CustomField e CustomDropdownField, para que
@@ -24,7 +25,7 @@ class CustomFieldDecoration {
       suffixIcon: suffix,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadii.circularMd,
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(

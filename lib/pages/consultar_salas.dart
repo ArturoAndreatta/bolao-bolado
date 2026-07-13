@@ -1,8 +1,10 @@
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
+import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/models/sala.dart';
 import 'package:bolao_bolado/router/app_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -90,29 +92,10 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
                   SizedBox(height: 16),
                   SizedBox(
                     height: alturaLista,
-                    child: _loading
-                        ? Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 5,
-                              color: Color(0xFF7CC8B5),
-                            ),
-                          )
-                        : _salasFiltradas.isEmpty
-                        ? Center(
-                            child: Text(
-                              'Nenhuma sala encontrada.',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 16,
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: _salasFiltradas.length,
-                            itemBuilder: (context, index) {
-                              return _SalaCard(sala: _salasFiltradas[index]);
-                            },
-                          ),
+                    child: _ListaSalas(
+                      loading: _loading,
+                      salas: _salasFiltradas,
+                    ),
                   ),
                 ],
               ),
@@ -120,6 +103,34 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// Corpo da lista de salas: alterna entre skeleton (carregando), mensagem
+// de vazio (sem salas ou busca sem resultado) e a lista real.
+class _ListaSalas extends StatelessWidget {
+  final bool loading;
+  final List<Sala> salas;
+
+  const _ListaSalas({required this.loading, required this.salas});
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const SingleChildScrollView(child: SkeletonListaSalas());
+    }
+    if (salas.isEmpty) {
+      return const Center(
+        child: Text(
+          'Nenhuma sala encontrada.',
+          style: TextStyle(color: Colors.grey, fontSize: 16),
+        ),
+      );
+    }
+    return ListView.builder(
+      itemCount: salas.length,
+      itemBuilder: (context, index) => _SalaCard(sala: salas[index]),
     );
   }
 }
@@ -133,13 +144,13 @@ class _SalaCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadii.circularMd,
         onTap: () => context.go(AppRoutes.salaDetalhes, extra: sala),
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             color: Color(0xFFFEFEFE),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppRadii.circularMd,
             border: Border.all(color: Color(0xFFDDDDDD), width: 1.5),
             boxShadow: [
               BoxShadow(

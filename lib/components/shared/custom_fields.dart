@@ -1,8 +1,8 @@
+import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/formatters/money_input_format.dart';
 import 'package:bolao_bolado/components/shared/custom_field_decoration.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 class CustomField extends StatelessWidget {
   final String hint;
@@ -23,6 +23,11 @@ class CustomField extends StatelessWidget {
   // Retorne null para indicar que o valor passou nessa checagem extra.
   final String? Function(String?)? validator;
   final bool autofocus;
+  // Quando isNumeric, controla se os dígitos digitados vão direto para a
+  // parte inteira (sem centavos) — usado em valores sempre inteiros, como
+  // o valor de aposta da Mega-Sena (múltiplo de R$6).
+  final bool semCentavos;
+  final FocusNode? focusNode;
 
   const CustomField({
     super.key,
@@ -42,6 +47,8 @@ class CustomField extends StatelessWidget {
     this.isRequired = false,
     this.validator,
     this.autofocus = false,
+    this.semCentavos = false,
+    this.focusNode,
   });
 
   String? _validate(String? value) {
@@ -65,6 +72,7 @@ class CustomField extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: maxWidth!),
       child: TextFormField(
         controller: controller,
+        focusNode: focusNode,
         autofocus: autofocus,
         readOnly: readOnly!,
         keyboardType: keyboardType,
@@ -75,7 +83,9 @@ class CustomField extends StatelessWidget {
         enableInteractiveSelection: true,
         onTap: onTap,
         onFieldSubmitted: onFieldSubmitted,
-        inputFormatters: isNumeric! ? [MoneyInputFormat()] : null,
+        inputFormatters: isNumeric!
+            ? [MoneyInputFormat(semCentavos: semCentavos)]
+            : null,
         validator: (isRequired! || validator != null) ? _validate : null,
         decoration: CustomFieldDecoration.build(
           hint: hint,
@@ -166,8 +176,6 @@ class CustomDateField extends StatelessWidget {
   final void Function(DateTime picked)? onPicked;
   final TextInputAction? textInputAction;
 
-  static final DateFormat _formatter = DateFormat('dd/MM/yyyy');
-
   const CustomDateField({
     super.key,
     required this.hint,
@@ -191,7 +199,7 @@ class CustomDateField extends StatelessWidget {
       lastDate: lastDate ?? DateTime(2030),
     );
     if (picked == null) return;
-    controller.text = _formatter.format(picked);
+    controller.text = Formatters.data.format(picked);
     onPicked?.call(picked);
   }
 

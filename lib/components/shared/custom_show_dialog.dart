@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
 class CustomShowDialog {
@@ -25,7 +26,7 @@ class CustomShowDialog {
                 surfaceTintColor: Colors.transparent,
                 elevation: 18,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: AppRadii.circularXxl,
                   side: BorderSide(color: Colors.grey.shade200, width: 1),
                 ),
                 contentPadding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
@@ -39,7 +40,7 @@ class CustomShowDialog {
                           height: 44,
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFF3C7),
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: AppRadii.circularLg,
                             border: Border.all(color: const Color(0xFFFDE68A)),
                           ),
                           child: const Center(

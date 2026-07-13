@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
 class PrimaryButton extends StatelessWidget {
@@ -17,7 +18,7 @@ class PrimaryButton extends StatelessWidget {
     return Container(
       width: width,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: AppRadii.circularXl,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.3),
@@ -28,7 +29,7 @@ class PrimaryButton extends StatelessWidget {
       ),
       child: Material(
         color: Color(0xFF487DE5),
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: AppRadii.circularXl,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -67,12 +68,12 @@ class SecondaryButton extends StatelessWidget {
     return Container(
       width: width,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: AppRadii.circularXl,
         border: Border.all(color: const Color(0xFF487DE5), width: 2),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: AppRadii.circularXl,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,

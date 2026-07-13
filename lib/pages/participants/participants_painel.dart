@@ -1,5 +1,6 @@
 import 'package:bolao_bolado/components/shared/custom_card.dart';
-import 'package:bolao_bolado/components/shared/header_paginas.dart';
+import 'package:bolao_bolado/components/shared/header_card.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/pages/participants/participants_busca.dart';
 import 'package:bolao_bolado/pages/participants/participants_estatisticas.dart';
@@ -28,6 +29,19 @@ class PainelParticipantes extends StatefulWidget {
   final bool mobile;
   final bool expandirConteudo;
   final bool mostrarCabecalho;
+  // Repassado ao HeaderCard/CustomCard: faz o card ocupar toda a largura
+  // disponível do pai (até maxWidth), em vez de encolher para o conteúdo.
+  final bool esticarLargura;
+  // Quando true (usado dentro do Fichario), renderiza só o conteúdo (sem
+  // nenhum CustomCard/HeaderCard) — o Fichario já monta o cartão branco e
+  // a barra de destaque ao redor, então um CustomCard aqui dentro duplicaria
+  // a moldura.
+  final bool apenasConteudo;
+  // Altura fixa do card no mobile/fichário (mesmo cálculo usado por
+  // MinhaApostaCard e pelo card do Chat): sem isso, ListaParticipantes
+  // (Column sem scroll) cresce livremente com a quantidade de apostas,
+  // empurrando o card e desalinhando a altura da fileira de abas.
+  final double? alturaMobile;
 
   const PainelParticipantes({
     super.key,
@@ -43,6 +57,9 @@ class PainelParticipantes extends StatefulWidget {
     required this.mobile,
     this.expandirConteudo = false,
     this.mostrarCabecalho = true,
+    this.esticarLargura = false,
+    this.apenasConteudo = false,
+    this.alturaMobile,
   });
 
   @override
@@ -165,90 +182,126 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
 
   Widget _buildMobile(BuildContext context) {
     if (widget.loading) {
+      final skeleton = SkeletonParticipantes(mobile: true);
+      if (widget.apenasConteudo) {
+        return Padding(padding: const EdgeInsets.all(16), child: skeleton);
+      }
       return CustomCard(
         color: const Color(0xFFF3F1EF),
-        children: const [SkeletonParticipantes(mobile: true)],
+        maxWidth: widget.esticarLargura ? double.infinity : 730,
+        esticarLargura: widget.esticarLargura,
+        children: [skeleton],
       );
     }
 
     final linhasFiltradas = _linhasFiltradas();
 
-    return CustomCard(
-      color: const Color(0xFFF3F1EF),
-      children: [
-        HeaderPaginas(
-          text: 'Participantes',
-          subtitle: 'Visualize quem está participando',
-          showBackButton: false,
-          trailing: widget.isAdmin
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.onSimularApostas != null)
-                      MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: IconButton(
-                          tooltip: 'Simular apostas',
-                          icon: const Icon(
-                            Icons.groups_2_outlined,
-                            color: Color(0xFF7C5CD9),
+    // Corpo com altura fixa (mesmo cálculo usado por MinhaApostaCard e pelo
+    // card do Chat): sem isso, a lista de participantes crescia livremente
+    // com a quantidade de apostas, empurrando o card e desalinhando a
+    // altura do painel ativo do Fichario. Estatísticas/busca ficam fixas
+    // no topo; só a lista rola dentro do espaço restante.
+    final rodapeLista = RodapeLista(
+      total: linhasFiltradas.length,
+      valorTotal: linhasFiltradas.fold<double>(
+        0,
+        (soma, row) => soma + ((row['valor'] as num?)?.toDouble() ?? 0),
+      ),
+      cotasTotal: linhasFiltradas.fold<int>(
+        0,
+        (soma, row) => soma + ((row['cotas'] as num?)?.toInt() ?? 0),
+      ),
+    );
+
+    final listaOuVazio = linhasFiltradas.isEmpty
+        ? _EstadoVazioParticipantes(semApostas: widget.rowsData.isEmpty)
+        : Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
+              borderRadius: AppRadii.circularSmd,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: widget.alturaMobile != null
+                  ? MainAxisSize.max
+                  : MainAxisSize.min,
+              children: [
+                widget.alturaMobile != null
+                    ? Expanded(
+                        child: SingleChildScrollView(
+                          child: ListaParticipantes(
+                            rows: linhasFiltradas,
+                            currentUid: widget.currentUid,
                           ),
-                          onPressed: widget.onSimularApostas,
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        child: ListaParticipantes(
+                          rows: linhasFiltradas,
+                          currentUid: widget.currentUid,
                         ),
                       ),
-                    widget.onEditarSala(),
-                  ],
-                )
-              : null,
-        ),
-        const SizedBox(height: 12),
-        PainelEstatisticas(
-          rows: widget.rowsData,
-          currentUid: widget.currentUid,
-          sorteio: widget.sorteio,
-          dataSorteio: widget.dataSorteio,
-          premioSala: widget.premioSala,
-        ),
-        const SizedBox(height: 14),
-        BarraBuscaOrdenacao(
-          busca: _busca,
-          onBuscaChanged: (v) => setState(() => _busca = v),
-          colunaOrdenada: _colunaOrdenada,
-          ascendente: _ascendente,
-          onOrdenarPor: _onCabecalhoTap,
-        ),
-        const SizedBox(height: 12),
-        linhasFiltradas.isEmpty
-            ? Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.sentiment_dissatisfied_outlined,
-                      size: 48,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.rowsData.isEmpty
-                          ? 'Nenhuma aposta ainda.'
-                          : 'Nenhum participante encontrado.',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ],
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFE5E7EB),
                 ),
-              )
-            : ListaParticipantes(
-                rows: linhasFiltradas,
-                currentUid: widget.currentUid,
-              ),
-        const SizedBox(height: 14),
-        RodapeLista(total: linhasFiltradas.length),
-      ],
+                Container(
+                  color: const Color(0xFFE9EAEC),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: rodapeLista,
+                ),
+              ],
+            ),
+          );
+
+    final conteudo = [
+      BarraBuscaOrdenacao(
+        busca: _busca,
+        onBuscaChanged: (v) => setState(() => _busca = v),
+        colunaOrdenada: _colunaOrdenada,
+        ascendente: _ascendente,
+        onOrdenarPor: _onCabecalhoTap,
+      ),
+      const SizedBox(height: 12),
+      widget.alturaMobile != null
+          ? Expanded(child: listaOuVazio)
+          : listaOuVazio,
+      const SizedBox(height: 14),
+      PainelEstatisticas(
+        rows: widget.rowsData,
+        currentUid: widget.currentUid,
+        sorteio: widget.sorteio,
+        dataSorteio: widget.dataSorteio,
+        premioSala: widget.premioSala,
+      ),
+    ];
+
+    if (widget.apenasConteudo) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: SizedBox(
+          height: widget.alturaMobile,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: conteudo,
+          ),
+        ),
+      );
+    }
+
+    return HeaderCard(
+      text: 'Participantes',
+      subtitle: 'Visualize quem está participando',
+      showBackButton: false,
+      mostrarCabecalho: widget.mostrarCabecalho,
+      maxWidth: widget.esticarLargura ? double.infinity : 730,
+      height: widget.alturaMobile,
+      esticarLargura: widget.esticarLargura,
+      children: conteudo,
     );
   }
 
@@ -267,25 +320,9 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
             mensagemVazio: linhasFiltradas.isEmpty
                 ? _textoSelecionavel(
                     context: context,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.sentiment_dissatisfied_outlined,
-                          size: 48,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          widget.rowsData.isEmpty
-                              ? 'Nenhuma aposta ainda.'
-                              : 'Nenhum participante encontrado.',
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
+                    child: _EstadoVazioParticipantes(
+                      semApostas: widget.rowsData.isEmpty,
+                      desktop: true,
                     ),
                   )
                 : null,
@@ -307,121 +344,65 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
             ),
           );
 
-    if (!widget.expandirConteudo) {
-      return CustomCard(
-        color: const Color(0xFFF3F1EF),
-        children: [
-          if (widget.mostrarCabecalho)
-            HeaderPaginas(
-              text: 'Participantes',
-              subtitle: 'Visualize quem está participando',
-              showBackButton: false,
-              trailing: widget.isAdmin ? widget.onEditarSala() : null,
-            ),
-          painelEstatisticas,
-          SelectionArea(child: conteudo),
-        ],
-      );
-    }
-
-    return Material(
-      color: const Color(0xFFFEFEFE),
-      elevation: 20,
-      shadowColor: Colors.black,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            painelEstatisticas,
-            CampoBusca(
-              busca: _busca,
-              onBuscaChanged: (v) => setState(() => _busca = v),
-              focusNode: _buscaFocusNode,
-            ),
-            const SizedBox(height: 12),
-            Expanded(child: SelectionArea(child: conteudo)),
-          ],
-        ),
-      ),
+    return HeaderCard(
+      text: 'Participantes',
+      subtitle: 'Visualize quem está participando',
+      showBackButton: false,
+      mostrarCabecalho: widget.mostrarCabecalho,
+      trailing: widget.isAdmin ? widget.onEditarSala() : null,
+      apenasConteudo: widget.expandirConteudo,
+      children: widget.expandirConteudo
+          ? [
+              painelEstatisticas,
+              CampoBusca(
+                busca: _busca,
+                onBuscaChanged: (v) => setState(() => _busca = v),
+                focusNode: _buscaFocusNode,
+              ),
+              const SizedBox(height: 12),
+              Expanded(child: SelectionArea(child: conteudo)),
+            ]
+          : [painelEstatisticas, SelectionArea(child: conteudo)],
     );
   }
 }
 
-class SeletorAbas extends StatelessWidget {
-  final int abaAtiva;
-  final void Function(int) onSelecionar;
+// Estado vazio exibido tanto na lista mobile quanto na tabela desktop
+// (mensagemVazio do TabelaApostas), quando não há apostas ou o filtro de
+// busca não encontra ninguém.
+class _EstadoVazioParticipantes extends StatelessWidget {
+  final bool semApostas;
+  final bool desktop;
 
-  const SeletorAbas({
-    super.key,
-    required this.abaAtiva,
-    required this.onSelecionar,
+  const _EstadoVazioParticipantes({
+    required this.semApostas,
+    this.desktop = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE9EAEC),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          _aba(context, 'Participantes', Icons.people_outline, 0),
-          _aba(context, 'Chat', Icons.chat_bubble_outline, 1),
-        ],
-      ),
-    );
-  }
+    final mensagem = semApostas
+        ? 'Nenhuma aposta ainda.'
+        : 'Nenhum participante encontrado.';
 
-  Widget _aba(BuildContext context, String texto, IconData icon, int indice) {
-    final ativa = abaAtiva == indice;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => onSelecionar(indice),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: ativa ? const Color(0xFFFEFEFE) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: ativa
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: desktop ? 0 : 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.sentiment_dissatisfied_outlined,
+            size: 48,
+            color: desktop ? Colors.grey : Colors.grey.shade400,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: ativa ? const Color(0xFF487DE5) : Colors.grey.shade500,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                texto,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: ativa ? const Color(0xFF487DE5) : Colors.grey.shade500,
-                ),
-              ),
-            ],
+          const SizedBox(height: 12),
+          Text(
+            mensagem,
+            style: desktop
+                ? const TextStyle(color: Colors.grey, fontSize: 16)
+                : TextStyle(color: Colors.grey.shade600, fontSize: 15),
           ),
-        ),
+        ],
       ),
     );
   }

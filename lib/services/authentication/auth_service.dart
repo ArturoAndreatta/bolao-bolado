@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
@@ -16,8 +18,11 @@ class AuthService {
   }) async {
     // Usuário anônimo é descartável: some app pode logar anonimamente antes
     // de cadastrar, então a conta anônima é apagada pra não sobrar lixo no Auth.
+    // Falha ao apagar não deve impedir o cadastro em si.
     if (_auth.currentUser != null && _auth.currentUser!.isAnonymous) {
-      await _auth.currentUser!.delete();
+      try {
+        await _auth.currentUser!.delete();
+      } catch (_) {}
     }
 
     final credential = await _auth.createUserWithEmailAndPassword(
@@ -45,7 +50,9 @@ class AuthService {
     required String senha,
   }) async {
     if (_auth.currentUser != null && _auth.currentUser!.isAnonymous) {
-      await _auth.currentUser!.delete();
+      // Não usa await: é só limpeza, não deve bloquear o login de verdade
+      // esperando uma chamada de rede que pode demorar ou nunca responder.
+      unawaited(_auth.currentUser!.delete().catchError((_) {}));
     }
 
     return await _auth.signInWithEmailAndPassword(

@@ -28,6 +28,25 @@ Future<String> buscarSalaPrincipalId() async {
   return query.docs.first.id;
 }
 
+/// Observa em tempo real o documento da sala principal (prêmio, sorteio,
+/// chave PIX). Usado pelo card "Minha Aposta" para refletir mudanças feitas
+/// pelo admin sem precisar recarregar a tela.
+Stream<DocumentSnapshot<Map<String, dynamic>>> streamSalaPrincipal() async* {
+  final salaId = await buscarSalaPrincipalId();
+  yield* FirebaseFirestore.instance.collection('Salas').doc(salaId).snapshots();
+}
+
+/// Lê uma vez os dados (sorteio, data, prêmio) da sala principal.
+/// Usado pela tela de Participantes para exibir as estatísticas do sorteio.
+Future<Map<String, dynamic>> getDadosSalaPrincipal() async {
+  final salaId = await buscarSalaPrincipalId();
+  final salaDoc = await FirebaseFirestore.instance
+      .collection('Salas')
+      .doc(salaId)
+      .get();
+  return {'salaId': salaId, ...?salaDoc.data()};
+}
+
 /// Lê todos os participantes/apostas da sala principal.
 /// Fonte: Salas/{salaPrincipalId}/Participantes/{uid}
 Future<List<Map<String, Object?>>> getBets() async {
@@ -220,16 +239,52 @@ Future<Map<String, int>> _buscarCoresAvatar(List<String> uids) async {
 /// `painel_admin.dart` abrem essa stream simultaneamente sempre que o
 /// admin está no painel, então sem cache seriam dois listeners
 /// `collectionGroup` idênticos rodando ao mesmo tempo (leituras em dobro).
-/// `.asBroadcastStream()` permite múltiplos `listen()` sobre a mesma
-/// subscription Firestore.
-Stream<QuerySnapshot<Map<String, dynamic>>>? _apostasPendentesStream;
+///
+/// Guarda também o último snapshot recebido e o reenvia manualmente a cada
+/// novo `listen()` (via `onListen`): um `StreamController.broadcast` comum
+/// (e `.asBroadcastStream()`) NÃO faz esse replay, então um StreamBuilder
+/// que começasse a escutar depois do snapshot mais recente já ter chegado
+/// (ex: ao navegar para o painel admin com o drawer já escutando a mesma
+/// stream há mais tempo) ficava preso em ConnectionState.waiting até a
+/// PRÓXIMA mudança nos dados — só saindo do skeleton quando alguém
+/// confirmava/lançava uma aposta.
+QuerySnapshot<Map<String, dynamic>>? _ultimoSnapshotPendentes;
+Object? _erroApostasPendentes;
+StreamController<QuerySnapshot<Map<String, dynamic>>>?
+_apostasPendentesController;
 
 Stream<QuerySnapshot<Map<String, dynamic>>> streamApostasPendentes() {
-  return _apostasPendentesStream ??= FirebaseFirestore.instance
+  final controllerExistente = _apostasPendentesController;
+  if (controllerExistente != null) return controllerExistente.stream;
+
+  late final StreamController<QuerySnapshot<Map<String, dynamic>>> controller;
+  controller = StreamController<QuerySnapshot<Map<String, dynamic>>>.broadcast(
+    onListen: () {
+      final snapshot = _ultimoSnapshotPendentes;
+      if (snapshot != null) controller.add(snapshot);
+      final erro = _erroApostasPendentes;
+      if (erro != null) controller.addError(erro);
+    },
+  );
+  _apostasPendentesController = controller;
+
+  FirebaseFirestore.instance
       .collectionGroup('Participantes')
       .where('verificado', isEqualTo: false)
       .snapshots()
-      .asBroadcastStream();
+      .listen(
+        (snapshot) {
+          _ultimoSnapshotPendentes = snapshot;
+          _erroApostasPendentes = null;
+          controller.add(snapshot);
+        },
+        onError: (Object erro) {
+          _erroApostasPendentes = erro;
+          controller.addError(erro);
+        },
+      );
+
+  return controller.stream;
 }
 
 /// Cria (ou atualiza) uma aposta em nome de alguém sem conta no app,

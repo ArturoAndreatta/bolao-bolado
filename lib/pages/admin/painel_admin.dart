@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
@@ -6,13 +7,15 @@ import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/responsive.dart';
+import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
+import 'package:bolao_bolado/widgets/money_rain.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 class PainelAdmin extends StatefulWidget {
   const PainelAdmin({super.key});
@@ -22,7 +25,7 @@ class PainelAdmin extends StatefulWidget {
 }
 
 class _PainelAdminState extends State<PainelAdmin> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AuthService _authService = AuthService();
   bool _loading = true;
   bool _autorizado = false;
   String? _salaId;
@@ -94,8 +97,7 @@ class _PainelAdminState extends State<PainelAdmin> {
       return;
     }
 
-    final doc = await _firestore.collection('usuarios').doc(user.uid).get();
-    final isAdmin = doc.data()?['isAdmin'] == true;
+    final isAdmin = await _authService.isAdmin(user.uid);
     final salaId = await buscarSalaPrincipalId();
 
     setState(() {
@@ -130,6 +132,7 @@ class _PainelAdminState extends State<PainelAdmin> {
 
     final nameController = TextEditingController();
     final valueController = TextEditingController();
+    final valueFocusNode = FocusNode();
     final formKey = GlobalKey<FormState>();
     bool salvando = false;
 
@@ -182,41 +185,52 @@ class _PainelAdminState extends State<PainelAdmin> {
             return AlertDialog(
               backgroundColor: const Color(0xFFFEFEFE),
               surfaceTintColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: AppRadii.circularXxl),
               title: const Text(
                 'Lançar aposta manual',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
               ),
               content: Form(
                 key: formKey,
-                child: SizedBox(
-                  width: 340,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CustomField(
-                        hint: 'Nome',
-                        icon: Icons.person_outline,
-                        controller: nameController,
-                        textInputAction: TextInputAction.next,
-                        maxWidth: 400,
-                        isRequired: true,
-                      ),
-                      const SizedBox(height: 15),
-                      CustomField(
-                        hint: 'Valor',
-                        icon: Icons.attach_money,
-                        isNumeric: true,
-                        controller: valueController,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => salvar(),
-                        maxWidth: 400,
-                        isRequired: true,
-                        prefix: const Text('R\$ '),
-                      ),
-                    ],
+                child: FocusTraversalGroup(
+                  policy: OrderedTraversalPolicy(),
+                  child: SizedBox(
+                    width: 340,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FocusTraversalOrder(
+                          order: const NumericFocusOrder(1),
+                          child: CustomField(
+                            hint: 'Nome',
+                            icon: Icons.person_outline,
+                            controller: nameController,
+                            textInputAction: TextInputAction.next,
+                            onFieldSubmitted: (_) =>
+                                valueFocusNode.requestFocus(),
+                            maxWidth: 400,
+                            isRequired: true,
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+                        FocusTraversalOrder(
+                          order: const NumericFocusOrder(2),
+                          child: CustomField(
+                            hint: 'Valor',
+                            icon: Icons.attach_money,
+                            isNumeric: true,
+                            semCentavos: true,
+                            controller: valueController,
+                            focusNode: valueFocusNode,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => salvar(),
+                            maxWidth: 400,
+                            isRequired: true,
+                            prefix: const Text('R\$ '),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -282,14 +296,53 @@ class _PainelAdminState extends State<PainelAdmin> {
     );
   }
 
+  // Seletor temporário (dev) do estilo de animação da chuva de dinheiro em
+  // "Minha Aposta" — permite comparar esquerda->direita vs. aleatório do
+  // topo sem precisar mexer em código. Ver moneyRainEstiloGlobal.
+  static const _opcoesEstiloMoneyRain = [
+    DropdownMenuItem(
+      value: MoneyRainEstiloAnimacao.esquerdaParaDireita,
+      child: Text('Esquerda → Direita'),
+    ),
+    DropdownMenuItem(
+      value: MoneyRainEstiloAnimacao.aleatorioDoTopo,
+      child: Text('Aleatório do topo'),
+    ),
+  ];
+
+  Widget _seletorEstiloMoneyRain() {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 730),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 4),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: ValueListenableBuilder<MoneyRainEstiloAnimacao>(
+            valueListenable: moneyRainEstiloGlobal,
+            builder: (context, estiloAtual, _) {
+              return CustomDropdownField<MoneyRainEstiloAnimacao>(
+                hint: 'Animação da chuva de dinheiro',
+                icon: Icons.animation_outlined,
+                value: estiloAtual,
+                maxWidth: 730,
+                items: _opcoesEstiloMoneyRain,
+                onChanged: (novo) {
+                  if (novo != null) moneyRainEstiloGlobal.value = novo;
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _dashboardStats(
     AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot,
   ) {
     if (_carregandoStats) {
       return const SkeletonDashboardStats();
     }
-
-    final formatoMoeda = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     final totalApostado = _bets.fold<double>(
       0,
@@ -314,14 +367,14 @@ class _PainelAdminState extends State<PainelAdmin> {
         _StatTile(
           icon: Icons.payments_outlined,
           label: 'Total Arrecadado',
-          value: formatoMoeda.format(totalApostado),
+          value: Formatters.moeda.format(totalApostado),
           color: const Color(0xFF2E7D32),
         ),
         const SizedBox(height: 12),
         _StatTile(
           icon: Icons.emoji_events_outlined,
           label: 'Prêmio Total',
-          value: formatoMoeda.format(totalPremios),
+          value: Formatters.moeda.format(totalPremios),
           color: const Color(0xFF487DE5),
         ),
         const SizedBox(height: 12),
@@ -450,6 +503,8 @@ class _PainelAdminState extends State<PainelAdmin> {
           color: const Color(0xFFFEFEFE),
           children: [
             const SizedBox(height: 10),
+            _seletorEstiloMoneyRain(),
+            const SizedBox(height: 10),
             _layoutStatsEPendentes(
               stats: _dashboardStats(pendentesSnapshot),
               pendentes: _cardApostasPendentes(pendentesSnapshot),
@@ -471,7 +526,7 @@ class _PainelAdminState extends State<PainelAdmin> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F1EF),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: AppRadii.circularLg,
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
@@ -540,19 +595,10 @@ class _PainelAdminState extends State<PainelAdmin> {
       // Sem isso, um erro na query (ex: permissão negada ou índice do
       // collectionGroup ausente) cai no caso `docs.isEmpty` e a lista
       // mostra "tudo verificado" mesmo havendo apostas pendentes.
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 40, color: Color(0xFFEF4444)),
-            const SizedBox(height: 8),
-            Text(
-              'Erro ao carregar apostas pendentes:\n${snapshot.error}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
+      return _EstadoListaPendentes(
+        icon: Icons.error_outline,
+        cor: const Color(0xFFEF4444),
+        mensagem: 'Erro ao carregar apostas pendentes:\n${snapshot.error}',
       );
     }
 
@@ -571,27 +617,12 @@ class _PainelAdminState extends State<PainelAdmin> {
       });
 
     if (docs.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.check_circle_outline,
-              size: 40,
-              color: Color(0xFF2E7D32),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Nenhuma aposta pendente de verificação.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
+      return const _EstadoListaPendentes(
+        icon: Icons.check_circle_outline,
+        cor: Color(0xFF2E7D32),
+        mensagem: 'Nenhuma aposta pendente de verificação.',
       );
     }
-
-    final formatoMoeda = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     return SingleChildScrollView(
       child: Column(
@@ -606,51 +637,11 @@ class _PainelAdminState extends State<PainelAdmin> {
                 final nome = dados['nome']?.toString() ?? '—';
                 final valor = double.tryParse(dados['valor'].toString()) ?? 0;
 
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEFEFE),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              nome,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF1F2937),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              formatoMoeda.format(valor),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF2E7D32),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Confirmar aposta',
-                        onPressed: () => _confirmarAposta(doc.reference),
-                        icon: const Text('✅', style: TextStyle(fontSize: 22)),
-                      ),
-                    ],
-                  ),
+                return _LinhaApostaPendente(
+                  nome: nome,
+                  valor: valor,
+                  tooltip: 'Confirmar aposta',
+                  onConfirmar: () => _confirmarAposta(doc.reference),
                 );
               },
             ),
@@ -661,8 +652,6 @@ class _PainelAdminState extends State<PainelAdmin> {
   }
 
   Widget _listaApostasFake(List<Map<String, dynamic>> apostas) {
-    final formatoMoeda = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
-
     return SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -675,59 +664,115 @@ class _PainelAdminState extends State<PainelAdmin> {
                 final nome = aposta['nome']?.toString() ?? '—';
                 final valor = (aposta['valor'] as num?)?.toDouble() ?? 0;
 
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEFEFE),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              nome,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF1F2937),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              formatoMoeda.format(valor),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF2E7D32),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Confirmar aposta (simulada)',
-                        onPressed: () {
-                          setState(() {
-                            _fakePendentes?.removeAt(index);
-                          });
-                        },
-                        icon: const Text('✅', style: TextStyle(fontSize: 22)),
-                      ),
-                    ],
-                  ),
+                return _LinhaApostaPendente(
+                  nome: nome,
+                  valor: valor,
+                  tooltip: 'Confirmar aposta (simulada)',
+                  onConfirmar: () {
+                    setState(() {
+                      _fakePendentes?.removeAt(index);
+                    });
+                  },
                 );
               },
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+// Estado de erro ou lista vazia da fila de apostas pendentes: mesmo layout
+// (ícone + mensagem centralizados), só muda ícone/cor/texto.
+class _EstadoListaPendentes extends StatelessWidget {
+  final IconData icon;
+  final Color cor;
+  final String mensagem;
+
+  const _EstadoListaPendentes({
+    required this.icon,
+    required this.cor,
+    required this.mensagem,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 40, color: cor),
+          const SizedBox(height: 8),
+          Text(
+            mensagem,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Card de uma aposta pendente (nome + valor + botão de confirmar), usado
+// tanto na lista real (Firestore) quanto na lista de apostas simuladas —
+// as duas fontes de dados renderizam o mesmo card, só a origem/ação mudam.
+class _LinhaApostaPendente extends StatelessWidget {
+  final String nome;
+  final double valor;
+  final String tooltip;
+  final VoidCallback onConfirmar;
+
+  const _LinhaApostaPendente({
+    required this.nome,
+    required this.valor,
+    required this.tooltip,
+    required this.onConfirmar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEFEFE),
+        borderRadius: AppRadii.circularSmd,
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  nome,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  Formatters.moeda.format(valor),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2E7D32),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: tooltip,
+            onPressed: onConfirmar,
+            icon: const Text('✅', style: TextStyle(fontSize: 22)),
+          ),
         ],
       ),
     );
@@ -753,7 +798,7 @@ class _StatTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadii.circularMd,
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Row(
@@ -762,7 +807,7 @@ class _StatTile extends StatelessWidget {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: AppRadii.circularSmd,
             ),
             child: Icon(icon, color: color, size: 20),
           ),

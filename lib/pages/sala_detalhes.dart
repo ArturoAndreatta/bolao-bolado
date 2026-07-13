@@ -1,14 +1,15 @@
+import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/models/sala.dart';
 import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/widgets/participants_table.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 class SalaDetalhes extends StatefulWidget {
   final Sala sala;
@@ -42,9 +43,8 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
   void _mostrarInfoSala() {
     final sala = widget.sala;
     final formatoData = sala.dataHora != null
-        ? DateFormat('dd/MM/yyyy HH:mm').format(sala.dataHora!)
+        ? Formatters.dataHora.format(sala.dataHora!)
         : '—';
-    final formatoMoeda = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     showDialog(
       context: context,
@@ -53,7 +53,7 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
         surfaceTintColor: Colors.transparent,
         elevation: 18,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: AppRadii.circularXxl,
           side: BorderSide(color: Colors.grey.shade200, width: 1),
         ),
         contentPadding: EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -81,13 +81,13 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
             _infoLinha(
               Icons.attach_money,
               'Prêmio',
-              formatoMoeda.format(sala.premio),
+              Formatters.moeda.format(sala.premio),
             ),
             if (sala.valorMaximo != null)
               _infoLinha(
                 Icons.attach_money,
                 'Valor máx. aposta',
-                formatoMoeda.format(sala.valorMaximo!),
+                Formatters.moeda.format(sala.valorMaximo!),
               ),
             _infoLinha(Icons.key, 'Chave PIX', sala.chavePix),
           ],
@@ -177,33 +177,45 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
               SizedBox(height: 16),
               SizedBox(
                 height: heightTable,
-                child: _loading
-                    ? Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 5,
-                          color: Color(0xFF7CC8B5),
-                        ),
-                      )
-                    : SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SingleChildScrollView(
-                          child: ParticipantsTable(
-                            loading: _loading,
-                            heightTable: heightTable,
-                            widthNome: widthNome,
-                            widthValor: widthValor,
-                            widthCotas: widthCotas,
-                            widthPremio: widthPremio,
-                            rowsData: _apostas,
-                          ),
-                        ),
-                      ),
+                child: _tabelaComScroll(
+                  heightTable,
+                  widthNome,
+                  widthValor,
+                  widthCotas,
+                  widthPremio,
+                ),
               ),
               SizedBox(height: 30),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  // Sem loading, a tabela ocupa mais que a altura fixa disponível e precisa
+  // rolar (horizontal + vertical); durante o loading o skeleton já cabe no
+  // espaço reservado, dispensando o scroll.
+  Widget _tabelaComScroll(
+    double heightTable,
+    double widthNome,
+    double widthValor,
+    double widthCotas,
+    double widthPremio,
+  ) {
+    final tabela = ParticipantsTable(
+      loading: _loading,
+      heightTable: heightTable,
+      widthNome: widthNome,
+      widthValor: widthValor,
+      widthCotas: widthCotas,
+      widthPremio: widthPremio,
+      rowsData: _apostas,
+    );
+    if (_loading) return tabela;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SingleChildScrollView(child: tabela),
     );
   }
 }

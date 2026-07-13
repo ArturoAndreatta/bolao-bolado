@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/components/shell/gradient_decoration.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -51,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen>
                   animation: _progressAnimation,
                   builder: (context, _) {
                     return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppRadii.circularSm,
                       child: LinearProgressIndicator(
                         value: _progressAnimation.value,
                         minHeight: 6,

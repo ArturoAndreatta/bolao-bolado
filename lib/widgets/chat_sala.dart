@@ -1,9 +1,12 @@
+import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/components/shared/skeletons.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/models/mensagem.dart';
+import 'package:bolao_bolado/pages/participants/participants_skeletons.dart';
 import 'package:bolao_bolado/services/chat/chat_service.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 class ChatSala extends StatefulWidget {
   final String salaId;
@@ -11,10 +14,20 @@ class ChatSala extends StatefulWidget {
   // repetindo "Chat da Sala" é redundante.
   final bool mostrarCabecalho;
 
+  // Quando definido, exibe um botão de fechar (no cabeçalho, ou flutuando
+  // sobre o card quando mostrarCabecalho é false).
+  final VoidCallback? onFechar;
+
+  // Sobreposto à tabela de participantes no desktop: aumenta a elevação
+  // para reforçar a hierarquia visual de "por cima" da tabela.
+  final bool flutuante;
+
   const ChatSala({
     super.key,
     required this.salaId,
     this.mostrarCabecalho = true,
+    this.onFechar,
+    this.flutuante = false,
   });
 
   @override
@@ -25,6 +38,7 @@ class _ChatSalaState extends State<ChatSala> {
   final ChatService _chatService = ChatService();
   final TextEditingController _textoController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _campoFocusNode = FocusNode();
 
   bool _podeEnviar = false;
   bool _verificandoPermissao = true;
@@ -48,6 +62,7 @@ class _ChatSalaState extends State<ChatSala> {
   void dispose() {
     _textoController.dispose();
     _scrollController.dispose();
+    _campoFocusNode.dispose();
     super.dispose();
   }
 
@@ -59,6 +74,14 @@ class _ChatSalaState extends State<ChatSala> {
         _podeEnviar = pode;
         _verificandoPermissao = false;
       });
+      // O campo de texto só é montado depois que a permissão é conhecida;
+      // o foco automático fica restrito ao chat sobreposto no desktop
+      // (mobile abre via aba, sem necessidade de puxar o teclado sozinho).
+      if (widget.flutuante && pode) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _campoFocusNode.requestFocus();
+        });
+      }
     }
   }
 
@@ -107,28 +130,24 @@ class _ChatSalaState extends State<ChatSala> {
     return SizedBox.expand(
       child: Material(
         color: const Color(0xFFFEFEFE),
-        elevation: 20,
+        elevation: widget.flutuante ? 10 : 3,
         shadowColor: Colors.black,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadii.circularSmd,
           side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-            if (widget.mostrarCabecalho) _CabecalhoChat(),
+            if (widget.mostrarCabecalho)
+              _CabecalhoChat(onFechar: widget.onFechar),
             Expanded(
               child: StreamBuilder<List<Mensagem>>(
                 stream: _mensagensStream,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 4,
-                        color: Color(0xFF7CC8B5),
-                      ),
-                    );
+                    return const _SkeletonMensagens();
                   }
 
                   final mensagens = snapshot.data ?? [];
@@ -172,26 +191,62 @@ class _ChatSalaState extends State<ChatSala> {
                 },
               ),
             ),
-            _campoEnvio(),
+            _CampoEnvioChat(
+              verificandoPermissao: _verificandoPermissao,
+              podeEnviar: _podeEnviar,
+              enviando: _enviando,
+              controller: _textoController,
+              focusNode: _campoFocusNode,
+              onEnviar: _enviar,
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _campoEnvio() {
-    if (_verificandoPermissao) {
-      return const Padding(
-        padding: EdgeInsets.all(12),
-        child: SizedBox(
-          height: 20,
-          width: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
+// Rodapé do chat: alterna entre skeleton (verificando permissão), aviso de
+// bloqueado (usuário sem permissão de enviar) e o campo de texto + botão de
+// enviar (que também alterna para um spinner enquanto envia).
+class _CampoEnvioChat extends StatelessWidget {
+  final bool verificandoPermissao;
+  final bool podeEnviar;
+  final bool enviando;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final VoidCallback onEnviar;
+
+  const _CampoEnvioChat({
+    required this.verificandoPermissao,
+    required this.podeEnviar,
+    required this.enviando,
+    required this.controller,
+    required this.focusNode,
+    required this.onEnviar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (verificandoPermissao) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+        ),
+        child: const Shimmer(
+          child: Row(
+            children: [
+              Icon(Icons.lock_outline, size: 16, color: Colors.transparent),
+              SizedBox(width: 8),
+              Expanded(child: SkeletonBox(width: double.infinity, height: 12)),
+            ],
+          ),
         ),
       );
     }
 
-    if (!_podeEnviar) {
+    if (!podeEnviar) {
       final logado =
           FirebaseAuth.instance.currentUser != null &&
           !FirebaseAuth.instance.currentUser!.isAnonymous;
@@ -227,12 +282,13 @@ class _ChatSalaState extends State<ChatSala> {
         children: [
           Expanded(
             child: TextField(
-              controller: _textoController,
+              controller: controller,
+              focusNode: focusNode,
               maxLength: kLimiteCaracteresMensagem,
               minLines: 1,
               maxLines: 3,
               textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _enviar(),
+              onSubmitted: (_) => onEnviar(),
               style: const TextStyle(fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'Escreva algo...',
@@ -245,14 +301,14 @@ class _ChatSalaState extends State<ChatSala> {
                   vertical: 10,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: AppRadii.circularPill,
                   borderSide: BorderSide.none,
                 ),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          _enviando
+          enviando
               ? const Padding(
                   padding: EdgeInsets.all(10),
                   child: SizedBox(
@@ -266,7 +322,7 @@ class _ChatSalaState extends State<ChatSala> {
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
-                    onTap: _enviar,
+                    onTap: onEnviar,
                     child: const Padding(
                       padding: EdgeInsets.all(10),
                       child: Icon(
@@ -283,7 +339,34 @@ class _ChatSalaState extends State<ChatSala> {
   }
 }
 
+class _SkeletonMensagens extends StatelessWidget {
+  const _SkeletonMensagens();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: const [
+            SkeletonBolhaMensagem(isMinha: false, largura: 140),
+            SkeletonBolhaMensagem(isMinha: false, largura: 100),
+            SkeletonBolhaMensagem(isMinha: true, largura: 120),
+            SkeletonBolhaMensagem(isMinha: false, largura: 160),
+            SkeletonBolhaMensagem(isMinha: true, largura: 90),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CabecalhoChat extends StatelessWidget {
+  final VoidCallback? onFechar;
+
+  const _CabecalhoChat({this.onFechar});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -309,6 +392,20 @@ class _CabecalhoChat extends StatelessWidget {
               color: Color(0xFF1F2937),
             ),
           ),
+          if (onFechar != null) ...[
+            const Spacer(),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: IconButton(
+                tooltip: 'Fechar chat',
+                icon: const Icon(Icons.close, size: 18),
+                color: Colors.grey.shade600,
+                onPressed: onFechar,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -329,9 +426,9 @@ class _BolhaMensagem extends StatelessWidget {
         agora.day == dataHora.day;
 
     if (mesmoDia) {
-      return DateFormat('HH:mm').format(dataHora);
+      return Formatters.horaCurta.format(dataHora);
     }
-    return DateFormat('dd/MM/yyyy HH:mm').format(dataHora);
+    return Formatters.dataHora.format(dataHora);
   }
 
   @override

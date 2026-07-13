@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/components/shared/skeletons.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart';
 import 'package:flutter/material.dart';
 
@@ -14,7 +15,7 @@ class SkeletonCardEstatistica extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: destaque ? const Color(0xFFFDF4E3) : const Color(0xFFFEFEFE),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: AppRadii.circularSmd,
         border: Border.all(
           color: destaque ? const Color(0xFFF2D9A8) : const Color(0xFFE5E7EB),
           width: 1,
@@ -79,7 +80,7 @@ class SkeletonTabela extends StatelessWidget {
           constraints: const BoxConstraints(minWidth: larguraTotal),
           decoration: BoxDecoration(
             border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: AppRadii.circularSmd,
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -220,11 +221,11 @@ class SkeletonChatSala extends StatelessWidget {
     return SizedBox.expand(
       child: Material(
         color: const Color(0xFFFEFEFE),
-        elevation: 20,
+        elevation: 3,
         shadowColor: Colors.black,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadii.circularSmd,
           side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
         ),
         clipBehavior: Clip.antiAlias,

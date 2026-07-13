@@ -1,13 +1,15 @@
+import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 // Larguras fixas de cada coluna
-const double wNome = 205;
-const double wValor = 110;
-const double wCotas = 80;
-const double wPremio = 140;
-const double wData = 155;
+const double wNome = 250;
+const double wValor = 135;
+const double wCotas = 100;
+const double wPremio = 170;
+const double wData = 190;
 const double larguraTotal = wNome + wValor + wCotas + wPremio + wData;
 
 // Compara o timestamp atual de um uid com o último visto e já atualiza o
@@ -75,7 +77,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
 
   @override
   Widget build(BuildContext context) {
-    final formatoMoeda = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final formatoMoeda = Formatters.moeda;
 
     final tabela = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -83,7 +85,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
         constraints: const BoxConstraints(minWidth: larguraTotal),
         decoration: BoxDecoration(
           border: Border.all(color: TabelaApostas._corBorda, width: 1.5),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: AppRadii.circularSmd,
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -106,6 +108,14 @@ class _TabelaApostasState extends State<TabelaApostas> {
               )
             else if (mensagemVazio == null)
               _corpoTabela(formatoMoeda),
+            if (mensagemVazio == null) ...[
+              const Divider(
+                height: 1,
+                thickness: 1,
+                color: TabelaApostas._corBorda,
+              ),
+              RodapeTotalizador(rows: rows, formatoMoeda: formatoMoeda),
+            ],
           ],
         ),
       ),
@@ -153,9 +163,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
 
             String dataFormatada = '—';
             if (dataHora != null && dataHora is Timestamp) {
-              dataFormatada = DateFormat(
-                'dd/MM/yy HH:mm',
-              ).format(dataHora.toDate());
+              dataFormatada = Formatters.dataHoraAno2.format(dataHora.toDate());
             }
 
             final tsAtual = dataHora is Timestamp
@@ -333,6 +341,79 @@ class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
   }
 }
 
+/// Rodapé fixo da tabela com o total de "Valor" e "Cotas", alinhado às
+/// mesmas larguras de coluna do corpo/cabeçalho.
+class RodapeTotalizador extends StatelessWidget {
+  final List<Map<String, dynamic>> rows;
+  final NumberFormat formatoMoeda;
+
+  const RodapeTotalizador({
+    super.key,
+    required this.rows,
+    required this.formatoMoeda,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final totalValor = rows.fold<double>(
+      0,
+      (soma, item) => soma + ((item['valor'] as num?)?.toDouble() ?? 0),
+    );
+    final totalCotas = rows.fold<int>(
+      0,
+      (soma, item) => soma + ((item['cotas'] as num?)?.toInt() ?? 0),
+    );
+
+    return Container(
+      color: TabelaApostas._corCabecalho,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CelulaLinha(
+            texto:
+                '${rows.length} ${rows.length == 1 ? 'participante' : 'participantes'}',
+            width: wNome,
+            alinhamento: TextAlign.left,
+            paddingVertical: 4,
+            fontSize: 12,
+          ),
+          CelulaLinha(
+            texto: formatoMoeda.format(totalValor),
+            width: wValor,
+            alinhamento: TextAlign.right,
+            negrito: true,
+            paddingVertical: 4,
+            fontSize: 12,
+          ),
+          CelulaLinha(
+            texto: totalCotas.toString(),
+            width: wCotas,
+            alinhamento: TextAlign.right,
+            negrito: true,
+            paddingVertical: 4,
+            fontSize: 12,
+          ),
+          CelulaLinha(
+            texto: '',
+            width: wPremio,
+            alinhamento: TextAlign.right,
+            paddingVertical: 4,
+            fontSize: 12,
+          ),
+          CelulaLinha(
+            texto: '',
+            width: wData,
+            alinhamento: TextAlign.right,
+            isLast: true,
+            paddingVertical: 4,
+            fontSize: 12,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class CabecalhoTabela extends StatelessWidget {
   final int colunaOrdenada;
   final bool ascendente;
@@ -493,6 +574,8 @@ class CelulaLinha extends StatelessWidget {
   final bool subTexto;
   final bool isLast;
   final bool negrito;
+  final double paddingVertical;
+  final double fontSize;
 
   const CelulaLinha({
     super.key,
@@ -503,13 +586,15 @@ class CelulaLinha extends StatelessWidget {
     this.subTexto = false,
     this.isLast = false,
     this.negrito = false,
+    this.paddingVertical = 7,
+    this.fontSize = 13,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: paddingVertical),
       decoration: isLast
           ? null
           : const BoxDecoration(
@@ -522,7 +607,7 @@ class CelulaLinha extends StatelessWidget {
         textAlign: alinhamento,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: fontSize,
           fontWeight: destaque
               ? FontWeight.w600
               : negrito

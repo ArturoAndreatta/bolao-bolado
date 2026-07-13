@@ -14,7 +14,7 @@ Gerado a partir de uma análise completa da base de código em 2026-07-09.
 - [ ] **`functions/node_modules` (62MB) commitado no git**: a pasta `functions/` não tem `package.json` nem `index.js` — é scaffold 100% vazio (só dependências instaladas e commitadas por engano). O README e a lista de tecnologias citam "Cloud Functions" como parte do stack, mas não existe nenhuma função implementada — toda regra de negócio roda só no client. Ação: adicionar `.gitignore` para `functions/node_modules` e decidir se vale implementar validação/triggers server-side de verdade (rate limiting, validação de valor múltiplo de cota, notificação ao confirmar aposta, etc.) ou remover a pasta e a menção no README.
 - [ ] **Sem Firebase App Check**: `firebase_options.dart` e `android/app/google-services.json` estão commitados no repositório (esperado para apps Firebase, chaves são públicas por design), mas sem App Check configurado essas chaves ficam mais expostas a abuso/scraping por bots.
 - [ ] **User enumeration no "esqueci minha senha"**: `lib/pages/auth/forgot_password.dart` (~linha 120) mostra "E-mail não encontrado." quando o código de erro é `user-not-found`, permitindo a um atacante descobrir quais e-mails estão cadastrados. Corrigir para sempre exibir mensagem genérica ("se o e-mail existir, enviaremos um link"), independente do resultado.
-
+ 
 ## 🟠 Observabilidade (hoje é zero)
 
 - [ ] **Adicionar Firebase Crashlytics** — sem isso, crashes em produção passam despercebidos.

@@ -1,8 +1,8 @@
+import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart'
     show LinhaEntrandoAnimada, detectarLinhaNova;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 const List<Color> coresAvatar = [
   Color(0xFF2E7D32),
@@ -41,7 +41,6 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
   @override
   Widget build(BuildContext context) {
     final rows = widget.rows;
-    final formatoMoeda = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -67,13 +66,12 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
                 animar: isNova,
                 corBase: Colors.transparent,
                 child: LinhaParticipante(
-                  posicao: i + 1,
                   nome: rows[i]['nome']?.toString() ?? '—',
-                  valor: formatoMoeda.format(
+                  valor: Formatters.moeda.format(
                     (rows[i]['valor'] as num?)?.toDouble() ?? 0,
                   ),
                   cotas: (rows[i]['cotas'] as num?)?.toInt() ?? 0,
-                  premio: formatoMoeda.format(
+                  premio: Formatters.moeda.format(
                     (rows[i]['premio'] as num?)?.toDouble() ?? 0,
                   ),
                   corAvatar: (rows[i]['avatarColor'] as int?) != null
@@ -95,7 +93,6 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
 }
 
 class LinhaParticipante extends StatelessWidget {
-  final int posicao;
   final String nome;
   final String valor;
   final int cotas;
@@ -107,7 +104,6 @@ class LinhaParticipante extends StatelessWidget {
 
   const LinhaParticipante({
     super.key,
-    required this.posicao,
     required this.nome,
     required this.valor,
     required this.cotas,
@@ -131,18 +127,10 @@ class LinhaParticipante extends StatelessWidget {
 
     return Container(
       color: corFundo,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 22,
-            child: Text(
-              posicao.toString(),
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-            ),
-          ),
-          const SizedBox(width: 6),
           CircleAvatar(
             radius: 16,
             backgroundColor: cor,
@@ -225,33 +213,31 @@ class LinhaParticipante extends StatelessWidget {
 
 class RodapeLista extends StatelessWidget {
   final int total;
+  final double valorTotal;
+  final int cotasTotal;
 
-  const RodapeLista({super.key, required this.total});
+  const RodapeLista({
+    super.key,
+    required this.total,
+    required this.valorTotal,
+    required this.cotasTotal,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Row(
-          children: [
-            Icon(Icons.people_outline, size: 15, color: Colors.grey.shade500),
-            const SizedBox(width: 6),
-            Text(
-              'Mostrando $total participantes',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-            ),
-          ],
+        Text(
+          '${Formatters.moeda.format(valorTotal)} | $cotasTotal Cotas',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
         ),
-        Row(
-          children: [
-            Text(
-              'Atualizado agora',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-            ),
-            const SizedBox(width: 6),
-            Icon(Icons.refresh, size: 15, color: Colors.grey.shade500),
-          ],
+        const SizedBox(width: 12),
+        Icon(Icons.people_outline, size: 15, color: Colors.grey.shade500),
+        const SizedBox(width: 6),
+        Text(
+          '$total ${total == 1 ? 'participante' : 'participantes'}',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
         ),
       ],
     );

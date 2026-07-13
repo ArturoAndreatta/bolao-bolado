@@ -1,4 +1,7 @@
-import 'package:bolao_bolado/core/responsive.dart';
+import 'dart:async';
+
+import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -46,126 +49,67 @@ class PainelEstatisticas extends StatelessWidget {
         ? '1 em ${NumberFormat.decimalPattern('pt_BR').format((1 / chance).round())}'
         : '0 em 0';
 
-    final isMobile = Responsive.isMobile(context);
-
-    if (isMobile) {
-      final diasRestantes = dataSorteio?.difference(DateTime.now()).inDays;
-      final dataFormatada = dataSorteio != null
-          ? DateFormat('dd/MM/yyyy').format(dataSorteio!)
-          : '—';
-      final premioPorCota = totalCotas > 0 ? premioSala / totalCotas : 0.0;
-      final premioPorCotaFormatado = NumberFormat.currency(
-        locale: 'pt_BR',
-        symbol: 'R\$',
-      ).format(premioPorCota);
-
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          BannerChance(percentual: chancePercentual, fracao: chanceFracao),
-          const SizedBox(height: 10),
-          CardPremioTotal(premioSala: premioSala, mobile: true),
-          const SizedBox(height: 10),
-          CardEstatisticaIcone(
-            icone: Icons.paid_outlined,
-            corIcone: const Color(0xFF2E7D32),
-            corFundoIcone: const Color(0xFFE3F3E9),
-            titulo: 'Prêmio por Cota',
-            valor: premioPorCotaFormatado,
-            corValor: const Color(0xFF2E7D32),
-          ),
-          const SizedBox(height: 10),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: CardEstatisticaIcone(
-                    icone: Icons.local_activity_outlined,
-                    corIcone: const Color(0xFFCB8A2C),
-                    corFundoIcone: const Color(0xFFFBEED9),
-                    titulo: 'Cotas',
-                    valor: totalCotas.toString(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: CardEstatisticaIcone(
-                    icone: Icons.people_alt_outlined,
-                    corIcone: const Color(0xFF487DE5),
-                    corFundoIcone: const Color(0xFFE1E9FB),
-                    titulo: 'Jogadores',
-                    valor: rows.length.toString(),
-                    corValor: const Color(0xFF487DE5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          CardEstatisticaIcone(
-            icone: Icons.calendar_month_outlined,
-            corIcone: const Color(0xFF7C5CD9),
-            corFundoIcone: const Color(0xFFEAE3F8),
-            titulo: 'Data do Sorteio',
-            valor: dataFormatada,
-            rodape: diasRestantes != null && diasRestantes >= 0
-                ? 'Em $diasRestantes dias'
-                : null,
-          ),
-        ],
-      );
-    }
-
     final cardChance = CardEstatistica(
       destaque: true,
-      icone: Icons.emoji_events_outlined,
-      titulo: 'Chance de ganhar',
+      titulo: 'Chance de Ganhar',
       valor: '$chancePercentual%',
-      fontSizeValor: 26,
-      infoTooltip: 'Sua chance é calculada com base no total de cotas.',
+      fontSizeValor: 16,
       valorWidget: ChanceFracaoReveal(
         percentual: chancePercentual,
         fracao: chanceFracao,
+        horizontal: true,
         percentualStyle: const TextStyle(
-          fontSize: 20,
+          fontSize: 15,
           fontWeight: FontWeight.w700,
           color: Color(0xFF1F2937),
         ),
         fracaoStyle: TextStyle(
-          fontSize: 15,
+          fontSize: 13,
           fontWeight: FontWeight.w600,
           color: Colors.grey.shade600,
         ),
       ),
     );
-    final cardCotas = CardEstatistica(
-      titulo: 'Cotas',
-      fontSizeValor: 20,
-      valor: totalCotas.toString(),
-    );
-    final cardPremio = CardPremioTotal(premioSala: premioSala, mobile: false);
-    final cardJogadores = CardEstatistica(
-      titulo: 'Jogadores',
-      valor: rows.length.toString(),
-      fontSizeValor: 20,
-      corValor: const Color(0xFF487DE5),
+    final cardPremio = CardPremioTotal(premioSala: premioSala);
+    final premioPorCota = totalCotas > 0 ? premioSala / totalCotas : 0.0;
+    final cardPremioPorCota = CardEstatistica(
+      destaque: true,
+      destaqueCor: DestaqueCor.azul,
+      titulo: 'Prêmio por Cota',
+      fontSizeValor: 15,
+      valor: Formatters.moeda.format(premioPorCota),
     );
 
-    final cards = [cardChance, cardPremio, cardCotas, cardJogadores];
-    const flexes = [2, 2, 1, 1];
+    final cards = [cardPremio, cardPremioPorCota, cardChance];
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < cards.length; i++) ...[
-            Expanded(flex: flexes[i], child: cards[i]),
-            if (i != cards.length - 1) const SizedBox(width: 12),
-          ],
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Abaixo dessa largura os cards espremidos lado a lado cortam texto;
+        // empilha em coluna para manter cada card legível.
+        if (constraints.maxWidth < 815) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                cards[i],
+                if (i != cards.length - 1) const SizedBox(height: 10),
+              ],
+            ],
+          );
+        }
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                Expanded(child: cards[i]),
+                if (i != cards.length - 1) const SizedBox(width: 12),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -179,24 +123,14 @@ class PainelEstatisticas extends StatelessWidget {
 /// evento do stream de apostas.
 class CardPremioTotal extends StatefulWidget {
   final double premioSala;
-  final bool mobile;
 
-  const CardPremioTotal({
-    super.key,
-    required this.premioSala,
-    required this.mobile,
-  });
+  const CardPremioTotal({super.key, required this.premioSala});
 
   @override
   State<CardPremioTotal> createState() => _CardPremioTotalState();
 }
 
 class _CardPremioTotalState extends State<CardPremioTotal> {
-  static final _formatoMoeda = NumberFormat.currency(
-    locale: 'pt_BR',
-    symbol: 'R\$',
-  );
-
   late double _premioExibido = widget.premioSala;
 
   @override
@@ -209,24 +143,16 @@ class _CardPremioTotalState extends State<CardPremioTotal> {
 
   @override
   Widget build(BuildContext context) {
-    final valor = _formatoMoeda.format(_premioExibido);
+    final valor = Formatters.moeda.format(_premioExibido);
 
     return RepaintBoundary(
-      child: widget.mobile
-          ? CardEstatisticaIcone(
-              icone: Icons.savings_outlined,
-              corIcone: const Color(0xFF2E7D32),
-              corFundoIcone: const Color(0xFFE3F3E9),
-              titulo: 'Prêmio Total',
-              valor: valor,
-              corValor: const Color(0xFF2E7D32),
-            )
-          : CardEstatistica(
-              titulo: 'Prêmio Total',
-              fontSizeValor: 19,
-              valor: valor,
-              corValor: const Color(0xFF2E7D32),
-            ),
+      child: CardEstatistica(
+        destaque: true,
+        destaqueCor: DestaqueCor.verde,
+        titulo: 'Prêmio Total',
+        fontSizeValor: 15,
+        valor: valor,
+      ),
     );
   }
 }
@@ -236,6 +162,7 @@ class ChanceFracaoReveal extends StatefulWidget {
   final String fracao;
   final TextStyle percentualStyle;
   final TextStyle fracaoStyle;
+  final bool horizontal;
 
   const ChanceFracaoReveal({
     super.key,
@@ -243,6 +170,7 @@ class ChanceFracaoReveal extends StatefulWidget {
     required this.fracao,
     required this.percentualStyle,
     required this.fracaoStyle,
+    this.horizontal = false,
   });
 
   @override
@@ -251,225 +179,79 @@ class ChanceFracaoReveal extends StatefulWidget {
 
 class _ChanceFracaoRevealState extends State<ChanceFracaoReveal> {
   bool _revelado = false;
-
-  void _toggle() => setState(() => _revelado = !_revelado);
+  Timer? _timer;
 
   @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _revelado = true),
-      onExit: (_) => setState(() => _revelado = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: _toggle,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('${widget.percentual}%', style: widget.percentualStyle),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              transitionBuilder: (child, animation) =>
-                  FadeTransition(opacity: animation, child: child),
-              layoutBuilder: (currentChild, previousChildren) =>
-                  currentChild ?? const SizedBox.shrink(),
-              child: _revelado
-                  ? Padding(
-                      key: const ValueKey('fracao'),
-                      padding: EdgeInsets.zero,
-                      child: Text(widget.fracao, style: widget.fracaoStyle),
-                    )
-                  : const SizedBox.shrink(key: ValueKey('vazio')),
-            ),
-          ],
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) setState(() => _revelado = !_revelado);
+    });
   }
-}
 
-class BannerChance extends StatelessWidget {
-  final String percentual;
-  final String fracao;
-
-  const BannerChance({
-    super.key,
-    required this.percentual,
-    required this.fracao,
-  });
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFDF4E3),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF2D9A8), width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFBEED9),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.emoji_events_outlined,
-              size: 22,
-              color: Color(0xFFCB8A2C),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return widget.horizontal
+        ? AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            layoutBuilder: (currentChild, previousChildren) => Stack(
+              alignment: Alignment.centerRight,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      'Chance de ganhar',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF8A6116),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Tooltip(
-                      message:
-                          'Sua chance é calculada com base no total de cotas.',
-                      child: Icon(
-                        Icons.info_outline,
-                        size: 13,
-                        color: const Color(0xFF8A6116).withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                ChanceFracaoReveal(
-                  percentual: percentual,
-                  fracao: fracao,
-                  percentualStyle: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1F2937),
-                  ),
-                  fracaoStyle: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
+                ...previousChildren,
+                if (currentChild != null) currentChild,
               ],
             ),
-          ),
-        ],
-      ),
-    );
+            child: _revelado
+                ? Text(
+                    widget.fracao,
+                    key: const ValueKey('fracao'),
+                    style: widget.percentualStyle,
+                  )
+                : Text(
+                    '${widget.percentual}%',
+                    key: const ValueKey('percentual'),
+                    style: widget.percentualStyle,
+                  ),
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${widget.percentual}%', style: widget.percentualStyle),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 150),
+                transitionBuilder: (child, animation) =>
+                    FadeTransition(opacity: animation, child: child),
+                layoutBuilder: (currentChild, previousChildren) =>
+                    currentChild ?? const SizedBox.shrink(),
+                child: _revelado
+                    ? Padding(
+                        key: const ValueKey('fracao'),
+                        padding: EdgeInsets.zero,
+                        child: Text(widget.fracao, style: widget.fracaoStyle),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('vazio')),
+              ),
+            ],
+          );
   }
 }
 
-class CardEstatisticaIcone extends StatelessWidget {
-  final IconData icone;
-  final Color corIcone;
-  final Color corFundoIcone;
-  final String titulo;
-  final String valor;
-  final Color? corValor;
-  final String? rodape;
-
-  const CardEstatisticaIcone({
-    super.key,
-    required this.icone,
-    required this.corIcone,
-    required this.corFundoIcone,
-    required this.titulo,
-    required this.valor,
-    this.corValor,
-    this.rodape,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEFEFE),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: corFundoIcone,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icone, size: 22, color: corIcone),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  titulo,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  valor,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: corValor ?? const Color(0xFF1F2937),
-                  ),
-                ),
-                if (rodape != null) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEAE3F8),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      rodape!,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF7C5CD9),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+enum DestaqueCor { amarelo, verde, azul }
 
 class CardEstatistica extends StatelessWidget {
   final String titulo;
   final String valor;
   final bool destaque;
+  final DestaqueCor destaqueCor;
   final IconData? icone;
   final Color? corValor;
   final String? infoTooltip;
@@ -481,6 +263,7 @@ class CardEstatistica extends StatelessWidget {
     required this.titulo,
     required this.valor,
     this.destaque = false,
+    this.destaqueCor = DestaqueCor.amarelo,
     this.icone,
     this.corValor,
     this.infoTooltip,
@@ -490,63 +273,79 @@ class CardEstatistica extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final corFundo = !destaque
+        ? const Color(0xFFFEFEFE)
+        : destaqueCor == DestaqueCor.verde
+        ? const Color(0xFFE3F3E9)
+        : destaqueCor == DestaqueCor.azul
+        ? const Color(0xFFE3EDF8)
+        : const Color(0xFFFDF4E3);
+    final corBorda = !destaque
+        ? const Color(0xFFE5E7EB)
+        : destaqueCor == DestaqueCor.verde
+        ? const Color(0xFFBFE0CB)
+        : destaqueCor == DestaqueCor.azul
+        ? const Color(0xFFBBD3EC)
+        : const Color(0xFFF2D9A8);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
-        color: destaque ? const Color(0xFFFDF4E3) : const Color(0xFFFEFEFE),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: destaque ? const Color(0xFFF2D9A8) : const Color(0xFFE5E7EB),
-          width: 1,
-        ),
+        color: corFundo,
+        borderRadius: AppRadii.circularSmd,
+        border: Border.all(color: corBorda, width: 1),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              if (icone != null) ...[
-                Icon(icone, size: 18, color: const Color(0xFFCB8A2C)),
-                const SizedBox(width: 6),
-              ],
-              Flexible(
-                child: Text(
-                  titulo,
-                  softWrap: true,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: destaque
-                        ? const Color(0xFF8A6116)
-                        : Colors.grey.shade600,
-                  ),
-                ),
-              ),
-              if (infoTooltip != null) ...[
-                const SizedBox(width: 4),
-                Tooltip(
-                  message: infoTooltip!,
-                  child: Icon(
-                    Icons.info_outline,
-                    size: 15,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
-              ],
-            ],
+          if (icone != null) ...[
+            Icon(icone, size: 18, color: const Color(0xFFCB8A2C)),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            titulo,
+            softWrap: false,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: !destaque
+                  ? Colors.grey.shade600
+                  : destaqueCor == DestaqueCor.verde
+                  ? const Color(0xFF2E7D32)
+                  : destaqueCor == DestaqueCor.azul
+                  ? const Color(0xFF2A5C94)
+                  : const Color(0xFF8A6116),
+            ),
           ),
-          const SizedBox(height: 6),
-          valorWidget ??
-              Text(
-                valor,
-                softWrap: true,
-                style: TextStyle(
-                  fontSize: fontSizeValor,
-                  fontWeight: FontWeight.w700,
-                  color: corValor ?? const Color(0xFF1F2937),
-                ),
+          if (infoTooltip != null) ...[
+            const SizedBox(width: 4),
+            Tooltip(
+              message: infoTooltip!,
+              child: Icon(
+                Icons.info_outline,
+                size: 15,
+                color: Colors.grey.shade500,
               ),
+            ),
+          ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child:
+                  valorWidget ??
+                  Text(
+                    valor,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: fontSizeValor,
+                      fontWeight: FontWeight.w700,
+                      color: corValor ?? const Color(0xFF1F2937),
+                    ),
+                  ),
+            ),
+          ),
         ],
       ),
     );

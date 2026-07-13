@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:flutter/material.dart';
 
@@ -65,7 +66,7 @@ class _AvatarDialogState extends State<_AvatarDialog> {
       surfaceTintColor: Colors.transparent,
       elevation: 18,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: AppRadii.circularXxl,
         side: BorderSide(color: Colors.grey.shade200, width: 1),
       ),
       title: const Text(
@@ -98,9 +99,7 @@ class _AvatarDialogState extends State<_AvatarDialog> {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF487DE5),
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: AppRadii.circularSmd),
           ),
           child: const Text('Confirmar'),
         ),
@@ -153,7 +152,7 @@ class _AvatarBottomSheetState extends State<_AvatarBottomSheet> {
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
               color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: AppRadii.circularXs,
             ),
           ),
           const Text(
@@ -184,7 +183,7 @@ class _AvatarBottomSheetState extends State<_AvatarBottomSheet> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadii.circularMd,
                 ),
               ),
               child: const Text(

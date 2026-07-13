@@ -3,6 +3,7 @@ import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/components/shell/avatar_picker_dialog.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -320,7 +321,7 @@ class _DrawerItem extends StatelessWidget {
       cursor: SystemMouseCursors.click,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: AppRadii.circularSmd,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
           child: Row(
@@ -345,7 +346,7 @@ class _DrawerItem extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEF4444),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: AppRadii.circularPill,
                   ),
                   child: Text(
                     badgeCount > 99 ? '99+' : '$badgeCount',

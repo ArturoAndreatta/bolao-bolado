@@ -1,6 +1,4 @@
-import 'package:bolao_bolado/core/responsive.dart';
-import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_desktop.dart';
-import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_mobile.dart';
+import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_form.dart';
 import 'package:flutter/material.dart';
 
 class CadastrarSala extends StatelessWidget {
@@ -10,19 +8,7 @@ class CadastrarSala extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Responsive.isMobile define o breakpoint que decide entre a versão
-        // mobile e a desktop desta página (ver core/responsive.dart).
-        final isMobile = Responsive.isMobile(context);
-
-        if (isMobile) {
-          return CadastrarSalaMobile(salaId: salaId);
-        }
-
-        return CadastrarSalaDesktop(salaId: salaId);
-      },
-    );
+    return CadastrarSalaForm(salaId: salaId);
   }
 }
 

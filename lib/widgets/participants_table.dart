@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:flutter/material.dart';
 
 // Tabela simples de participantes usada em sala_detalhes.dart. Não confundir
@@ -73,7 +74,42 @@ class ParticipantsTable extends StatelessWidget {
     return SizedBox(
       height: heightTable,
       child: loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Shimmer(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    color: Colors.grey.shade200,
+                    child: Row(
+                      children: [
+                        SkeletonBox(width: widthNome, height: 14),
+                        const SizedBox(width: 12),
+                        SkeletonBox(width: widthValor, height: 14),
+                        const SizedBox(width: 12),
+                        SkeletonBox(width: widthCotas, height: 14),
+                        const SizedBox(width: 12),
+                        SkeletonBox(width: widthPremio, height: 14),
+                      ],
+                    ),
+                  ),
+                  for (var i = 0; i < 5; i++)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        children: [
+                          SkeletonBox(width: widthNome * 0.7, height: 12),
+                          const SizedBox(width: 12),
+                          SkeletonBox(width: widthValor * 0.7, height: 12),
+                          const SizedBox(width: 12),
+                          SkeletonBox(width: widthCotas * 0.7, height: 12),
+                          const SizedBox(width: 12),
+                          SkeletonBox(width: widthPremio * 0.7, height: 12),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            )
           : SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SingleChildScrollView(
