@@ -60,9 +60,9 @@ class _PixInfoState extends State<PixInfo> {
   Widget _buildComQrCode(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(left: 0, top: 2, right: 16, bottom: 2),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF3F4F6),
         borderRadius: AppRadii.circularMd,
       ),
       child: Column(
@@ -92,7 +92,7 @@ class _PixInfoState extends State<PixInfo> {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Row(
                         children: [
@@ -144,14 +144,14 @@ class _PixInfoState extends State<PixInfo> {
                           height: 1.3,
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      _botaoCopiar(),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          _botaoCopiar(),
         ],
       ),
     );
