@@ -44,6 +44,10 @@ class HeaderCard extends StatelessWidget {
   // Repassado ao CustomCard externo: margem extra lateral/inferior que
   // revela a cor de fundo por trás (faixa do pill cinza no fichário).
   final double margemFichario;
+  // Repassado ao CustomCard externo: exibe a assinatura no canto inferior
+  // direito. Quem usa HeaderCard decide (ex: numa tela com vários cards
+  // lado a lado, só o mais à direita/abaixo deve passar true).
+  final bool mostrarAssinatura;
 
   const HeaderCard({
     super.key,
@@ -63,6 +67,7 @@ class HeaderCard extends StatelessWidget {
     this.cantoSuperiorDireitoReto = false,
     this.esticarLargura = false,
     this.margemFichario = 0,
+    this.mostrarAssinatura = false,
   });
 
   @override
@@ -90,6 +95,7 @@ class HeaderCard extends StatelessWidget {
       cantoSuperiorDireitoReto: cantoSuperiorDireitoReto,
       esticarLargura: esticarLargura,
       margemFichario: margemFichario,
+      mostrarAssinatura: mostrarAssinatura,
       children: [
         if (mostrarCabecalho)
           HeaderPaginas(

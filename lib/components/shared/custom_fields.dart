@@ -54,12 +54,15 @@ class CustomField extends StatelessWidget {
   String? _validate(String? value) {
     if (isRequired!) {
       if (value == null || value.isEmpty) {
-        return 'Campo obrigatório';
+        // String vazia (não null): ativa a borda de erro sem reservar
+        // altura pra texto, evitando que o card cresça/role. O aviso
+        // completo aparece no dialog ao tentar confirmar.
+        return '';
       }
       if (isNumeric!) {
         final number = MoneyInputFormat.parse(value);
         if (number == null || number == 0) {
-          return 'Campo obrigatório';
+          return '';
         }
       }
     }
@@ -139,6 +142,15 @@ class CustomDropdownField<T> extends StatelessWidget {
           ),
           style: const TextStyle(color: Color(0xFF1F2937), fontSize: 18),
           decoration: CustomFieldDecoration.build(hint: hint, icon: icon),
+          // Altura default do botão (40px) corta a parte de baixo do texto
+          // do item selecionado quando o InputDecoration tem labelText
+          // flutuante (o rótulo some pro topo e o valor precisa da altura
+          // toda) — sem isso, textos com descendentes (ex: "ç", "ã") ficam
+          // visualmente cortados em vez de dar ellipsis.
+          buttonStyleData: const ButtonStyleData(
+            height: 56,
+            padding: EdgeInsets.symmetric(horizontal: 4),
+          ),
           dropdownStyleData: DropdownStyleData(
             decoration: BoxDecoration(
               color: const Color(0xFFF9FAFB),

@@ -32,13 +32,15 @@ class AuthService {
 
     await credential.user!.updateDisplayName(nome);
 
-    // Sorteia uma cor aleatória da paleta para o avatar (exceto a cor do admin)
+    // Sorteia uma cor e um emoji aleatórios para o avatar (cor exceto a do admin)
     final corAleatoria = AvatarService.sortearCorAleatoria();
+    final emojiAleatorio = AvatarService.sortearEmojiAleatorio();
 
     await _firestore.collection('usuarios').doc(credential.user!.uid).set({
       'nome': nome,
       'email': email,
       'avatarColor': corAleatoria,
+      'avatarEmoji': emojiAleatorio,
       'criadoEm': FieldValue.serverTimestamp(),
     });
 
@@ -55,10 +57,7 @@ class AuthService {
       unawaited(_auth.currentUser!.delete().catchError((_) {}));
     }
 
-    return await _auth.signInWithEmailAndPassword(
-      email: email,
-      password: senha,
-    );
+    return _auth.signInWithEmailAndPassword(email: email, password: senha);
   }
 
   Future<void> logout() async {

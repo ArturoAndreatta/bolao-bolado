@@ -97,6 +97,13 @@ void main() {
       expect(precoCotaPara('lotofacil'), kPrecoCotaLotofacil);
     });
 
+    test('aceita o value antigo "loto" como Lotofácil (compatibilidade)', () {
+      // Salas criadas antes da correção do dropdown têm sorteio == 'loto'.
+      // Sem esse fallback, elas voltariam a calcular cotas com o preço da
+      // Mega-Sena (R\$6) em vez do da Lotofácil (R\$3,50).
+      expect(precoCotaPara('loto'), kPrecoCotaLotofacil);
+    });
+
     test(
       'retorna o preço da Mega-Sena para "mega" ou valores desconhecidos/nulos',
       () {
@@ -105,5 +112,18 @@ void main() {
         expect(precoCotaPara('outro-valor-qualquer'), kPrecoCotaMega);
       },
     );
+  });
+
+  group('ehLotofacil', () {
+    test('reconhece "lotofacil" e o value antigo "loto"', () {
+      expect(ehLotofacil('lotofacil'), isTrue);
+      expect(ehLotofacil('loto'), isTrue);
+    });
+
+    test('não reconhece Mega-Sena nem valores nulos/desconhecidos', () {
+      expect(ehLotofacil('mega'), isFalse);
+      expect(ehLotofacil(null), isFalse);
+      expect(ehLotofacil('outros'), isFalse);
+    });
   });
 }

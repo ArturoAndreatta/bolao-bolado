@@ -20,6 +20,7 @@ class AppDrawer extends StatefulWidget {
 
 class _AppDrawerState extends State<AppDrawer> {
   Color? _corAvatarAtual;
+  String? _emojiAvatarAtual;
   bool _isAdmin = false;
 
   // Instanciada uma única vez: se streamApostasPendentes() fosse chamada
@@ -38,8 +39,14 @@ class _AppDrawerState extends State<AppDrawer> {
   Future<void> _carregarAvatar() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.isAnonymous) return;
-    final cor = await AvatarService.buscarCor(user.uid, email: user.email);
-    if (mounted) setState(() => _corAvatarAtual = cor);
+    final cor = await AvatarService.buscarCor(user.uid);
+    final emoji = await AvatarService.buscarEmoji(user.uid);
+    if (mounted) {
+      setState(() {
+        _corAvatarAtual = cor;
+        _emojiAvatarAtual = emoji;
+      });
+    }
   }
 
   Future<void> _carregarIsAdmin() async {
@@ -86,10 +93,14 @@ class _AppDrawerState extends State<AppDrawer> {
                               await mostrarEscolhaAvatar(
                                 context,
                                 corAtual: _corAvatarAtual!,
+                                emojiAtual:
+                                    _emojiAvatarAtual ?? kEmojiAvatarPadrao,
                                 isAdmin: _isAdmin,
-                                onSelecionado: (novaCor) {
-                                  setState(() => _corAvatarAtual = novaCor);
-                                  widget.onAvatarChanged?.call(novaCor);
+                                onSelecionado: (novoEmoji) {
+                                  setState(() => _emojiAvatarAtual = novoEmoji);
+                                  widget.onAvatarChanged?.call(
+                                    _corAvatarAtual!,
+                                  );
                                 },
                               );
                             }
@@ -107,12 +118,10 @@ class _AppDrawerState extends State<AppDrawer> {
                               ),
                             ),
                             child: ClipOval(
-                              child: _corAvatarAtual != null
-                                  ? _avatarFallback(
-                                      inicial,
-                                      cor: _corAvatarAtual,
-                                    )
-                                  : _avatarFallback(inicial),
+                              child: _avatarFallback(
+                                _emojiAvatarAtual ?? inicial,
+                                cor: _corAvatarAtual,
+                              ),
                             ),
                           ),
                           if (isLoggedIn)
@@ -184,7 +193,7 @@ class _AppDrawerState extends State<AppDrawer> {
                       onTap: () {
                         final router = GoRouter.of(context);
                         Navigator.of(context).pop();
-                        router.go(AppRoutes.informarAposta);
+                        router.go(AppRoutes.participants);
                       },
                     ),
                     _DrawerItem(
@@ -279,12 +288,12 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 
-  Widget _avatarFallback(String inicial, {Color? cor}) {
+  Widget _avatarFallback(String conteudo, {Color? cor}) {
     return Container(
       color: cor ?? const Color(0xFF487DE5),
       child: Center(
         child: Text(
-          inicial,
+          conteudo,
           style: const TextStyle(
             color: Colors.white,
             fontSize: 20,

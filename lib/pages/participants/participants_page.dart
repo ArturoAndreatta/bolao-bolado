@@ -164,6 +164,10 @@ class _ParticipantsState extends State<Participants> {
         subtitle: 'Visualize quem está participando',
         maxWidth: 937,
         height: chatHeight,
+        // Participantes fica sempre à direita de MinhaAposta no layout
+        // desktop (ver _layoutDesktop): é o card mais à direita da fileira,
+        // então recebe a assinatura.
+        mostrarAssinatura: true,
         trailing: _botoesTrailingDesktop(),
         // Participants é sempre acessada via context.go (login ou
         // "Visualizar" na Home), nunca empilhada. Usuário logado não tem
@@ -295,6 +299,9 @@ class _ParticipantsState extends State<Participants> {
       abas: abas,
       semMargem: true,
       esticarAltura: true,
+      // Só uma seção fica visível de cada vez no fichário mobile (as
+      // outras ficam atrás das abas), então é seguro sempre mostrar aqui.
+      mostrarAssinatura: true,
       // LayoutBuilder mede a altura real que o Expanded do Fichario cedeu
       // pra folha ativa — evita recalcular manualmente o chrome (pill,
       // paddings dos cards etc) e garante que os widgets internos (que
@@ -375,7 +382,7 @@ class _ParticipantsState extends State<Participants> {
                     queryParameters: {'salaId': _salaId},
                   ).toString(),
                 );
-                if (mounted) _load();
+                if (mounted) unawaited(_load());
               },
       ),
     );

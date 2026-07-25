@@ -99,7 +99,13 @@ class SkeletonCampoFormulario extends StatelessWidget {
           children: [
             const SkeletonBox(width: 20, height: 20, radius: 5),
             const SizedBox(width: 12),
-            SkeletonBox(width: maxWidth * 0.4, height: 14),
+            Expanded(
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: 0.6,
+                child: const SkeletonBox(width: double.infinity, height: 14),
+              ),
+            ),
           ],
         ),
       ),

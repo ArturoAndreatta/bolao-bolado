@@ -141,6 +141,9 @@ _combinarStreams(
     for (final sub in subs) {
       await sub.cancel();
     }
+    // Fecha o próprio controller ao cancelar: sem isso o StreamController
+    // fica alocado mesmo depois que ninguém mais escuta o stream combinado.
+    await controller.close();
   };
 
   return controller.stream;
@@ -153,6 +156,7 @@ Future<List<Map<String, Object?>>> _montarParticipantes(
 ) async {
   final uids = docs.map((doc) => doc.id).toList();
   final coresPorUid = await _buscarCoresAvatar(uids);
+  final emojisPorUid = await _buscarEmojisAvatar(uids);
 
   final participantes = docs.map((doc) {
     final dados = doc.data();
@@ -165,6 +169,7 @@ Future<List<Map<String, Object?>>> _montarParticipantes(
       'verificado': dados['verificado'] == true,
       'editadoAposVerificacao': dados['editadoAposVerificacao'] == true,
       'avatarColor': coresPorUid[uid],
+      'avatarEmoji': emojisPorUid[uid],
     };
   }).toList();
 
@@ -228,6 +233,25 @@ Future<Map<String, int>> _buscarCoresAvatar(List<String> uids) async {
   return cores;
 }
 
+/// Busca o emoji de avatar de cada uid em `usuarios/{uid}`, usando o mesmo
+/// cache reativo compartilhado ([AvatarColorCache]) usado para as cores.
+Future<Map<String, String>> _buscarEmojisAvatar(List<String> uids) async {
+  if (uids.isEmpty) return {};
+
+  final cache = AvatarColorCache.instance;
+  final emojis = <String, String>{};
+
+  await Future.wait(
+    uids.map((uid) async {
+      final conhecido = cache.emojiConhecido(uid);
+      final emoji = conhecido ?? await cache.emojiStream(uid).first;
+      emojis[uid] = emoji;
+    }),
+  );
+
+  return emojis;
+}
+
 /// Observa em tempo real as apostas pendentes de verificação de todas as
 /// salas (usado pelo painel admin e pelo badge do drawer).
 ///
@@ -257,6 +281,11 @@ Stream<QuerySnapshot<Map<String, dynamic>>> streamApostasPendentes() {
   final controllerExistente = _apostasPendentesController;
   if (controllerExistente != null) return controllerExistente.stream;
 
+  // Cache singleton em nível de módulo: este controller é intencionalmente
+  // mantido aberto por toda a vida do app (compartilhado entre o badge do
+  // drawer e o painel admin). Fechá-lo destruiria o cache do listener
+  // collectionGroup, então o lint close_sinks não se aplica aqui.
+  // ignore: close_sinks
   late final StreamController<QuerySnapshot<Map<String, dynamic>>> controller;
   controller = StreamController<QuerySnapshot<Map<String, dynamic>>>.broadcast(
     onListen: () {
@@ -314,6 +343,73 @@ Future<void> criarApostaManual({
         'editadoAposVerificacao': false,
         'criadoPeloAdmin': true,
       });
+}
+
+/// Atualiza campos editáveis da sala principal direto do painel admin
+/// (prêmio, data/hora do sorteio, chave PIX, valor máximo de aposta), sem
+/// passar pela tela de cadastro. Só grava as chaves presentes em [dados],
+/// então dá pra editar um campo sem sobrescrever os outros.
+Future<void> atualizarDadosSala({
+  required String salaId,
+  required Map<String, Object?> dados,
+}) async {
+  if (dados.isEmpty) return;
+  await FirebaseFirestore.instance
+      .collection('Salas')
+      .doc(salaId)
+      .update(dados);
+}
+
+/// Edita o valor apostado de um participante já existente. Ao mudar o valor
+/// de uma aposta já verificada, marca `editadoAposVerificacao: true` para o
+/// admin revisar de novo (a aposta volta a aparecer como pendente de
+/// re-verificação), espelhando o fluxo de quando o próprio usuário reaposta.
+Future<void> editarValorAposta({
+  required String salaId,
+  required String uid,
+  required String valor,
+  required bool estavaVerificado,
+}) async {
+  await FirebaseFirestore.instance
+      .collection('Salas')
+      .doc(salaId)
+      .collection('Participantes')
+      .doc(uid)
+      .update({
+        'valor': valor,
+        if (estavaVerificado) 'editadoAposVerificacao': true,
+      });
+}
+
+/// Remove por completo a aposta de um participante da sala. Ação
+/// destrutiva: o documento em Participantes deixa de existir e o
+/// participante some do rateio de cotas/prêmios.
+Future<void> removerAposta({
+  required String salaId,
+  required String uid,
+}) async {
+  await FirebaseFirestore.instance
+      .collection('Salas')
+      .doc(salaId)
+      .collection('Participantes')
+      .doc(uid)
+      .delete();
+}
+
+/// Alterna o estado de verificação de uma aposta (verificado ⇄ pendente).
+/// Ao reverter para pendente, também limpa `editadoAposVerificacao` para o
+/// card não acumular os dois destaques ao mesmo tempo.
+Future<void> alternarVerificacao({
+  required String salaId,
+  required String uid,
+  required bool verificar,
+}) async {
+  await FirebaseFirestore.instance
+      .collection('Salas')
+      .doc(salaId)
+      .collection('Participantes')
+      .doc(uid)
+      .update({'verificado': verificar, 'editadoAposVerificacao': false});
 }
 
 /// Marca a aposta de um participante como verificada. Também limpa o

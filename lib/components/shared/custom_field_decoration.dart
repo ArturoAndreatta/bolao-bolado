@@ -24,6 +24,10 @@ class CustomFieldDecoration {
       fillColor: const Color(0xFFF3F4F6),
       suffixIcon: suffix,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      // Erro vira só borda vermelha, sem texto — mensagem completa some
+      // no dialog ao tentar confirmar, então o texto de erro não precisa
+      // reservar altura (evitaria empurrar/gerar scroll no card).
+      errorStyle: const TextStyle(height: 0, fontSize: 0),
       border: OutlineInputBorder(
         borderRadius: AppRadii.circularMd,
         borderSide: BorderSide.none,

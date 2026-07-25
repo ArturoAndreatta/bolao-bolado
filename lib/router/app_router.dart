@@ -6,7 +6,6 @@ import 'package:bolao_bolado/pages/auth/signup.dart';
 import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
 import 'package:bolao_bolado/pages/consultar_salas.dart';
 import 'package:bolao_bolado/pages/home_page.dart';
-import 'package:bolao_bolado/pages/informar_aposta.dart';
 import 'package:bolao_bolado/pages/participants.dart';
 import 'package:bolao_bolado/pages/sala_detalhes.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -100,9 +99,12 @@ final GoRouter appRouter = GoRouter(
       pageBuilder: (context, state) =>
           _noTransitionPage(const Participants(), state),
     ),
+    // "Minha Aposta" foi unificada à tela de Participantes. A rota antiga
+    // continua existindo só como redirect, para não quebrar links/bookmarks
+    // antigos que ainda apontem para /minha-aposta.
     GoRoute(
       path: AppRoutes.informarAposta,
-      pageBuilder: (context, state) => _noTransitionPage(const Login(), state),
+      redirect: (context, state) => AppRoutes.participants,
     ),
     GoRoute(
       path: AppRoutes.cadastrarSala,

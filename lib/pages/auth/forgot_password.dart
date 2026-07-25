@@ -40,6 +40,7 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
         children: [
           CustomCard(
             color: const Color(0xFFF3F1EF),
+            mostrarAssinatura: true,
             children: [
               HeaderPaginas(
                 text: 'Recuperar senha',
@@ -92,9 +93,11 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
                         autofocus: true,
                       ),
                       const SizedBox(height: 20),
-                      _loading
-                          ? const CircularProgressIndicator()
-                          : PrimaryButton(text: 'Enviar', onTap: _enviar),
+                      PrimaryButton(
+                        text: 'Enviar',
+                        onTap: _enviar,
+                        loading: _loading,
+                      ),
                     ],
                     const SizedBox(height: 20),
                   ],

@@ -74,6 +74,7 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
         children: [
           CustomCard(
             color: Color(0xFFF3F1EF),
+            mostrarAssinatura: true,
             children: [
               HeaderPaginas(
                 text: 'Consultar Salas',

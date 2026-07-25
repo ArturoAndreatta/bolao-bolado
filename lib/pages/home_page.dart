@@ -83,6 +83,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
       child: Stack(
         children: [
           CustomCard(
+            mostrarAssinatura: true,
             children: [
               Logo(),
               SizedBox(height: 20),
@@ -123,7 +124,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 onTap: () {
                   context.go(
                     _authService.isLoggedIn
-                        ? AppRoutes.informarAposta
+                        ? AppRoutes.participants
                         : AppRoutes.signup,
                   );
                 },

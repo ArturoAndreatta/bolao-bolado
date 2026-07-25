@@ -8,6 +8,7 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
+import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/services/bet/preco_cota.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
@@ -40,6 +41,11 @@ class MinhaApostaCard extends StatefulWidget {
   // nenhum CustomCard) — o Fichario já monta o cartão branco e a barra de
   // destaque ao redor, então um CustomCard aqui dentro duplicaria a moldura.
   final bool apenasConteudo;
+  // Repassado ao CustomCard externo (quando não apenasConteudo): exibe a
+  // assinatura no canto inferior direito. Quem usa MinhaApostaCard decide —
+  // hoje ele fica sempre lado a lado com o card de Participantes (que é o
+  // mais à direita), então este widget nunca deve receber true.
+  final bool mostrarAssinatura;
 
   const MinhaApostaCard({
     super.key,
@@ -49,6 +55,7 @@ class MinhaApostaCard extends StatefulWidget {
     this.esticarLargura = false,
     this.mostrarCabecalho = true,
     this.apenasConteudo = false,
+    this.mostrarAssinatura = false,
   });
 
   @override
@@ -97,7 +104,20 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
   // (se já existir aposta), descartando a edição em andamento.
   void _onValorFocusChange() {
     if (_valorFocusNode.hasFocus) return;
-    if (!_apostaExistente) return;
+    if (!_apostaExistente) {
+      // Sem aposta gravada pra restaurar: nunca deixa o campo vazio/zerado,
+      // pra não disparar o erro "Campo obrigatório" (que cresce o card e
+      // gera scroll indevido) — volta pro mínimo permitido (múltiplo de 6).
+      _restaurarValorTimer?.cancel();
+      _restaurarValorTimer = Timer(const Duration(milliseconds: 200), () {
+        if (!mounted) return;
+        if (_valorApostado < _passoValor) {
+          final texto = _formatarValor(_passoValor.toString());
+          valueController.text = texto;
+        }
+      });
+      return;
+    }
     _restaurarValorTimer?.cancel();
     _restaurarValorTimer = Timer(const Duration(milliseconds: 200), () {
       if (!mounted) return;
@@ -162,13 +182,11 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     final baseArredondada = delta > 0
         ? (atual ~/ _passoValor) * _passoValor
         : ((atual + _passoValor - 1) ~/ _passoValor) * _passoValor;
-    final novoValor = (baseArredondada + delta).clamp(0, 1 << 30);
-    final inteiro = novoValor == 0 ? '' : novoValor.toString();
+    final novoValor = (baseArredondada + delta).clamp(_passoValor, 1 << 30);
+    final texto = _formatarValor(novoValor.toString());
     valueController.value = TextEditingValue(
-      text: _formatarValor(inteiro.isEmpty ? '0' : inteiro),
-      selection: TextSelection.collapsed(
-        offset: _formatarValor(inteiro.isEmpty ? '0' : inteiro).length,
-      ),
+      text: texto,
+      selection: TextSelection.collapsed(offset: texto.length),
     );
   }
 
@@ -255,6 +273,16 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
 
   @override
   Widget build(BuildContext context) {
+    // forcarSkeletonGlobal (toggle do Painel ADM) força o skeleton mesmo já
+    // carregado; ValueListenableBuilder rebuilda ao alternar o switch.
+    return ValueListenableBuilder<bool>(
+      valueListenable: forcarSkeletonGlobal,
+      builder: (context, forcarSkeleton, _) =>
+          _buildConteudo(context, _loading || forcarSkeleton),
+    );
+  }
+
+  Widget _buildConteudo(BuildContext context, bool mostrarSkeleton) {
     // No mobile o card ocupa a altura total calculada pela página (mesma
     // usada pelas abas Participantes/Chat); no desktop mantém a altura
     // fixa histórica que casa com o painel de participantes ao lado.
@@ -456,7 +484,11 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
                         children: [
                           ...camposTopo,
                           if (blocoApenasPix != null) ...[
-                            const SizedBox(height: 12),
+                            // 4 (não 12): compensa os ~8px que o Material
+                            // sempre reserva pro slot de erro dos campos
+                            // (mesmo com errorStyle de altura zero), pra não
+                            // sobrar scroll residual no card de altura fixa.
+                            const SizedBox(height: 7),
                             blocoApenasPix,
                           ],
                         ],
@@ -475,7 +507,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       // embaixo quando o conteúdo é mais curto que isso.
       return Padding(
         padding: const EdgeInsets.all(16),
-        child: _loading
+        child: mostrarSkeleton
             ? SizedBox(
                 height: alturaCard,
                 child: _buildSkeletonConteudo(larguraConteudo),
@@ -496,6 +528,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           ? double.infinity
           : (widget.mobile ? 730 : _larguraCard),
       esticarLargura: widget.esticarLargura,
+      mostrarAssinatura: widget.mostrarAssinatura,
       children: [
         if (widget.mostrarCabecalho)
           const HeaderPaginas(
@@ -503,7 +536,10 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
             subtitle: 'Informe seu valor de aposta',
             showBackButton: false,
           ),
-        if (_loading) _buildSkeleton(alturaCard, larguraConteudo) else form,
+        if (mostrarSkeleton)
+          _buildSkeleton(alturaCard, larguraConteudo)
+        else
+          form,
       ],
     );
   }
@@ -569,8 +605,21 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     final valorEditado = valor.replaceAll('.', '').replaceAll(',', '.');
 
     final valorNum = double.tryParse(valorEditado) ?? 0;
-    if (valorNum == 0 || valorNum % 6 != 0) {
-      CustomShowDialog.show(context, "O valor deve ser divisível por 6!");
+    // O valor precisa fechar cotas inteiras do sorteio da sala. O preço da
+    // cota varia (Mega R$6, Lotofácil R$3,50), então usa _precoCota em vez
+    // de um "6" fixo — senão salas de Lotofácil rejeitariam valores válidos.
+    // Comparação feita em centavos (inteiros) para evitar erro de ponto
+    // flutuante com preços fracionários como 3,50.
+    final valorCentavos = (valorNum * 100).round();
+    final cotaCentavos = (_precoCota * 100).round();
+    if (valorNum == 0 || valorCentavos % cotaCentavos != 0) {
+      final precoFormatado = _precoCota % 1 == 0
+          ? _precoCota.toStringAsFixed(0)
+          : _precoCota.toStringAsFixed(2).replaceAll('.', ',');
+      CustomShowDialog.show(
+        context,
+        "O valor deve ser múltiplo de R\$ $precoFormatado!",
+      );
       return;
     }
 
@@ -621,8 +670,8 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
   }
 }
 
-// Botão "Confirmar" do formulário: vira um spinner enquanto a aposta está
-// sendo salva no Firestore.
+// Botão "Confirmar" do formulário: mantém a forma e mostra um spinner
+// pequeno dentro dele enquanto a aposta está sendo salva no Firestore.
 class _BotaoConfirmar extends StatelessWidget {
   final bool saving;
   final double width;
@@ -636,13 +685,12 @@ class _BotaoConfirmar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (saving) {
-      return const CircularProgressIndicator(
-        color: Color(0xFF7CC8B5),
-        strokeWidth: 5,
-      );
-    }
-    return PrimaryButton(text: 'Confirmar', width: width, onTap: onTap);
+    return PrimaryButton(
+      text: 'Confirmar',
+      width: width,
+      onTap: onTap,
+      loading: saving,
+    );
   }
 }
 
@@ -686,9 +734,14 @@ class _StepperButton extends StatefulWidget {
 class _StepperButtonState extends State<_StepperButton> {
   Timer? _repeatTimer;
   int _repeticoes = 0;
-  final _focusNode = FocusNode(skipTraversal: true, canRequestFocus: false);
+  // Evita disparo duplicado: onTapDown pode chegar de novo antes do
+  // onTapUp/onTapCancel do toque anterior processar em cliques muito
+  // rápidos (double-tap), o que reiniciava a repetição sem parar a antiga.
+  bool _repetindo = false;
 
   void _iniciarRepeticao() {
+    if (_repetindo) return;
+    _repetindo = true;
     widget.onTap();
     _repeticoes = 0;
     _agendarProximaRepeticao();
@@ -706,6 +759,7 @@ class _StepperButtonState extends State<_StepperButton> {
   }
 
   void _pararRepeticao() {
+    _repetindo = false;
     _repeatTimer?.cancel();
     _repeatTimer = null;
   }
@@ -713,22 +767,22 @@ class _StepperButtonState extends State<_StepperButton> {
   @override
   void dispose() {
     _pararRepeticao();
-    _focusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _iniciarRepeticao(),
-      onTapUp: (_) => _pararRepeticao(),
-      onTapCancel: _pararRepeticao,
-      child: IconButton(
-        icon: Icon(widget.icon, size: 20),
-        color: Colors.grey.shade700,
-        splashRadius: 20,
-        focusNode: _focusNode,
-        onPressed: () {},
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _iniciarRepeticao(),
+        onTapUp: (_) => _pararRepeticao(),
+        onTapCancel: _pararRepeticao,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(widget.icon, size: 20, color: Colors.grey.shade700),
+        ),
       ),
     );
   }

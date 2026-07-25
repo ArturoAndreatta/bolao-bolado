@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
+import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/models/mensagem.dart';
 import 'package:bolao_bolado/pages/participants/participants_skeletons.dart';
 import 'package:bolao_bolado/services/chat/chat_service.dart';
@@ -143,51 +144,60 @@ class _ChatSalaState extends State<ChatSala> {
             if (widget.mostrarCabecalho)
               _CabecalhoChat(onFechar: widget.onFechar),
             Expanded(
-              child: StreamBuilder<List<Mensagem>>(
-                stream: _mensagensStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const _SkeletonMensagens();
-                  }
+              child: ValueListenableBuilder<bool>(
+                valueListenable: forcarSkeletonGlobal,
+                builder: (context, forcarSkeleton, _) {
+                  return StreamBuilder<List<Mensagem>>(
+                    stream: _mensagensStream,
+                    builder: (context, snapshot) {
+                      if (forcarSkeleton ||
+                          snapshot.connectionState == ConnectionState.waiting) {
+                        return const _SkeletonMensagens();
+                      }
 
-                  final mensagens = snapshot.data ?? [];
+                      final mensagens = snapshot.data ?? [];
 
-                  if (mensagens.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: SelectionArea(
-                          child: Text(
-                            'Nenhuma mensagem ainda.\nSeja o primeiro a falar! 💬',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 13,
+                      if (mensagens.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: SelectionArea(
+                              child: Text(
+                                'Nenhuma mensagem ainda.\nSeja o primeiro a falar! 💬',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.grey.shade500,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    );
-                  }
+                        );
+                      }
 
-                  final lista = ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    itemCount: mensagens.length,
-                    itemBuilder: (context, index) {
-                      final msg = mensagens[index];
-                      final isMinha =
-                          msg.autorUid ==
-                          FirebaseAuth.instance.currentUser?.uid;
-                      return _BolhaMensagem(mensagem: msg, isMinha: isMinha);
+                      final lista = ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        itemCount: mensagens.length,
+                        itemBuilder: (context, index) {
+                          final msg = mensagens[index];
+                          final isMinha =
+                              msg.autorUid ==
+                              FirebaseAuth.instance.currentUser?.uid;
+                          return _BolhaMensagem(
+                            mensagem: msg,
+                            isMinha: isMinha,
+                          );
+                        },
+                      );
+
+                      return SelectionArea(child: lista);
                     },
                   );
-
-                  return SelectionArea(child: lista);
                 },
               ),
             ),
@@ -509,26 +519,26 @@ class _BolhaMensagem extends StatelessWidget {
     return StreamBuilder<Color>(
       initialData: cache.corConhecida(mensagem.autorUid),
       stream: cache.corStream(mensagem.autorUid),
-      builder: (context, snapshot) {
-        return _avatarCirculo(snapshot.data ?? const Color(0xFFE5E7EB));
+      builder: (context, corSnapshot) {
+        return StreamBuilder<String>(
+          initialData: cache.emojiConhecido(mensagem.autorUid),
+          stream: cache.emojiStream(mensagem.autorUid),
+          builder: (context, emojiSnapshot) {
+            return _avatarCirculo(
+              corSnapshot.data ?? const Color(0xFFE5E7EB),
+              emojiSnapshot.data ?? kEmojiAvatarPadrao,
+            );
+          },
+        );
       },
     );
   }
 
-  Widget _avatarCirculo(Color cor) {
+  Widget _avatarCirculo(Color cor, String emoji) {
     return CircleAvatar(
       radius: 14,
       backgroundColor: cor,
-      child: Text(
-        mensagem.autorNome.isNotEmpty
-            ? mensagem.autorNome[0].toUpperCase()
-            : '?',
-        style: const TextStyle(
-          fontSize: 11,
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      child: Text(emoji, style: const TextStyle(fontSize: 13)),
     );
   }
 }

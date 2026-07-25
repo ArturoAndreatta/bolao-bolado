@@ -49,6 +49,7 @@ class _RegisterState extends State<Register> {
         children: [
           CustomCard(
             color: const Color(0xFFF3F1EF),
+            mostrarAssinatura: true,
             children: [
               HeaderPaginas(
                 text: 'Criar conta',
@@ -122,14 +123,13 @@ class _RegisterState extends State<Register> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    _loading
-                        ? const CircularProgressIndicator()
-                        : isMobile
+                    isMobile
                         ? Column(
                             children: [
                               PrimaryButton(
                                 text: 'Cadastrar',
                                 onTap: _cadastrar,
+                                loading: _loading,
                               ),
                             ],
                           )
@@ -140,6 +140,7 @@ class _RegisterState extends State<Register> {
                                 text: 'Cadastrar',
                                 width: 233,
                                 onTap: _cadastrar,
+                                loading: _loading,
                               ),
                             ],
                           ),
@@ -175,8 +176,9 @@ class _RegisterState extends State<Register> {
       );
 
       if (mounted) {
-        // Cadastro novo → vai pra tela de login/aposta
-        context.go(AppRoutes.informarAposta);
+        // Cadastro novo → vai direto pra tela de participantes (onde fica o
+        // card "Minha Aposta").
+        context.go(AppRoutes.participants);
       }
     } on Exception catch (e) {
       if (mounted) {

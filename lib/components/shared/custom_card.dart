@@ -40,6 +40,11 @@ class CustomCard extends StatelessWidget {
   // ativo. Passe o mesmo valor usado no padding lateral do FicharioAbas
   // (hoje 10) para as faixas ficarem do mesmo tamanho nos dois lugares.
   final double? margemFichario;
+  // Exibe a assinatura "Feito com ❤️" no canto inferior direito deste card.
+  // A página é quem decide: numa página com vários cards lado a lado, só o
+  // card mais à direita/mais abaixo deve receber true (evita repetir a
+  // assinatura em cada card da mesma tela).
+  final bool mostrarAssinatura;
 
   const CustomCard({
     super.key,
@@ -55,6 +60,7 @@ class CustomCard extends StatelessWidget {
     this.esticarLargura = false,
     this.esticarAltura = false,
     this.margemFichario,
+    this.mostrarAssinatura = false,
   });
 
   @override
@@ -82,12 +88,15 @@ class CustomCard extends StatelessWidget {
         : null;
 
     final card = Card(
-      // Sem elevação quando faz parte do fichário (esticarLargura): a
-      // sombra do Card é desenhada em volta de toda a borda, inclusive no
-      // topo, o que criava uma faixa escura/sombreada bem onde o card deve
-      // parecer conectado ao FicharioAbas acima — mesmo quando nenhum canto
-      // está reto (aba do meio, sem lado nenhum encostando na borda lateral).
-      elevation: esticarLargura ? 0 : (isChild ? 3 : 20),
+      // Sem elevação quando o card está conectado ao FicharioAbas acima
+      // (cantos superiores retos): a sombra do Card é desenhada em volta de
+      // toda a borda, inclusive no topo, o que criava uma faixa
+      // escura/sombreada bem onde o card deve parecer uma peça só com a
+      // pill de abas. Outros usos de esticarLargura (painel ADM,
+      // participantes) não têm esse problema e devem manter a sombra normal.
+      elevation: (cantoSuperiorEsquerdoReto || cantoSuperiorDireitoReto)
+          ? 0
+          : (isChild ? 3 : 20),
       color: color,
       shape: shape,
       // Card usa margin:EdgeInsets.all(4) por padrão quando nenhum margin é
@@ -100,12 +109,35 @@ class CustomCard extends StatelessWidget {
         child: SizedBox(
           width: esticarLargura ? null : maxWidthChild,
           height: esticarAltura ? double.infinity : height,
-          child: Column(
-            crossAxisAlignment: esticarLargura
-                ? CrossAxisAlignment.stretch
-                : CrossAxisAlignment.center,
-            mainAxisSize: esticarAltura ? MainAxisSize.max : MainAxisSize.min,
-            children: children,
+          // A assinatura fica sobreposta (Positioned) em vez de somada como
+          // mais um item da Column: assim ela nunca aumenta a altura do
+          // card, só se sobrepõe ao canto inferior direito do que já existe.
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Column(
+                crossAxisAlignment: esticarLargura
+                    ? CrossAxisAlignment.stretch
+                    : CrossAxisAlignment.center,
+                mainAxisSize: esticarAltura
+                    ? MainAxisSize.max
+                    : MainAxisSize.min,
+                children: children,
+              ),
+              if (mostrarAssinatura)
+                const Positioned(
+                  right: 18,
+                  bottom: -8,
+                  child: Text(
+                    'Feito com ❤️ por Arturo Andreatta',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF9CA3AF),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

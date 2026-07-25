@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/header_card.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
+import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/pages/participants/participants_busca.dart';
 import 'package:bolao_bolado/pages/participants/participants_estatisticas.dart';
@@ -42,6 +43,11 @@ class PainelParticipantes extends StatefulWidget {
   // (Column sem scroll) cresce livremente com a quantidade de apostas,
   // empurrando o card e desalinhando a altura da fileira de abas.
   final double? alturaMobile;
+  // Repassado ao HeaderCard/CustomCard: exibe a assinatura no canto
+  // inferior direito. Quem usa PainelParticipantes decide — hoje é sempre
+  // o card mais à direita/abaixo da tela de Participantes (lado a lado com
+  // MinhaApostaCard no desktop, único card na aba mobile), então recebe true.
+  final bool mostrarAssinatura;
 
   const PainelParticipantes({
     super.key,
@@ -60,6 +66,7 @@ class PainelParticipantes extends StatefulWidget {
     this.esticarLargura = false,
     this.apenasConteudo = false,
     this.alturaMobile,
+    this.mostrarAssinatura = false,
   });
 
   @override
@@ -175,13 +182,24 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
     return rows;
   }
 
+  // Loading efetivo = loading real do pai OU o toggle "Forçar skeleton" do
+  // Painel ADM. Setado no build() a partir do ValueListenableBuilder e lido
+  // pelos _buildMobile/_buildDesktop.
+  bool _loadingEfetivo = false;
+
   @override
   Widget build(BuildContext context) {
-    return widget.mobile ? _buildMobile(context) : _buildDesktop(context);
+    return ValueListenableBuilder<bool>(
+      valueListenable: forcarSkeletonGlobal,
+      builder: (context, forcarSkeleton, _) {
+        _loadingEfetivo = widget.loading || forcarSkeleton;
+        return widget.mobile ? _buildMobile(context) : _buildDesktop(context);
+      },
+    );
   }
 
   Widget _buildMobile(BuildContext context) {
-    if (widget.loading) {
+    if (_loadingEfetivo) {
       final skeleton = SkeletonParticipantes(mobile: true);
       if (widget.apenasConteudo) {
         return Padding(padding: const EdgeInsets.all(16), child: skeleton);
@@ -189,7 +207,10 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
       return CustomCard(
         color: const Color(0xFFF3F1EF),
         maxWidth: widget.esticarLargura ? double.infinity : 730,
-        esticarLargura: widget.esticarLargura,
+        // esticarLargura força o card a usar largura fluida (width: null) em
+        // vez do SizedBox de largura fixa (maxWidth-15 = 715px), que estourava
+        // a lista de skeletons para fora do card em telas < 715px.
+        esticarLargura: true,
         children: [skeleton],
       );
     }
@@ -301,6 +322,7 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
       maxWidth: widget.esticarLargura ? double.infinity : 730,
       height: widget.alturaMobile,
       esticarLargura: widget.esticarLargura,
+      mostrarAssinatura: widget.mostrarAssinatura,
       children: conteudo,
     );
   }
@@ -308,7 +330,7 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
   Widget _buildDesktop(BuildContext context) {
     final linhasFiltradas = _linhasFiltradas();
 
-    final conteudo = widget.loading
+    final conteudo = _loadingEfetivo
         ? const SkeletonTabela()
         : TabelaApostas(
             rows: linhasFiltradas,
@@ -328,7 +350,7 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
                 : null,
           );
 
-    final painelEstatisticas = widget.loading
+    final painelEstatisticas = _loadingEfetivo
         ? const Padding(
             padding: EdgeInsets.only(bottom: 12),
             child: SkeletonEstatisticasDesktop(),

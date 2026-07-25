@@ -9,7 +9,11 @@ import 'package:flutter/material.dart';
 // CadastrarSalaMobile (antes duplicadas, hardcoded, em cada tela).
 const List<DropdownMenuItem<String>> opcoesSorteio = [
   DropdownMenuItem(value: 'mega', child: Text('Mega-Sena')),
-  DropdownMenuItem(value: 'loto', child: Text('Lotofácil')),
+  // O value precisa ser 'lotofacil' (não 'loto'): é essa string que
+  // precoCotaPara() e as estatísticas de probabilidade usam para identificar
+  // a Lotofácil. Com 'loto' a sala caía no preço de cota padrão da Mega-Sena
+  // (R$6 em vez de R$3,50), calculando cotas e prêmios errados.
+  DropdownMenuItem(value: 'lotofacil', child: Text('Lotofácil')),
   DropdownMenuItem(value: 'outros', child: Text('Outros')),
 ];
 

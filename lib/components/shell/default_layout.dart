@@ -1,4 +1,3 @@
-import 'package:bolao_bolado/components/shell/footer.dart';
 import 'package:bolao_bolado/components/shell/gradient_decoration.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:flutter/material.dart';
@@ -10,9 +9,9 @@ class DefaultLayout extends StatelessWidget {
   final bool showLogo;
   // Quando true, na faixa compact (mobile + tablet/janela estreita) o
   // conteúdo ocupa 100% da largura da tela (sem o Center/Column encolhendo
-  // pro tamanho intrínseco do filho) e o Footer não aparece — usado por
-  // páginas com layout de fichário (ex: Participants), pra não sobrar
-  // gradiente de fundo nas laterais/embaixo do card.
+  // pro tamanho intrínseco do filho) — usado por páginas com layout de
+  // fichário (ex: Participants), pra não sobrar gradiente de fundo nas
+  // laterais/embaixo do card.
   final bool esticarLarguraCompact;
   const DefaultLayout({
     super.key,
@@ -25,7 +24,6 @@ class DefaultLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
     final esticar = esticarLarguraCompact && Responsive.isCompact(context);
 
     return Container(
@@ -34,10 +32,6 @@ class DefaultLayout extends StatelessWidget {
         drawer: drawer,
         onDrawerChanged: onDrawerChanged,
         backgroundColor: Colors.transparent,
-        // Footer só aparece em telas maiores; no mobile o espaço é escasso
-        // e o rodapé atrapalharia o conteúdo principal. Também some na
-        // faixa compact quando esticarLarguraCompact está ativo.
-        bottomNavigationBar: (isMobile || esticar) ? null : const Footer(),
         appBar: drawer != null
             ? AppBar(
                 backgroundColor: Colors.transparent,

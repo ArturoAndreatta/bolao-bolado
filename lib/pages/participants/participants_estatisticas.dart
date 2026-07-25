@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
+import 'package:bolao_bolado/services/bet/preco_cota.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -33,7 +34,7 @@ class PainelEstatisticas extends StatelessWidget {
       0,
       (soma, item) => soma + ((item['cotas'] as num?)?.toInt() ?? 0),
     );
-    final probabilidadeJogo = sorteio == 'lotofacil'
+    final probabilidadeJogo = ehLotofacil(sorteio)
         ? probabilidadeLotofacil
         : probabilidadeMega;
 

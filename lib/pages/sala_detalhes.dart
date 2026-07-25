@@ -143,6 +143,7 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
       child: Stack(
         children: [
           CustomCard(
+            mostrarAssinatura: true,
             children: [
               SizedBox(height: 20),
               Padding(

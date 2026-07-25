@@ -106,6 +106,7 @@ class _CadastrarSalaFormState extends State<CadastrarSalaForm> {
         drawer: AppDrawer(),
         child: CustomCard(
           color: const Color(0xFFF3F1EF),
+          mostrarAssinatura: true,
           children: [
             const HeaderPaginas(
               text: 'Editar Sala',
@@ -198,6 +199,7 @@ class _CadastrarSalaFormState extends State<CadastrarSalaForm> {
         children: [
           CustomCard(
             color: const Color(0xFFF3F1EF),
+            mostrarAssinatura: true,
             children: [
               HeaderPaginas(
                 text: _c.editando ? 'Editar Sala' : 'Criar Sala',

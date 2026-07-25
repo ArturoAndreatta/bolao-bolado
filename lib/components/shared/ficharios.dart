@@ -56,6 +56,11 @@ class Fichario extends StatelessWidget {
   // a altura sobrando via LayoutBuilder embutido, então pode devolver
   // conteúdo com scroll interno sem precisar calcular altura manualmente.
   final bool esticarAltura;
+  // Exibe a assinatura no canto inferior direito da folha ativa. Como só
+  // uma seção do fichário fica visível de cada vez (as outras ficam atrás
+  // das abas), é seguro deixar true por padrão nas telas que usam Fichario
+  // como único elemento visível da página.
+  final bool mostrarAssinatura;
 
   const Fichario({
     super.key,
@@ -65,6 +70,7 @@ class Fichario extends StatelessWidget {
     required this.builder,
     this.semMargem = false,
     this.esticarAltura = false,
+    this.mostrarAssinatura = false,
   });
 
   // Cor de cada aba pela posição na fileira (não pelo índice de estado):
@@ -131,6 +137,7 @@ class Fichario extends StatelessWidget {
             cantoInferiorEsquerdoReto: semMargem,
             cantoInferiorDireitoReto: semMargem,
             margemFichario: margem,
+            mostrarAssinatura: mostrarAssinatura,
             children: [
               CustomCard(
                 isChild: true,

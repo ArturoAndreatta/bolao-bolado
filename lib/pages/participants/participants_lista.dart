@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart'
     show LinhaEntrandoAnimada, detectarLinhaNova;
+import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -17,6 +18,12 @@ const List<Color> coresAvatar = [
 Color corAvatarPara(String nome) {
   final soma = nome.codeUnits.fold<int>(0, (acc, c) => acc + c);
   return coresAvatar[soma % coresAvatar.length];
+}
+
+// Deriva emoji determinístico a partir do nome (mesmo participante = mesmo emoji sempre)
+String emojiAvatarPara(String nome) {
+  final soma = nome.codeUnits.fold<int>(0, (acc, c) => acc + c);
+  return kEmojisAvatar[soma % kEmojisAvatar.length];
 }
 
 class ListaParticipantes extends StatefulWidget {
@@ -77,6 +84,7 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
                   corAvatar: (rows[i]['avatarColor'] as int?) != null
                       ? Color(rows[i]['avatarColor'] as int)
                       : null,
+                  emojiAvatar: rows[i]['avatarEmoji']?.toString(),
                   destacado: rows[i]['uid'] == widget.currentUid,
                   verificado: rows[i]['verificado'] == true,
                   alterada: rows[i]['editadoAposVerificacao'] == true,
@@ -98,6 +106,7 @@ class LinhaParticipante extends StatelessWidget {
   final int cotas;
   final String premio;
   final Color? corAvatar;
+  final String? emojiAvatar;
   final bool destacado;
   final bool verificado;
   final bool alterada;
@@ -109,6 +118,7 @@ class LinhaParticipante extends StatelessWidget {
     required this.cotas,
     required this.premio,
     this.corAvatar,
+    this.emojiAvatar,
     required this.destacado,
     this.verificado = false,
     this.alterada = false,
@@ -116,7 +126,7 @@ class LinhaParticipante extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inicial = nome.trim().isNotEmpty ? nome.trim()[0].toUpperCase() : '?';
+    final emoji = emojiAvatar ?? emojiAvatarPara(nome);
     final cor = corAvatar ?? corAvatarPara(nome);
     // Prioridade visual: edição pós-verificação > verificado/destacado > normal
     final corFundo = alterada
@@ -134,14 +144,7 @@ class LinhaParticipante extends StatelessWidget {
           CircleAvatar(
             radius: 16,
             backgroundColor: cor,
-            child: Text(
-              inicial,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
+            child: Text(emoji, style: const TextStyle(fontSize: 14)),
           ),
           const SizedBox(width: 10),
           Expanded(

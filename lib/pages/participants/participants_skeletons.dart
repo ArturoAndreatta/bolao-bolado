@@ -3,7 +3,8 @@ import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart';
 import 'package:flutter/material.dart';
 
-/// Placeholder de um card de estatística (mesmo formato de [CardEstatistica]).
+/// Placeholder de um card de estatística (mesmo formato de [CardEstatistica]:
+/// título à esquerda, valor alinhado à direita na mesma linha).
 class SkeletonCardEstatistica extends StatelessWidget {
   final bool destaque;
 
@@ -12,7 +13,7 @@ class SkeletonCardEstatistica extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: destaque ? const Color(0xFFFDF4E3) : const Color(0xFFFEFEFE),
         borderRadius: AppRadii.circularSmd,
@@ -21,13 +22,16 @@ class SkeletonCardEstatistica extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          const SkeletonBox(width: 80, height: 12),
-          const SizedBox(height: 10),
-          SkeletonBox(width: destaque ? 90 : 50, height: 24),
+          const SkeletonBox(width: 90, height: 13),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: SkeletonBox(width: destaque ? 100 : 60, height: 16),
+            ),
+          ),
         ],
       ),
     );
@@ -158,15 +162,24 @@ class SkeletonLinhaParticipante extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SkeletonBox(width: 120, height: 13),
-                const SizedBox(height: 6),
-                SkeletonBox(width: 70, height: 11),
+              children: const [
+                FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: 0.85,
+                  child: SkeletonBox(width: double.infinity, height: 13),
+                ),
+                SizedBox(height: 6),
+                FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: 0.5,
+                  child: SkeletonBox(width: double.infinity, height: 11),
+                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: const [
               SkeletonBox(width: 60, height: 13),
@@ -309,9 +322,10 @@ class SkeletonChatSala extends StatelessWidget {
 
 /// Skeleton completo do painel de participantes.
 ///
-/// Reproduz a estrutura final (cabeçalho, estatísticas, busca, lista/tabela)
-/// já no primeiro frame, para que o carregamento pareça uma transição de
-/// conteúdo e não a montagem tardia da tela inteira.
+/// Reproduz a estrutura final no mobile (busca + ordenação, lista com
+/// rodapé, cards de estatística) já no primeiro frame, para que o
+/// carregamento pareça uma transição de conteúdo e não a montagem tardia
+/// da tela inteira.
 class SkeletonParticipantes extends StatelessWidget {
   final bool mobile;
 
@@ -321,26 +335,103 @@ class SkeletonParticipantes extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!mobile) return const SkeletonEstatisticasDesktop();
 
-    return Shimmer(
+    // Cabeçalho de altura fixa: busca + botões de ordenação (mesma barra de
+    // BarraBuscaOrdenacao em participants_busca.dart, sem cabeçalho de
+    // tabela clicável no mobile).
+    final cabecalho = <Widget>[
+      Row(
+        children: [
+          const Expanded(
+            child: SkeletonBox(width: double.infinity, height: 44, radius: 10),
+          ),
+          const SizedBox(width: 8),
+          const SkeletonBox(width: 44, height: 44, radius: 10),
+          const SizedBox(width: 8),
+          const SkeletonBox(width: 76, height: 44, radius: 10),
+        ],
+      ),
+      const SizedBox(height: 12),
+    ];
+
+    // Linhas de participante + rodapé cinza (total|cotas + contagem), mesma
+    // moldura de participants_painel.dart (Container com borda arredondada).
+    final linhas = <Widget>[
+      for (var i = 0; i < 6; i++) ...[
+        const SkeletonLinhaParticipante(),
+        if (i < 5)
+          Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+      ],
+    ];
+    final listaComRodape = Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
+        borderRadius: AppRadii.circularSmd,
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const SkeletonBox(width: double.infinity, height: 72, radius: 14),
-          const SizedBox(height: 10),
-          Row(children: [Expanded(child: SkeletonCardEstatistica())]),
-          const SizedBox(height: 10),
-          const SkeletonCardEstatistica(),
-          const SizedBox(height: 10),
-          const SkeletonCardEstatistica(),
-          const SizedBox(height: 14),
-          const SkeletonBox(width: double.infinity, height: 44, radius: 10),
-          const SizedBox(height: 12),
-          for (var i = 0; i < 6; i++) ...[
-            const SkeletonLinhaParticipante(),
-            if (i < 5)
-              Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-          ],
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: linhas,
+              ),
+            ),
+          ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+          Container(
+            color: const Color(0xFFE9EAEC),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: const [
+                SkeletonBox(width: 110, height: 11),
+                SizedBox(width: 12),
+                SkeletonBox(width: 90, height: 11),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+
+    // 3 cards de estatística empilhados (Prêmio Total, Prêmio por Cota,
+    // Chance de Ganhar), na mesma ordem de PainelEstatisticas — sempre em
+    // coluna no mobile (largura < 815px, ver participants_estatisticas.dart).
+    final estatisticas = <Widget>[
+      const SizedBox(height: 14),
+      const SkeletonCardEstatistica(destaque: true),
+      const SizedBox(height: 10),
+      const SkeletonCardEstatistica(destaque: true),
+      const SizedBox(height: 10),
+      const SkeletonCardEstatistica(destaque: true),
+    ];
+
+    // LayoutBuilder distingue os dois modos de montagem do painel real
+    // (participants_painel.dart): dentro do fichário a altura é fixa
+    // (maxHeight finito) e a lista precisa caber no espaço restante; fora
+    // dele a altura é livre e a coluna cresce naturalmente. Sem isso, a
+    // pilha fixa de cabeçalho + linhas + estatísticas estoura a altura do
+    // card (RenderFlex overflow no eixo vertical).
+    return Shimmer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final alturaLimitada = constraints.maxHeight.isFinite;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: alturaLimitada ? MainAxisSize.max : MainAxisSize.min,
+            children: [
+              ...cabecalho,
+              alturaLimitada
+                  ? Expanded(child: listaComRodape)
+                  : SizedBox(height: 320, child: listaComRodape),
+              ...estatisticas,
+            ],
+          );
+        },
       ),
     );
   }

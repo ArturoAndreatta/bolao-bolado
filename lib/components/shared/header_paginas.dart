@@ -23,7 +23,7 @@ class HeaderPaginas extends StatelessWidget {
     final isMobile = Responsive.isMobile(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(15, 0, 10, 5),
+      padding: const EdgeInsets.fromLTRB(15, 5, 10, 5),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

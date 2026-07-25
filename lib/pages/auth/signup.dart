@@ -43,6 +43,7 @@ class _SignupState extends State<Signup> {
         children: [
           CustomCard(
             color: const Color(0xFFF3F1EF),
+            mostrarAssinatura: true,
             children: [
               HeaderPaginas(
                 text: 'Acesse sua conta',
@@ -96,12 +97,14 @@ class _SignupState extends State<Signup> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    _loading
-                        ? const CircularProgressIndicator()
-                        : isMobile
+                    isMobile
                         ? Column(
                             children: [
-                              PrimaryButton(text: 'Logar', onTap: _logar),
+                              PrimaryButton(
+                                text: 'Logar',
+                                onTap: _logar,
+                                loading: _loading,
+                              ),
                               const SizedBox(height: 14),
                               SecondaryButton(
                                 text: 'Cadastrar',
@@ -116,6 +119,7 @@ class _SignupState extends State<Signup> {
                                 text: 'Logar',
                                 width: 233,
                                 onTap: _logar,
+                                loading: _loading,
                               ),
                               const SizedBox(width: 14),
                               SecondaryButton(
