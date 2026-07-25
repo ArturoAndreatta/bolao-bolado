@@ -205,7 +205,12 @@ class _AppDrawerState extends State<AppDrawer> {
                       onTap: () {
                         final router = GoRouter.of(context);
                         Navigator.of(context).pop();
-                        router.go(AppRoutes.participants);
+                        router.go(
+                          Uri(
+                            path: AppRoutes.participants,
+                            queryParameters: {'aba': 'aposta'},
+                          ).toString(),
+                        );
                       },
                     ),
                     _DrawerItem(
@@ -215,6 +220,20 @@ class _AppDrawerState extends State<AppDrawer> {
                         final router = GoRouter.of(context);
                         Navigator.of(context).pop();
                         router.go(AppRoutes.participants);
+                      },
+                    ),
+                    _DrawerItem(
+                      icon: Icons.chat_bubble_outline,
+                      label: 'Chat',
+                      onTap: () {
+                        final router = GoRouter.of(context);
+                        Navigator.of(context).pop();
+                        router.go(
+                          Uri(
+                            path: AppRoutes.participants,
+                            queryParameters: {'aba': 'chat'},
+                          ).toString(),
+                        );
                       },
                     ),
                     if (_isAdmin) ...[

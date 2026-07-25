@@ -228,21 +228,34 @@ class RodapeLista extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Text(
-          '${Formatters.moeda.format(valorTotal)} | $cotasTotal Cotas',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-        ),
-        const SizedBox(width: 12),
-        Icon(Icons.people_outline, size: 15, color: Colors.grey.shade500),
-        const SizedBox(width: 6),
-        Text(
-          '$total ${total == 1 ? 'participante' : 'participantes'}',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Nessa largura o texto "X participantes" espreme o valor/cotas até
+        // cortar; abaixo dela mostra só o ícone + número, sem o rótulo.
+        final compacto = constraints.maxWidth < 265;
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Flexible(
+              child: Text(
+                '${Formatters.moeda.format(valorTotal)} | $cotasTotal Cotas',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(Icons.people_outline, size: 15, color: Colors.grey.shade500),
+            const SizedBox(width: 6),
+            Text(
+              compacto
+                  ? '$total'
+                  : '$total ${total == 1 ? 'participante' : 'participantes'}',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
+          ],
+        );
+      },
     );
   }
 }

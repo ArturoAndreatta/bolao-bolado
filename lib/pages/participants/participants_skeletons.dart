@@ -398,16 +398,12 @@ class SkeletonParticipantes extends StatelessWidget {
       ),
     );
 
-    // 3 cards de estatística empilhados (Prêmio Total, Prêmio por Cota,
-    // Chance de Ganhar), na mesma ordem de PainelEstatisticas — sempre em
-    // coluna no mobile (largura < 815px, ver participants_estatisticas.dart).
+    // Botão recolhido de "Estatísticas do bolão" (mesmo de
+    // PainelEstatisticas com recolhivel:true) — os 3 cards ficam escondidos
+    // por padrão, então o skeleton reproduz o botão fechado, não os cards.
     final estatisticas = <Widget>[
       const SizedBox(height: 14),
-      const SkeletonCardEstatistica(destaque: true),
-      const SizedBox(height: 10),
-      const SkeletonCardEstatistica(destaque: true),
-      const SizedBox(height: 10),
-      const SkeletonCardEstatistica(destaque: true),
+      const SkeletonBox(width: double.infinity, height: 44, radius: 10),
     ];
 
     // LayoutBuilder distingue os dois modos de montagem do painel real

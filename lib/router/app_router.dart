@@ -96,8 +96,10 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.participants,
-      pageBuilder: (context, state) =>
-          _noTransitionPage(const Participants(), state),
+      pageBuilder: (context, state) => _noTransitionPage(
+        Participants(abaInicial: state.uri.queryParameters['aba']),
+        state,
+      ),
     ),
     // "Minha Aposta" foi unificada à tela de Participantes. A rota antiga
     // continua existindo só como redirect, para não quebrar links/bookmarks

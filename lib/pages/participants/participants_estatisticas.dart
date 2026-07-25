@@ -12,12 +12,16 @@ const double probabilidadeMega = 1 / 50063860;
 /// Probabilidade de acertar as 15 dezenas da Lotofácil com um único jogo (1 em 3.268.760).
 const double probabilidadeLotofacil = 1 / 3268760;
 
-class PainelEstatisticas extends StatelessWidget {
+class PainelEstatisticas extends StatefulWidget {
   final List<Map<String, dynamic>> rows;
   final String? currentUid;
   final String? sorteio;
   final DateTime? dataSorteio;
   final double premioSala;
+  // No mobile os 3 cards ocupavam espaço demais acima da lista de
+  // participantes; recolhidos atrás de um botão, somem por padrão e deixam
+  // o grid ir até o fim da tela.
+  final bool recolhivel;
 
   const PainelEstatisticas({
     super.key,
@@ -26,10 +30,21 @@ class PainelEstatisticas extends StatelessWidget {
     this.sorteio,
     this.dataSorteio,
     this.premioSala = 0,
+    this.recolhivel = false,
   });
 
   @override
+  State<PainelEstatisticas> createState() => _PainelEstatisticasState();
+}
+
+class _PainelEstatisticasState extends State<PainelEstatisticas> {
+  bool _expandido = false;
+
+  @override
   Widget build(BuildContext context) {
+    final rows = widget.rows;
+    final sorteio = widget.sorteio;
+    final premioSala = widget.premioSala;
     final totalCotas = rows.fold<int>(
       0,
       (soma, item) => soma + ((item['cotas'] as num?)?.toInt() ?? 0),
@@ -83,7 +98,7 @@ class PainelEstatisticas extends StatelessWidget {
 
     final cards = [cardPremio, cardPremioPorCota, cardChance];
 
-    return LayoutBuilder(
+    final grade = LayoutBuilder(
       builder: (context, constraints) {
         // Abaixo dessa largura os cards espremidos lado a lado cortam texto;
         // empilha em coluna para manter cada card legível.
@@ -111,6 +126,89 @@ class PainelEstatisticas extends StatelessWidget {
           ),
         );
       },
+    );
+
+    if (!widget.recolhivel) return grade;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _BotaoAlternarEstatisticas(
+          expandido: _expandido,
+          onTap: () => setState(() => _expandido = !_expandido),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox(width: double.infinity),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: grade,
+          ),
+          crossFadeState: _expandido
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 200),
+          sizeCurve: Curves.easeOutCubic,
+        ),
+      ],
+    );
+  }
+}
+
+/// Botão que alterna a visibilidade dos 3 cards de estatística no layout
+/// mobile. Roxo/lilás de propósito: os 3 cards por trás já usam
+/// verde/azul/dourado, então o botão não pode repetir nenhuma delas — senão
+/// pareceria um 4º card em vez de um controle de exibição.
+class _BotaoAlternarEstatisticas extends StatelessWidget {
+  final bool expandido;
+  final VoidCallback onTap;
+
+  const _BotaoAlternarEstatisticas({
+    required this.expandido,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadii.circularSmd,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEEE9FB),
+            borderRadius: AppRadii.circularSmd,
+            border: Border.all(color: const Color(0xFFD3C4F2), width: 1),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.query_stats, size: 18, color: Color(0xFF7C5CD9)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Estatísticas do bolão',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B46C1),
+                  ),
+                ),
+              ),
+              AnimatedRotation(
+                turns: expandido ? 0.5 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: const Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 20,
+                  color: Color(0xFF7C5CD9),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

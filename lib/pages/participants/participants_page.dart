@@ -19,7 +19,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class Participants extends StatefulWidget {
-  const Participants({super.key});
+  // Aba a abrir no layout mobile, vinda da query string (?aba=aposta|chat).
+  // Usada pelo Drawer para navegar direto pra seção certa.
+  final String? abaInicial;
+
+  const Participants({super.key, this.abaInicial});
 
   @override
   State<Participants> createState() => _ParticipantsState();
@@ -38,8 +42,12 @@ class _ParticipantsState extends State<Participants> {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _salaSubscription;
   final SimuladorApostas _simulador = SimuladorApostas();
 
-  // Aba ativa no mobile: 0 = Participantes, 1 = Chat
-  int _abaAtiva = 0;
+  // Aba ativa no mobile: 0 = Participantes, 1 = Chat, 2 = Minha Aposta
+  late int _abaAtiva = switch (widget.abaInicial) {
+    'aposta' => 2,
+    'chat' => 1,
+    _ => 0,
+  };
 
   // Controla se o chat está sobreposto ao grid no desktop (dispara a
   // animação de abrir/fechar).
@@ -53,6 +61,23 @@ class _ParticipantsState extends State<Participants> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant Participants oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // GoRouter reusa este State ao navegar de /participantes?aba=X pra
+    // /participantes?aba=Y (mesma rota, query diferente): sem isso, clicar
+    // em outro item do Drawer estando já na tela não troca de aba.
+    if (widget.abaInicial != oldWidget.abaInicial) {
+      setState(() {
+        _abaAtiva = switch (widget.abaInicial) {
+          'aposta' => 2,
+          'chat' => 1,
+          _ => 0,
+        };
+      });
+    }
   }
 
   @override
@@ -182,10 +207,8 @@ class _ParticipantsState extends State<Participants> {
         subtitle: 'Visualize quem está participando',
         maxWidth: 937,
         height: chatHeight,
-        // Participantes fica sempre à direita de MinhaAposta no layout
-        // desktop (ver _layoutDesktop): é o card mais à direita da fileira,
-        // então recebe a assinatura.
-        mostrarAssinatura: true,
+        // Footer/assinatura desativado (pedido do usuário).
+        mostrarAssinatura: false,
         trailing: _botoesTrailingDesktop(),
         // Participants é sempre acessada via context.go (login ou
         // "Visualizar" na Home), nunca empilhada. Usuário logado não tem
@@ -317,9 +340,8 @@ class _ParticipantsState extends State<Participants> {
       abas: abas,
       semMargem: true,
       esticarAltura: true,
-      // Só uma seção fica visível de cada vez no fichário mobile (as
-      // outras ficam atrás das abas), então é seguro sempre mostrar aqui.
-      mostrarAssinatura: true,
+      // Footer/assinatura desativado (pedido do usuário).
+      mostrarAssinatura: false,
       // LayoutBuilder mede a altura real que o Expanded do Fichario cedeu
       // pra folha ativa — evita recalcular manualmente o chrome (pill,
       // paddings dos cards etc) e garante que os widgets internos (que

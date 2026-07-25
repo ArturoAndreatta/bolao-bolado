@@ -298,6 +298,7 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
         sorteio: widget.sorteio,
         dataSorteio: widget.dataSorteio,
         premioSala: widget.premioSala,
+        recolhivel: true,
       ),
     ];
 
