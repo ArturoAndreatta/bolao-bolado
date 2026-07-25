@@ -137,15 +137,21 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       });
     });
 
-    _betsSubscription = streamBets().listen((bets) {
-      if (!mounted) return;
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      setState(() {
-        _totalCotasOutros = bets
-            .where((item) => item['uid'] != uid)
-            .fold<int>(0, (soma, item) => soma + (item['cotas'] as int));
-      });
-    });
+    _betsSubscription = streamBets().listen(
+      (bets) {
+        if (!mounted) return;
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        setState(() {
+          _totalCotasOutros = bets
+              .where((item) => item['uid'] != uid)
+              .fold<int>(0, (soma, item) => soma + (item['cotas'] as int));
+        });
+      },
+      // Falha na stream de apostas só congela o "Prêmio estimado" no último
+      // valor conhecido; sem este onError, o erro subia como exceção
+      // assíncrona não tratada e derrubava o zone de erro do app.
+      onError: (_) {},
+    );
   }
 
   @override
@@ -218,16 +224,23 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       return;
     }
 
-    _salaId = await buscarSalaPrincipalId();
+    // Nome do usuário e ID da sala principal não dependem um do outro, então
+    // as duas leituras saem juntas em vez de uma esperar a outra. Só a busca
+    // da aposta precisa vir depois (precisa do salaId).
+    final (dadosUsuario, salaId) = await (
+      _authService.getDadosUsuario(user.uid),
+      buscarSalaPrincipalId(),
+    ).wait;
 
-    final dadosUsuario = await _authService.getDadosUsuario(user.uid);
+    if (!mounted) return;
+    _salaId = salaId;
     if (dadosUsuario != null) {
       nameController.text = dadosUsuario['nome'] ?? '';
     }
 
     final apostaDoc = await _firestore
         .collection('Salas')
-        .doc(_salaId)
+        .doc(salaId)
         .collection('Participantes')
         .doc(user.uid)
         .get();
@@ -242,6 +255,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       }
     }
 
+    if (!mounted) return;
     setState(() => _loading = false);
   }
 

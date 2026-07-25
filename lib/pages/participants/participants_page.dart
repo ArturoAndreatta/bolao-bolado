@@ -35,6 +35,7 @@ class _ParticipantsState extends State<Participants> {
   double _premioSala = 0;
 
   StreamSubscription<List<Map<String, Object?>>>? _betsSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _salaSubscription;
   final SimuladorApostas _simulador = SimuladorApostas();
 
   // Aba ativa no mobile: 0 = Participantes, 1 = Chat
@@ -57,6 +58,7 @@ class _ParticipantsState extends State<Participants> {
   @override
   void dispose() {
     _betsSubscription?.cancel();
+    _salaSubscription?.cancel();
     _simulador.parar();
     super.dispose();
   }
@@ -66,22 +68,38 @@ class _ParticipantsState extends State<Participants> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       // Usuário anônimo nunca é admin: evita checagem desnecessária no Firestore
-      final isAdmin = user != null && !user.isAnonymous
-          ? await AuthService().isAdmin(user.uid)
-          : false;
-      final dadosSala = await getDadosSalaPrincipal();
-      final salaId = dadosSala['salaId'] as String;
-      final sorteio = dadosSala['sorteio']?.toString();
-      final dataSorteio = (dadosSala['dataHora'] as Timestamp?)?.toDate();
-      final premioSala = (dadosSala['premio'] as num?)?.toDouble() ?? 0;
+      final isAdminFuture = user != null && !user.isAnonymous
+          ? AuthService().isAdmin(user.uid)
+          : Future.value(false);
+
+      // As duas leituras são independentes uma da outra, então saem juntas.
+      // Encadeadas (`await` uma, depois a outra) eram dois round-trips
+      // seriais antes de qualquer pixel de conteúdo aparecer — em rede
+      // lenta, os primeiros segundos de skeleton eram só isso.
+      final (isAdmin, salaId) = await (
+        isAdminFuture,
+        buscarSalaPrincipalId(),
+      ).wait;
 
       if (!mounted) return;
       setState(() {
         _salaId = salaId;
         _isAdmin = isAdmin;
-        _sorteio = sorteio;
-        _dataSorteio = dataSorteio;
-        _premioSala = premioSala;
+      });
+
+      // Dados do sorteio (prêmio, data) vêm da stream da sala em vez de uma
+      // leitura pontual: tira mais um round-trip do caminho crítico e, de
+      // quebra, o painel de estatísticas passa a acompanhar edições do admin
+      // sem depender de um novo _load().
+      unawaited(_salaSubscription?.cancel());
+      _salaSubscription = streamSalaPrincipal().listen((doc) {
+        if (!mounted) return;
+        final dados = doc.data();
+        setState(() {
+          _sorteio = dados?['sorteio']?.toString();
+          _dataSorteio = (dados?['dataHora'] as Timestamp?)?.toDate();
+          _premioSala = (dados?['premio'] as num?)?.toDouble() ?? 0;
+        });
       });
 
       // Cancela stream anterior antes de reabrir (ex: troca de sala via _load())

@@ -58,9 +58,14 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
       return;
     }
 
-    final isAdmin = await _authService.isAdmin(user.uid);
-    final id = await buscarSalaPrincipalId();
+    // Independentes entre si: em série custavam dois round-trips antes do
+    // painel sair do loading.
+    final (isAdmin, id) = await (
+      _authService.isAdmin(user.uid),
+      buscarSalaPrincipalId(),
+    ).wait;
 
+    if (!mounted) return;
     setState(() {
       autorizado = isAdmin;
       salaId = id;
@@ -74,8 +79,12 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
   }
 
   Future<void> _carregarStats() async {
-    final novasBets = await getBets();
-    final novosDados = await getDadosSalaPrincipal();
+    // As duas partem da mesma sala (já memoizada) mas não dependem uma da
+    // outra: em série o painel esperava dois round-trips em fila.
+    final (novasBets, novosDados) = await (
+      getBets(),
+      getDadosSalaPrincipal(),
+    ).wait;
     if (!mounted) return;
     setState(() {
       bets = novasBets;

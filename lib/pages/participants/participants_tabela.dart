@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 const double wNome = 250;
 const double wValor = 135;
 const double wCotas = 100;
-const double wPremio = 170;
+const double wPremio = 198;
 const double wData = 190;
 const double larguraTotal = wNome + wValor + wCotas + wPremio + wData;
 

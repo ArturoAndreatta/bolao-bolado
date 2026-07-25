@@ -21,6 +21,21 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Organize e participe de bolões com seus amigos de forma simples e divertida.">
 
+  <!--
+    Abre DNS + TLS com os hosts do Firebase já durante o download do
+    main.dart.js, em vez de só quando a primeira leitura do Firestore
+    acontece. Em redes com latência alta (ou resolução de DNS lenta), esse
+    handshake sozinho custava quase um segundo antes da primeira query sair.
+    crossorigin é obrigatório: sem ele o navegador abre uma conexão anônima
+    separada e o preconnect é desperdiçado.
+  -->
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
+  <!-- O CanvasKit baixa fontes de fallback sob demanda (Noto Color Emoji
+       para os emojis de avatar) direto do fonts.gstatic.com. -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">

@@ -71,9 +71,21 @@ flutter:
   # assets:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
+  # Assets listados um a um, e não pelas pastas `images/` e `avatars/`.
+  #
+  # Tudo que entra no bundle entra também no `RESOURCES` do
+  # flutter_service_worker.js, que o navegador baixa por inteiro em segundo
+  # plano na primeira visita. Declarando as pastas, iam junto 14 MB de
+  # `avatars/*.png` (mortos desde a migração para avatares por emoji) e mais
+  # 1,8 MB de logos descartados — ~16 MB baixados em toda primeira abertura
+  # do app, competindo com as próprias leituras do Firestore.
+  #
+  # Ao adicionar uma imagem nova, lembre de listá-la aqui.
   assets:
-    - images/
-    - avatars/
+    - images/logo.png
+    - images/logo4.png
+    - images/pix_logo.png
+    - images/icone.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -9,9 +9,26 @@ import 'package:bolao_bolado/services/bet/preco_cota.dart';
 /// nunca assumido só pelo valor da constante (ver buscarSalaPrincipalId()).
 const String kSalaPrincipalIdFallback = '9DvtjeS3gzyNyhFkqaF5';
 
-/// Busca dinamicamente o ID da sala marcada como `principal: true`.
-/// Nunca assume o ID fixo sem confirmar no Firestore.
-Future<String> buscarSalaPrincipalId() async {
+/// Descoberta da sala principal memoizada por sessão do app.
+///
+/// `buscarSalaPrincipalId()` era chamada de cinco pontos diferentes numa
+/// única carga da tela de Participantes (getDadosSalaPrincipal, streamBets
+/// pela página, streamBets e streamSalaPrincipal pelo MinhaApostaCard,
+/// _carregarDados do MinhaApostaCard) e cada chamada era uma query de rede
+/// própria — cinco round-trips seriais só para redescobrir o mesmo ID. Em
+/// rede lenta isso sozinho já custava vários segundos de skeleton.
+///
+/// Guarda o *Future* e não o valor: chamadas concorrentes (o caso normal
+/// aqui, já que a página e o card montam juntos) compartilham a mesma query
+/// em vez de dispararem várias em paralelo.
+///
+/// Qual sala é a principal só muda via console/admin SDK — o app nunca
+/// grava `principal` (as regras proíbem criar sala com `principal: true`),
+/// então congelar essa identidade por sessão é seguro. Os dados da sala em
+/// si (prêmio, sorteio, chave PIX) continuam ao vivo via [streamSalaPrincipal].
+Future<DocumentSnapshot<Map<String, dynamic>>>? _salaPrincipalFuture;
+
+Future<DocumentSnapshot<Map<String, dynamic>>> _carregarSalaPrincipal() async {
   final firestore = FirebaseFirestore.instance;
   final query = await firestore
       .collection('Salas')
@@ -19,47 +36,82 @@ Future<String> buscarSalaPrincipalId() async {
       .limit(1)
       .get();
 
-  if (query.docs.isEmpty) {
-    // Fallback de segurança: usa o ID conhecido se a query falhar
-    // (ex: regra de segurança bloqueando query, mas permitindo doc direto)
-    return kSalaPrincipalIdFallback;
-  }
+  if (query.docs.isNotEmpty) return query.docs.first;
 
-  return query.docs.first.id;
+  // Fallback de segurança: usa o ID conhecido se a query falhar
+  // (ex: regra de segurança bloqueando query, mas permitindo doc direto)
+  return firestore.collection('Salas').doc(kSalaPrincipalIdFallback).get();
+}
+
+/// Snapshot da sala marcada como `principal: true`, resolvido uma vez por
+/// sessão (ver [_salaPrincipalFuture]). A query já devolve o documento
+/// inteiro, então quem precisa dos dados da sala não paga um `.get()` extra.
+Future<DocumentSnapshot<Map<String, dynamic>>> buscarSalaPrincipal() {
+  final emAndamento = _salaPrincipalFuture;
+  if (emAndamento != null) return emAndamento;
+
+  final future = _carregarSalaPrincipal();
+  _salaPrincipalFuture = future;
+
+  // Falha de rede não pode ficar memoizada: sem isso, um erro na primeira
+  // tentativa (ex: wifi caindo no meio do carregamento) deixaria o app sem
+  // sala principal até recarregar a página inteira. O `identical` evita que
+  // um erro atrasado descarte uma tentativa mais nova já em andamento.
+  unawaited(
+    future.then(
+      (_) {},
+      onError: (Object _) {
+        if (identical(_salaPrincipalFuture, future)) {
+          _salaPrincipalFuture = null;
+        }
+      },
+    ),
+  );
+
+  return future;
+}
+
+/// Busca dinamicamente o ID da sala marcada como `principal: true`.
+/// Nunca assume o ID fixo sem confirmar no Firestore.
+Future<String> buscarSalaPrincipalId() async {
+  return (await buscarSalaPrincipal()).id;
 }
 
 /// Observa em tempo real o documento da sala principal (prêmio, sorteio,
 /// chave PIX). Usado pelo card "Minha Aposta" para refletir mudanças feitas
 /// pelo admin sem precisar recarregar a tela.
 Stream<DocumentSnapshot<Map<String, dynamic>>> streamSalaPrincipal() async* {
-  final salaId = await buscarSalaPrincipalId();
-  yield* FirebaseFirestore.instance.collection('Salas').doc(salaId).snapshots();
+  final sala = await buscarSalaPrincipal();
+  // Só o ID vem do snapshot memoizado; os dados saem sempre do `snapshots()`
+  // ao vivo. Reemitir o snapshot memoizado aqui adiantaria um frame, mas
+  // faria o card piscar um prêmio/chave PIX velho se a sessão estivesse
+  // aberta há bastante tempo — inaceitável numa tela que mostra dinheiro.
+  yield* sala.reference.snapshots();
 }
 
 /// Lê uma vez os dados (sorteio, data, prêmio) da sala principal.
-/// Usado pela tela de Participantes para exibir as estatísticas do sorteio.
+/// Usado pelo painel admin, que trabalha com uma leitura pontual em vez de
+/// stream. Relê o documento em vez de devolver o snapshot memoizado: o ID
+/// da sala não muda durante a sessão, mas prêmio e data do sorteio mudam, e
+/// devolver um valor velho aqui mostraria dinheiro errado na tela.
 Future<Map<String, dynamic>> getDadosSalaPrincipal() async {
-  final salaId = await buscarSalaPrincipalId();
-  final salaDoc = await FirebaseFirestore.instance
-      .collection('Salas')
-      .doc(salaId)
-      .get();
-  return {'salaId': salaId, ...?salaDoc.data()};
+  final sala = await buscarSalaPrincipal();
+  final atual = await sala.reference.get();
+  return {'salaId': sala.id, ...?atual.data()};
 }
 
 /// Lê todos os participantes/apostas da sala principal.
 /// Fonte: Salas/{salaPrincipalId}/Participantes/{uid}
 Future<List<Map<String, Object?>>> getBets() async {
-  final firestore = FirebaseFirestore.instance;
-  final salaId = await buscarSalaPrincipalId();
+  final sala = await buscarSalaPrincipal();
+  // Prêmio e preço de cota saem de uma releitura (mesmo motivo de
+  // getDadosSalaPrincipal: o rateio não pode ser calculado com prêmio
+  // velho), mas a query de descoberta da sala já foi paga uma vez só.
+  final atual = await sala.reference.get();
+  final premioSala = (atual.data()?['premio'] as num?)?.toDouble() ?? 0;
+  final precoCota = precoCotaPara(atual.data()?['sorteio']?.toString());
 
-  final salaDoc = await firestore.collection('Salas').doc(salaId).get();
-  final premioSala = (salaDoc.data()?['premio'] as num?)?.toDouble() ?? 0;
-  final precoCota = precoCotaPara(salaDoc.data()?['sorteio']?.toString());
-
-  final snapshot = await firestore
-      .collection('Salas')
-      .doc(salaId)
+  final snapshot = await sala.reference
       .collection('Participantes')
       .orderBy('data-hora', descending: true)
       .get();
@@ -70,14 +122,67 @@ Future<List<Map<String, Object?>>> getBets() async {
 /// Observa em tempo real os participantes/apostas da sala principal.
 /// Emite uma nova lista sempre que qualquer aposta é criada, editada ou
 /// removida em Salas/{salaPrincipalId}/Participantes.
-Stream<List<Map<String, Object?>>> streamBets() async* {
-  final firestore = FirebaseFirestore.instance;
-  final salaId = await buscarSalaPrincipalId();
+///
+/// Cache do stream em nível de módulo: a tela de Participantes e o card
+/// "Minha Aposta" ficam montados ao mesmo tempo e os dois escutam esta
+/// stream. Sem o cache, cada um abria seu PRÓPRIO par de listeners (doc da
+/// sala + query de Participantes) e rodava `_montarParticipantes` — ou
+/// seja, o dobro de listeners e o dobro de resolução de avatares por
+/// evento, tudo competindo pela mesma conexão.
+///
+/// Reemite a última lista conhecida para cada novo assinante. O replay é
+/// feito aqui, e não pelo `onListen` do broadcast, porque `onListen` só
+/// dispara quando o número de ouvintes vai de 0 para 1 — com a página e o
+/// card assinando em momentos diferentes, quem chegasse por último ficaria
+/// preso em `ConnectionState.waiting` até a próxima aposta mudar.
+List<Map<String, Object?>>? _ultimasApostas;
+StreamController<List<Map<String, Object?>>>? _apostasController;
 
-  final salaStream = firestore.collection('Salas').doc(salaId).snapshots();
-  final participantesStream = firestore
-      .collection('Salas')
-      .doc(salaId)
+Stream<List<Map<String, Object?>>> streamBets() async* {
+  final apostas = _garantirStreamApostas().stream;
+
+  final ultimas = _ultimasApostas;
+  if (ultimas != null) yield ultimas;
+
+  yield* apostas;
+}
+
+StreamController<List<Map<String, Object?>>> _garantirStreamApostas() {
+  final existente = _apostasController;
+  if (existente != null) return existente;
+
+  // Mantido aberto de propósito enquanto estiver saudável (compartilhado
+  // entre a página de Participantes e o card Minha Aposta). Fechá-lo a cada
+  // desmontagem destruiria o cache dos listeners e faria voltar à tela
+  // custar uma carga inteira de novo, então close_sinks não se aplica aqui.
+  // ignore: close_sinks
+  final controller = StreamController<List<Map<String, Object?>>>.broadcast();
+  _apostasController = controller;
+
+  _apostasDaSalaPrincipal().listen(
+    (apostas) {
+      _ultimasApostas = apostas;
+      controller.add(apostas);
+    },
+    onError: (Object erro) {
+      // Solta o cache antes de propagar: sem isso uma falha de rede na
+      // primeira carga congelaria a stream compartilhada e nenhuma tela
+      // voltaria a receber apostas sem recarregar a página inteira. Assim,
+      // a próxima chamada de streamBets() reabre os listeners do zero.
+      _apostasController = null;
+      controller.addError(erro);
+      controller.close();
+    },
+  );
+
+  return controller;
+}
+
+Stream<List<Map<String, Object?>>> _apostasDaSalaPrincipal() async* {
+  final sala = await buscarSalaPrincipal();
+
+  final salaStream = sala.reference.snapshots();
+  final participantesStream = sala.reference
       .collection('Participantes')
       .orderBy('data-hora', descending: true)
       .snapshots();
@@ -89,6 +194,10 @@ Stream<List<Map<String, Object?>>> streamBets() async* {
   await for (final evento in _combinarStreams(
     salaStream,
     participantesStream,
+    // Avatares entram como uma terceira fonte de eventos: a lista é montada
+    // na hora com os avatares já conhecidos e remontada quando os que
+    // faltavam chegam (ver AvatarColorCache.aquecer).
+    AvatarColorCache.instance.mudancas,
   )) {
     if (evento.$1 != null) {
       premioSala = (evento.$1!.data()?['premio'] as num?)?.toDouble() ?? 0;
@@ -98,13 +207,15 @@ Stream<List<Map<String, Object?>>> streamBets() async* {
       ultimosDocs = evento.$2!.docs;
     }
     if (ultimosDocs != null) {
-      yield await _montarParticipantes(ultimosDocs, premioSala, precoCota);
+      yield _montarParticipantes(ultimosDocs, premioSala, precoCota);
     }
   }
 }
 
-/// Combina os dois streams (dados da sala + participantes) em um único
-/// stream de tuplas, emitindo sempre que qualquer um dos dois atualizar.
+/// Combina os três streams (dados da sala + participantes + avisos de
+/// avatar) em um único stream de tuplas, emitindo sempre que qualquer um
+/// deles atualizar. O aviso de avatar não carrega dado nenhum: só serve para
+/// a lista ser remontada com os avatares que acabaram de chegar.
 Stream<
   (
     DocumentSnapshot<Map<String, dynamic>>?,
@@ -114,6 +225,7 @@ Stream<
 _combinarStreams(
   Stream<DocumentSnapshot<Map<String, dynamic>>> salaStream,
   Stream<QuerySnapshot<Map<String, dynamic>>> participantesStream,
+  Stream<void> avataresStream,
 ) {
   final controller =
       StreamController<
@@ -136,6 +248,11 @@ _combinarStreams(
       onError: controller.addError,
     ),
   );
+  subs.add(
+    // Sem onError: uma falha ao ler o avatar de alguém não pode derrubar a
+    // lista de apostas inteira — no pior caso o avatar fica no padrão.
+    avataresStream.listen((_) => controller.add((null, null))),
+  );
 
   controller.onCancel = () async {
     for (final sub in subs) {
@@ -149,18 +266,29 @@ _combinarStreams(
   return controller.stream;
 }
 
-Future<List<Map<String, Object?>>> _montarParticipantes(
+/// Monta a lista de apostas **sem esperar rede**.
+///
+/// Os avatares entram só se já estiverem em memória; os que faltam são
+/// pedidos em background por [AvatarColorCache.aquecer] e chegam numa
+/// emissão seguinte desta mesma stream (o aviso vem por
+/// `AvatarColorCache.mudancas`, combinado em [_apostasDaSalaPrincipal]).
+///
+/// Antes esta função era `async` e esperava uma leitura de `usuarios/{uid}`
+/// por participante antes de devolver qualquer linha: numa sala de 11
+/// apostas isso segurava a tela inteira por ~960ms dos ~1500ms de
+/// carregamento, para uma informação puramente decorativa.
+List<Map<String, Object?>> _montarParticipantes(
   List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   double premioSala,
   double precoCota,
-) async {
-  final uids = docs.map((doc) => doc.id).toList();
-  final coresPorUid = await _buscarCoresAvatar(uids);
-  final emojisPorUid = await _buscarEmojisAvatar(uids);
+) {
+  final cache = AvatarColorCache.instance;
+  cache.aquecer(docs.map((doc) => doc.id));
 
   final participantes = docs.map((doc) {
     final dados = doc.data();
     final uid = doc.id; // doc ID É o uid do usuário logado
+    final avatar = cache.avatarConhecido(uid);
     return {
       'uid': uid,
       'nome': dados['nome']?.toString() ?? '',
@@ -168,8 +296,8 @@ Future<List<Map<String, Object?>>> _montarParticipantes(
       'data-hora': dados['data-hora'],
       'verificado': dados['verificado'] == true,
       'editadoAposVerificacao': dados['editadoAposVerificacao'] == true,
-      'avatarColor': coresPorUid[uid],
-      'avatarEmoji': emojisPorUid[uid],
+      'avatarColor': avatar?.cor.toARGB32(),
+      'avatarEmoji': avatar?.emoji,
     };
   }).toList();
 
@@ -210,46 +338,6 @@ List<Map<String, Object?>> calcularCotasEPremios(
     final premio = totalCotas > 0 ? (cotas / totalCotas) * premioSala : 0.0;
     return {...item, 'premio': premio};
   }).toList();
-}
-
-/// Busca a cor de avatar (ARGB int) de cada uid em `usuarios/{uid}`, usando
-/// o cache reativo compartilhado ([AvatarColorCache]) em vez de um `.get()`
-/// por uid a cada emissão do stream de apostas — evita repetir a mesma
-/// leitura para participantes cuja cor já foi observada antes.
-Future<Map<String, int>> _buscarCoresAvatar(List<String> uids) async {
-  if (uids.isEmpty) return {};
-
-  final cache = AvatarColorCache.instance;
-  final cores = <String, int>{};
-
-  await Future.wait(
-    uids.map((uid) async {
-      final conhecida = cache.corConhecida(uid);
-      final cor = conhecida ?? await cache.corStream(uid).first;
-      cores[uid] = cor.toARGB32();
-    }),
-  );
-
-  return cores;
-}
-
-/// Busca o emoji de avatar de cada uid em `usuarios/{uid}`, usando o mesmo
-/// cache reativo compartilhado ([AvatarColorCache]) usado para as cores.
-Future<Map<String, String>> _buscarEmojisAvatar(List<String> uids) async {
-  if (uids.isEmpty) return {};
-
-  final cache = AvatarColorCache.instance;
-  final emojis = <String, String>{};
-
-  await Future.wait(
-    uids.map((uid) async {
-      final conhecido = cache.emojiConhecido(uid);
-      final emoji = conhecido ?? await cache.emojiStream(uid).first;
-      emojis[uid] = emoji;
-    }),
-  );
-
-  return emojis;
 }
 
 /// Observa em tempo real as apostas pendentes de verificação de todas as

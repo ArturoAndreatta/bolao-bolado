@@ -26,8 +26,12 @@ class _AppDrawerState extends State<AppDrawer> {
   // Instanciada uma única vez: se streamApostasPendentes() fosse chamada
   // direto no build(), cada setState() (ex: ao carregar avatar/isAdmin)
   // recriaria a Query e o badge piscaria durante a sincronização.
-  final Stream<QuerySnapshot<Map<String, dynamic>>> _apostasPendentesStream =
-      streamApostasPendentes();
+  //
+  // Só é aberta depois de confirmar que o usuário é admin. Como campo
+  // inicializado direto, ela abria um listener collectionGroup sobre as
+  // apostas de TODAS as salas para qualquer pessoa que tocasse no menu uma
+  // vez — inclusive visitante anônimo, que nem vê o badge.
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _apostasPendentesStream;
 
   @override
   void initState() {
@@ -39,8 +43,12 @@ class _AppDrawerState extends State<AppDrawer> {
   Future<void> _carregarAvatar() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.isAnonymous) return;
-    final cor = await AvatarService.buscarCor(user.uid);
-    final emoji = await AvatarService.buscarEmoji(user.uid);
+    // Cor e emoji leem o mesmo doc `usuarios/{uid}` e não dependem um do
+    // outro: em série eram dois round-trips para abrir o menu.
+    final (cor, emoji) = await (
+      AvatarService.buscarCor(user.uid),
+      AvatarService.buscarEmoji(user.uid),
+    ).wait;
     if (mounted) {
       setState(() {
         _corAvatarAtual = cor;
@@ -53,7 +61,11 @@ class _AppDrawerState extends State<AppDrawer> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.isAnonymous) return;
     final isAdmin = await AuthService().isAdmin(user.uid);
-    if (mounted) setState(() => _isAdmin = isAdmin);
+    if (!mounted) return;
+    setState(() {
+      _isAdmin = isAdmin;
+      if (isAdmin) _apostasPendentesStream ??= streamApostasPendentes();
+    });
   }
 
   @override
@@ -225,6 +237,9 @@ class _AppDrawerState extends State<AppDrawer> {
                         },
                       ),
                       StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        // Null enquanto o isAdmin ainda não voltou: o
+                        // StreamBuilder aceita stream nula e só mostra o
+                        // item sem badge até a stream existir.
                         stream: _apostasPendentesStream,
                         builder: (context, snapshot) {
                           final pendentes = snapshot.data?.docs.length ?? 0;

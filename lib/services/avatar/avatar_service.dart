@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -176,33 +177,92 @@ class AvatarColorCache {
   AvatarColorCache._();
   static final AvatarColorCache instance = AvatarColorCache._();
 
+  final Map<String, Stream<DocumentSnapshot<Map<String, dynamic>>>> _docs = {};
   final Map<String, Stream<Color>> _streams = {};
   final Map<String, Color> _ultimoValor = {};
 
   final Map<String, Stream<String>> _emojiStreams = {};
   final Map<String, String> _ultimoEmoji = {};
 
-  /// Stream com a cor atual do avatar do [uid], atualizada em tempo real.
-  Stream<Color> corStream(String uid) {
-    return _streams.putIfAbsent(uid, () {
+  // Compartilhado por toda a vida do app junto com o próprio cache
+  // (singleton), por isso não é fechado.
+  // ignore: close_sinks
+  final StreamController<void> _mudancas = StreamController<void>.broadcast();
+  Timer? _debounceMudancas;
+
+  /// Avisa que algum avatar conhecido mudou (ou acabou de ser descoberto).
+  ///
+  /// Serve para a lista de apostas poder ser montada na hora, só com o que
+  /// já está em memória, e se recompor depois quando os avatares chegarem —
+  /// em vez de segurar a tela inteira esperando uma leitura por participante.
+  Stream<void> get mudancas => _mudancas.stream;
+
+  // Agrupa a enxurrada de avisos: os N documentos de uma lista chegam
+  // praticamente juntos, e emitir um evento por documento faria a lista ser
+  // remontada N vezes seguidas.
+  void _notificarMudanca() {
+    _debounceMudancas?.cancel();
+    _debounceMudancas = Timer(const Duration(milliseconds: 80), () {
+      if (!_mudancas.isClosed) _mudancas.add(null);
+    });
+  }
+
+  /// Um único listener por uid, compartilhado entre cor e emoji.
+  ///
+  /// Cor e emoji saem do MESMO documento `usuarios/{uid}`, mas antes cada um
+  /// abria seu próprio `snapshots()` — dois listeners por participante da
+  /// lista (e por autor de mensagem no chat) trazendo exatamente os mesmos
+  /// bytes. Numa sala com 20 apostas isso eram 40 listeners abertos em vez
+  /// de 20, todos concorrendo pela mesma conexão na primeira carga.
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _docStream(String uid) {
+    return _docs.putIfAbsent(uid, () {
       final stream = FirebaseFirestore.instance
           .collection('usuarios')
           .doc(uid)
           .snapshots()
-          .map((doc) {
-            final dados = doc.data();
-            final corValue = dados?['avatarColor'] as int?;
-            if (corValue != null) return Color(corValue);
-
-            if (dados?['isAdmin'] == true) return kCorBaseAdmin;
-
-            return const Color(0xFFE5E7EB);
-          })
           .asBroadcastStream();
 
-      stream.listen((cor) => _ultimoValor[uid] = cor);
+      // Registrado antes de qualquer outro assinante, então os "últimos
+      // valores conhecidos" já estão preenchidos quando alguém consulta
+      // corConhecida/emojiConhecido depois do primeiro evento.
+      stream.listen((doc) {
+        final dados = doc.data();
+        final cor = _corDe(dados);
+        final emoji = _emojiDe(dados);
+        final mudou = _ultimoValor[uid] != cor || _ultimoEmoji[uid] != emoji;
+        _ultimoValor[uid] = cor;
+        _ultimoEmoji[uid] = emoji;
+        if (mudou) _notificarMudanca();
+      });
       return stream;
     });
+  }
+
+  static Color _corDe(Map<String, dynamic>? dados) {
+    final corValue = dados?['avatarColor'] as int?;
+    if (corValue != null) return Color(corValue);
+
+    if (dados?['isAdmin'] == true) return kCorBaseAdmin;
+
+    return const Color(0xFFE5E7EB);
+  }
+
+  static String _emojiDe(Map<String, dynamic>? dados) {
+    final emoji = dados?['avatarEmoji'] as String?;
+    return (emoji != null && emoji.isNotEmpty) ? emoji : kEmojiAvatarPadrao;
+  }
+
+  /// Stream com a cor atual do avatar do [uid], atualizada em tempo real.
+  ///
+  /// A view derivada também é memoizada: `_BolhaMensagem` monta o
+  /// StreamBuilder dentro do build(), e devolver um objeto de stream novo a
+  /// cada rebuild faria o StreamBuilder cancelar e reassinar, voltando o
+  /// avatar pro estado de carregamento a cada mensagem nova.
+  Stream<Color> corStream(String uid) {
+    return _streams.putIfAbsent(
+      uid,
+      () => _docStream(uid).map((doc) => _corDe(doc.data())),
+    );
   }
 
   /// Último valor conhecido em memória (sem novas leituras), usado para
@@ -211,24 +271,38 @@ class AvatarColorCache {
 
   /// Stream com o emoji atual do avatar do [uid], atualizada em tempo real.
   Stream<String> emojiStream(String uid) {
-    return _emojiStreams.putIfAbsent(uid, () {
-      final stream = FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(uid)
-          .snapshots()
-          .map((doc) {
-            final emoji = doc.data()?['avatarEmoji'] as String?;
-            return (emoji != null && emoji.isNotEmpty)
-                ? emoji
-                : kEmojiAvatarPadrao;
-          })
-          .asBroadcastStream();
-
-      stream.listen((emoji) => _ultimoEmoji[uid] = emoji);
-      return stream;
-    });
+    return _emojiStreams.putIfAbsent(
+      uid,
+      () => _docStream(uid).map((doc) => _emojiDe(doc.data())),
+    );
   }
 
   /// Último emoji conhecido em memória (sem novas leituras).
   String? emojiConhecido(String uid) => _ultimoEmoji[uid];
+
+  /// Cor e emoji já em memória, sem nenhuma espera. `null` enquanto o uid
+  /// ainda não foi observado — quem chama desenha o avatar neutro e recompõe
+  /// quando [mudancas] avisar.
+  ({Color cor, String emoji})? avatarConhecido(String uid) {
+    final cor = _ultimoValor[uid];
+    final emoji = _ultimoEmoji[uid];
+    if (cor == null || emoji == null) return null;
+    return (cor: cor, emoji: emoji);
+  }
+
+  /// Começa a observar os [uids] que ainda não estão em memória, sem esperar
+  /// o resultado.
+  ///
+  /// A lista de apostas chamava isso de forma bloqueante: montar a lista
+  /// esperava uma leitura de `usuarios/{uid}` por participante terminar
+  /// ANTES de qualquer linha aparecer. Medido numa sala de 11 apostas, essa
+  /// espera era ~960ms dos ~1500ms até a tela pintar — dois terços do tempo
+  /// gastos em algo puramente cosmético. Agora a lista aparece na hora e os
+  /// avatares entram depois.
+  void aquecer(Iterable<String> uids) {
+    for (final uid in uids) {
+      if (_docs.containsKey(uid)) continue;
+      _docStream(uid);
+    }
+  }
 }

@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:bolao_bolado/bolao_bolado.dart';
 import 'package:bolao_bolado/pages/splash_screen.dart';
+import 'package:bolao_bolado/services/bet/bet_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -19,6 +23,30 @@ const String _devSenha = String.fromEnvironment('DEV_LOGIN_SENHA');
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const _AppInit());
+}
+
+/// Liga o cache local persistente do Firestore. Precisa rodar logo depois do
+/// initializeApp e antes de qualquer leitura — mudar `settings` depois que a
+/// instância já foi usada é ignorado pelo SDK.
+///
+/// Na web o padrão do plugin é `memoryLocalCache` (ver cloud_firestore_web:
+/// `persistenceEnabled == null` cai em cache só de memória), então cada vez
+/// que o app é reaberto — e no iPhone, cada vez que o atalho do Safari é
+/// tocado é um carregamento novo da página — todas as leituras começam do
+/// zero e a tela fica no skeleton esperando a rede. Com persistência, os
+/// `snapshots()` emitem o último estado gravado no IndexedDB na hora e só
+/// depois são corrigidos pelo servidor, então a tela aparece preenchida
+/// mesmo antes da rede responder. Em Android/iOS nativo isso já era o
+/// padrão; explicitar aqui só uniformiza o comportamento.
+///
+/// Ressalva conhecida: o plugin não expõe o `tabManager` do SDK web, então a
+/// persistência usa o modo de aba única. Com duas abas do app abertas ao
+/// mesmo tempo, a segunda não consegue o lock do IndexedDB e cai sozinha
+/// para cache de memória (só um aviso no console — o app continua normal).
+void _configurarFirestore() {
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+  );
 }
 
 class _AppInit extends StatefulWidget {
@@ -42,6 +70,8 @@ class _AppInitState extends State<_AppInit> {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    _configurarFirestore();
 
     // Aguarda o primeiro evento real de authStateChanges (em vez de só
     // checar currentUser) para garantir que uma sessão persistida do
@@ -68,6 +98,18 @@ class _AppInitState extends State<_AppInit> {
     if (user == null) {
       await FirebaseAuth.instance.signInAnonymously();
     }
+
+    // Dispara a descoberta da sala principal já aqui, sem esperar: praticamente
+    // toda tela do app precisa desse ID, e ele só pode ser lido depois que
+    // existe um usuário autenticado. Adiantando agora, a consulta acontece
+    // enquanto a primeira tela é montada, em vez de ser o primeiro round-trip
+    // (e o primeiro segundo de skeleton) de quem abrir Participantes.
+    // buscarSalaPrincipal() memoiza o Future, então quem chamar depois
+    // reaproveita esta mesma consulta. Erro aqui é ignorado de propósito: a
+    // função já descarta o cache em caso de falha, e quem realmente precisa
+    // do valor trata o erro na própria tela.
+    unawaited(buscarSalaPrincipal().then((_) {}, onError: (Object _) {}));
+
     setState(() => _pronto = true);
   }
 
