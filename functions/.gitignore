@@ -1,0 +1,9 @@
+# Dependências instaladas pelo npm — reconstruídas a partir do package-lock.json
+node_modules/
+
+# Logs do Firebase / npm
+*.log
+npm-debug.log*
+
+# Build/output de TypeScript (caso venha a ser usado)
+lib/
