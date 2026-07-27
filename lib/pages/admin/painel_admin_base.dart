@@ -1,14 +1,16 @@
 import 'dart:async';
 
 import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/components/shared/custom_confirm_dialog.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
-import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/pages/admin/admin_abas.dart';
 import 'package:bolao_bolado/pages/admin/widgets/admin_widgets.dart';
 import 'package:bolao_bolado/pages/admin/widgets/exportar_apostas.dart';
+import 'package:bolao_bolado/pages/admin/widgets/moderar_chat.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
+import 'package:bolao_bolado/services/chat/chat_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -343,37 +345,18 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
     final uid = aposta['uid']?.toString();
     if (uid == null) return;
 
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AdminCores.fundoCard,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: AppRadii.circularXxl),
-        title: const Text(
-          'Remover aposta?',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
-        content: Text(
+    final confirmar = await CustomConfirmDialog.show(
+      context,
+      titulo: 'Remover aposta?',
+      mensagem:
           'A aposta de "${aposta['nome']}" será apagada permanentemente e '
           'sairá do rateio de cotas e prêmios. Esta ação não pode ser '
           'desfeita.',
-          style: const TextStyle(color: AdminCores.textoSuave, height: 1.35),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => dialogContext.pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => dialogContext.pop(true),
-            style: TextButton.styleFrom(foregroundColor: AdminCores.vermelho),
-            child: const Text('Remover'),
-          ),
-        ],
-      ),
+      textoConfirmar: 'Remover',
+      destrutivo: true,
     );
 
-    if (confirmar != true) return;
+    if (!confirmar) return;
     try {
       await removerAposta(salaId: salaId!, uid: uid);
       unawaited(_carregarStats());
@@ -401,6 +384,54 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
       debugPrint('Erro ao alternar verificação: $e');
       if (mounted) {
         CustomShowDialog.show(context, 'Erro ao atualizar. Tente novamente.');
+      }
+    }
+  }
+
+  /// Abre o diálogo de moderação (lista de mensagens com botão de apagar).
+  Future<void> abrirModeracaoChat() async {
+    if (salaId == null) return;
+    await abrirDialogModerarChat(context, salaId!);
+  }
+
+  /// Apaga TODO o histórico do chat da sala, com confirmação — é a ação mais
+  /// destrutiva do painel e não tem desfazer.
+  Future<void> confirmarApagarMensagensChat() async {
+    if (salaId == null) return;
+
+    final confirmar = await CustomConfirmDialog.show(
+      context,
+      titulo: 'Apagar todas as mensagens?',
+      mensagem:
+          'Todo o histórico do chat desta sala será apagado permanentemente '
+          'para todos os participantes. Esta ação não pode ser desfeita.',
+      textoConfirmar: 'Apagar tudo',
+      destrutivo: true,
+    );
+
+    if (!confirmar) return;
+
+    try {
+      final apagadas = await ChatService().apagarTodasMensagens(salaId!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            apagadas == 0
+                ? 'O chat já estava vazio.'
+                : '$apagadas ${apagadas == 1 ? "mensagem apagada" : "mensagens apagadas"}',
+          ),
+          backgroundColor: AdminCores.verde,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Erro ao apagar mensagens do chat: $e');
+      if (mounted) {
+        CustomShowDialog.show(
+          context,
+          'Erro ao apagar as mensagens. Tente novamente.',
+        );
       }
     }
   }
@@ -485,7 +516,12 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
           onSalvo: _carregarStats,
         );
       case AbaAdmin.config:
-        return AbaConfig(adminUser: adminUser);
+        return AbaConfig(
+          adminUser: adminUser,
+          salaId: salaId,
+          onModerarChat: abrirModeracaoChat,
+          onApagarMensagens: confirmarApagarMensagensChat,
+        );
     }
   }
 

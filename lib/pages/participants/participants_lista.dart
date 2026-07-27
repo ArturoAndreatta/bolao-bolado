@@ -1,4 +1,6 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
+import 'package:bolao_bolado/components/shared/selo_manual.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart'
     show LinhaEntrandoAnimada, detectarLinhaNova;
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
@@ -90,6 +92,7 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
                   destacado: rows[i]['uid'] == widget.currentUid,
                   verificado: rows[i]['verificado'] == true,
                   alterada: rows[i]['editadoAposVerificacao'] == true,
+                  manual: rows[i]['criadoPeloAdmin'] == true,
                 ),
               );
             },
@@ -112,6 +115,7 @@ class LinhaParticipante extends StatelessWidget {
   final bool destacado;
   final bool verificado;
   final bool alterada;
+  final bool manual;
 
   const LinhaParticipante({
     super.key,
@@ -124,6 +128,7 @@ class LinhaParticipante extends StatelessWidget {
     required this.destacado,
     this.verificado = false,
     this.alterada = false,
+    this.manual = false,
   });
 
   @override
@@ -143,25 +148,36 @@ class LinhaParticipante extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: cor,
-            child: Text(emoji, style: const TextStyle(fontSize: 14)),
-          ),
+          AvatarEmoji(tamanho: 32, cor: cor, emoji: emoji),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  nome,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: destacado ? FontWeight.w700 : FontWeight.w400,
-                    color: const Color(0xFF1F2937),
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Flexible (não Expanded): o nome encolhe com reticências
+                    // para o selo caber, em vez de empurrá-lo para fora.
+                    Flexible(
+                      child: Text(
+                        nome,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: destacado
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                          color: const Color(0xFF1F2937),
+                        ),
+                      ),
+                    ),
+                    if (manual) ...[
+                      const SizedBox(width: 6),
+                      const SeloManual(),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 3),
                 Row(

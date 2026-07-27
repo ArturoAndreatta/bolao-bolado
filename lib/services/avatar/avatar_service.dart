@@ -13,23 +13,31 @@ import 'package:flutter/material.dart';
 /// mudar sem precisar editar o app.
 const Color kCorBaseAdmin = Color(0xFF7400C7);
 
-/// 16 cores derivadas de [kCorBaseAdmin] variando matiz/saturação/luminosidade
-/// em torno da cor base, usadas como fundo do círculo do avatar.
+/// 16 cores derivadas de [kCorBaseAdmin] variando matiz/luminosidade em torno
+/// da cor base, usadas como fundo do círculo do avatar.
 final List<Color> kCoresAvatar = _gerarPaletaAvatares();
 
 List<Color> _gerarPaletaAvatares() {
   final base = HSLColor.fromColor(kCorBaseAdmin);
   final cores = <Color>[];
 
-  // 8 variações de matiz ao redor da base, em duas luminosidades,
-  // preservando saturação semelhante para manter a identidade visual.
+  // 8 variações de matiz ao redor da base, em duas luminosidades.
   const deslocamentosHue = [30, 60, 90, 120, 150, 200, 260, 320];
-  const luminosidades = [0.42, 0.58];
+
+  // Saturação abaixo da base (que é 1.0) e luminosidades mais próximas entre
+  // si do que antes (0.42/0.58). O fundo do avatar é palco, não protagonista:
+  // com saturação máxima o círculo vibrava contra o emoji desenhado por cima
+  // e as duas faixas de luminosidade brigavam entre si na mesma lista. Amarelo
+  // e ciano puros ainda por cima chegavam quase brancos, apagando emojis
+  // claros. Aqui todas as 16 ficam num contraste parecido, escuras o bastante
+  // para qualquer emoji se destacar.
+  const luminosidades = [0.40, 0.50];
+  const saturacao = 0.62;
 
   for (final l in luminosidades) {
     for (final deslocamento in deslocamentosHue) {
       final hue = (base.hue + deslocamento) % 360;
-      final cor = HSLColor.fromAHSL(1.0, hue, base.saturation, l).toColor();
+      final cor = HSLColor.fromAHSL(1.0, hue, saturacao, l).toColor();
       cores.add(cor);
     }
   }
@@ -37,39 +45,84 @@ List<Color> _gerarPaletaAvatares() {
   return cores;
 }
 
-/// Emojis disponíveis para avatar, escolhidos por combinarem com o tema do
-/// app (bolão, jogos de azar, sorte, comemoração).
-const List<String> kEmojisAvatar = [
-  '🍀',
-  '🎲',
-  '🎰',
-  '🏆',
-  '💰',
-  '🎉',
-  '🔥',
-  '⭐',
-  '🚀',
-  '🦁',
-  '🐯',
-  '🐸',
-  '🐵',
-  '🦊',
-  '🐼',
-  '🐨',
-  '🦄',
-  '🐙',
-  '🐬',
-  '🦉',
-  '🐝',
-  '🦋',
-  '🌟',
-  '⚡',
-  '🎯',
-  '🎈',
-  '🍕',
-  '⚽',
-  '🏀',
-  '😎',
+/// Uma categoria de emojis do seletor de avatar.
+///
+/// O agrupamento não é só cosmético: com uma lista única de 30 emojis o
+/// usuário varria tudo pra achar "aquele do macaco". Em grupos rotulados ele
+/// vai direto na seção certa.
+class CategoriaEmojiAvatar {
+  final String nome;
+  final List<String> emojis;
+
+  const CategoriaEmojiAvatar(this.nome, this.emojis);
+}
+
+/// Emojis disponíveis para avatar, agrupados por tema.
+///
+/// Todos foram escolhidos para continuarem legíveis a ~14px sobre um círculo
+/// colorido — que é o tamanho real em que aparecem na lista de participantes
+/// e no chat. Isso descarta duas famílias que estavam aqui antes:
+///
+/// - **Silhuetas finas / muito detalhadas** (🦋, 🐙, 🎰, 🍕): viram uma mancha
+///   indistinta nesse tamanho.
+/// - **Pares quase idênticos em miniatura** (⭐ vs 🌟, 🔥 vs ⚡, 🎲 vs 🎯):
+///   dois usuários com avatares diferentes pareciam ter o mesmo.
+///
+/// A preferência é por formas compactas e de alto contraste — rostos de
+/// animais em vez de corpo inteiro, objetos com silhueta fechada.
+const List<CategoriaEmojiAvatar> kCategoriasEmojiAvatar = [
+  CategoriaEmojiAvatar('Sorte', [
+    '🍀',
+    '🎲',
+    '🏆',
+    '💰',
+    '💎',
+    '🔮',
+    '🎯',
+    '🧿',
+  ]),
+  CategoriaEmojiAvatar('Bichos', [
+    '🦁',
+    '🐯',
+    '🐵',
+    '🦊',
+    '🐼',
+    '🐨',
+    '🐷',
+    '🐶',
+    '🐱',
+    '🐮',
+    '🐸',
+    '🦉',
+  ]),
+  CategoriaEmojiAvatar('Caras', [
+    '😎',
+    '🤠',
+    '🤑',
+    '🥳',
+    '🤖',
+    '👽',
+    '👻',
+    '🤡',
+  ]),
+  CategoriaEmojiAvatar('Coisas', [
+    '🔥',
+    '⚡',
+    '🚀',
+    '⚽',
+    '🏀',
+    '🍕',
+    '🍔',
+    '🎸',
+  ]),
+];
+
+/// Lista plana de todos os emojis, na ordem das categorias.
+///
+/// Mantida para quem só precisa sortear ou indexar (ex.: emoji determinístico
+/// por nome na lista de participantes) sem se importar com o agrupamento.
+final List<String> kEmojisAvatar = [
+  for (final categoria in kCategoriasEmojiAvatar) ...categoria.emojis,
 ];
 
 const String kEmojiAvatarPadrao = '🍀';

@@ -91,8 +91,14 @@ service cloud.firestore {
                        && request.resource.data.texto.size() <= 200
                        && exists(/databases/$(database)/documents/Salas/$(salaId)/Participantes/$(request.auth.uid));
 
-        // Mensagens não podem ser editadas ou deletadas (histórico imutável)
-        allow update, delete: if false;
+        // Mensagens nunca podem ser EDITADAS: reescrever o texto de uma
+        // mensagem já publicada colocaria palavras na boca do autor.
+        allow update: if false;
+
+        // Apagar é permitido só ao admin (moderação do chat pelo painel).
+        // O autor não pode apagar a própria mensagem — do contrário daria
+        // pra falar algo no chat e apagar antes de alguém cobrar.
+        allow delete: if naoAnonimo() && ehAdmin();
       }
     }
 

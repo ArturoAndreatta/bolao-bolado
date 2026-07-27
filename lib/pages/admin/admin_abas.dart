@@ -1,5 +1,6 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/formatters/money_input_format.dart';
+import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
@@ -566,6 +567,7 @@ class _LinhaParticipante extends StatelessWidget {
     final cotas = (aposta['cotas'] as num?)?.toInt() ?? 0;
     final verificado = aposta['verificado'] == true;
     final editado = aposta['editadoAposVerificacao'] == true;
+    final manual = aposta['criadoPeloAdmin'] == true;
     final corAvatar = aposta['avatarColor'] is int
         ? Color(aposta['avatarColor'] as int)
         : AdminCores.azul;
@@ -577,11 +579,7 @@ class _LinhaParticipante extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: corAvatar,
-            child: Text(emojiAvatar, style: const TextStyle(fontSize: 16)),
-          ),
+          AvatarEmoji(tamanho: 36, cor: corAvatar, emoji: emojiAvatar),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -603,6 +601,10 @@ class _LinhaParticipante extends StatelessWidget {
                     const SizedBox(width: 6),
                     if (editado)
                       const _Badge(texto: 'alterada', cor: AdminCores.dourado),
+                    if (manual) ...[
+                      if (editado) const SizedBox(width: 6),
+                      const _Badge(texto: 'manual', cor: AdminCores.texto),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 2),
@@ -1036,7 +1038,20 @@ class _AbaSalaState extends State<AbaSala> {
 
 class AbaConfig extends StatelessWidget {
   final User? adminUser;
-  const AbaConfig({super.key, required this.adminUser});
+
+  /// Nulo enquanto a sala principal ainda não foi descoberta — as ações de
+  /// chat ficam desabilitadas até lá, já que ambas precisam do id da sala.
+  final String? salaId;
+  final VoidCallback onModerarChat;
+  final VoidCallback onApagarMensagens;
+
+  const AbaConfig({
+    super.key,
+    required this.adminUser,
+    required this.salaId,
+    required this.onModerarChat,
+    required this.onApagarMensagens,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1046,6 +1061,35 @@ class AbaConfig extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          const AdminTituloSecao(
+            texto: 'Chat da sala',
+            icone: Icons.forum_outlined,
+          ),
+          const SizedBox(height: 12),
+          AdminSecaoCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _BotaoAcaoConfig(
+                  icone: Icons.rate_review_outlined,
+                  texto: 'Moderar mensagens',
+                  descricao:
+                      'Abre o chat com um botão de apagar em cada mensagem.',
+                  cor: AdminCores.azul,
+                  onTap: salaId == null ? null : onModerarChat,
+                ),
+                const SizedBox(height: 10),
+                _BotaoAcaoConfig(
+                  icone: Icons.delete_sweep_outlined,
+                  texto: 'Apagar Mensagens Chat',
+                  descricao: 'Remove todo o histórico de mensagens da sala.',
+                  cor: AdminCores.vermelho,
+                  onTap: salaId == null ? null : onApagarMensagens,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
           const AdminTituloSecao(
             texto: 'Ferramentas de desenvolvimento',
             icone: Icons.build_outlined,
@@ -1117,6 +1161,77 @@ class AbaConfig extends StatelessWidget {
             style: TextStyle(fontSize: 12, color: AdminCores.textoSuave),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Botão de ação da aba Configurações: ícone colorido + título + descrição
+/// curta do que a ação faz. Não usa [PrimaryButton] porque estas ações são
+/// destrutivas/administrativas e precisam da linha de explicação ao lado —
+/// um botão azul cheio e sem contexto convidaria ao clique distraído.
+class _BotaoAcaoConfig extends StatelessWidget {
+  final IconData icone;
+  final String texto;
+  final String descricao;
+  final Color cor;
+  final VoidCallback? onTap;
+
+  const _BotaoAcaoConfig({
+    required this.icone,
+    required this.texto,
+    required this.descricao,
+    required this.cor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final habilitado = onTap != null;
+    final corEfetiva = habilitado ? cor : cor.withValues(alpha: 0.4);
+
+    return Material(
+      color: AdminCores.fundoCard,
+      borderRadius: AppRadii.circularMd,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: AppRadii.circularMd,
+            border: Border.all(color: corEfetiva.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            children: [
+              Icon(icone, size: 20, color: corEfetiva),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      texto,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: corEfetiva,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      descricao,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AdminCores.textoSuave,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
+import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shell/avatar_picker_dialog.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -108,33 +109,23 @@ class _AppDrawerState extends State<AppDrawer> {
                                 emojiAtual:
                                     _emojiAvatarAtual ?? kEmojiAvatarPadrao,
                                 isAdmin: _isAdmin,
-                                onSelecionado: (novoEmoji) {
-                                  setState(() => _emojiAvatarAtual = novoEmoji);
-                                  widget.onAvatarChanged?.call(
-                                    _corAvatarAtual!,
-                                  );
+                                onSelecionado: (novoEmoji, novaCor) {
+                                  setState(() {
+                                    _emojiAvatarAtual = novoEmoji;
+                                    _corAvatarAtual = novaCor;
+                                  });
+                                  widget.onAvatarChanged?.call(novaCor);
                                 },
                               );
                             }
                           : null,
                       child: Stack(
                         children: [
-                          Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFF487DE5),
-                                width: 2,
-                              ),
-                            ),
-                            child: ClipOval(
-                              child: _avatarFallback(
-                                _emojiAvatarAtual ?? inicial,
-                                cor: _corAvatarAtual,
-                              ),
-                            ),
+                          AvatarEmoji(
+                            tamanho: 52,
+                            cor: _corAvatarAtual ?? const Color(0xFF487DE5),
+                            emoji: _emojiAvatarAtual ?? inicial,
+                            corBorda: const Color(0xFF487DE5),
                           ),
                           if (isLoggedIn)
                             Positioned(
@@ -317,22 +308,6 @@ class _AppDrawerState extends State<AppDrawer> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _avatarFallback(String conteudo, {Color? cor}) {
-    return Container(
-      color: cor ?? const Color(0xFF487DE5),
-      child: Center(
-        child: Text(
-          conteudo,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
         ),
       ),
     );

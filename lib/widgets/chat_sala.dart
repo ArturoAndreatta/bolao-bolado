@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
@@ -690,13 +691,9 @@ class _BolhaMensagem extends StatelessWidget {
     );
   }
 
-  // radius 14 = 28px de diâmetro, exatamente o espaço que as continuações do
-  // bloco reservam com o SizedBox em build() para manter o alinhamento.
+  // 28px de diâmetro, exatamente o espaço que as continuações do bloco
+  // reservam com o SizedBox em build() para manter o alinhamento.
   Widget _avatarCirculo(Color cor, String emoji) {
-    return CircleAvatar(
-      radius: 14,
-      backgroundColor: cor,
-      child: Text(emoji, style: const TextStyle(fontSize: 13)),
-    );
+    return AvatarEmoji(tamanho: 28, cor: cor, emoji: emoji);
   }
 }

@@ -77,4 +77,55 @@ class ChatService {
         .collection('Mensagens')
         .add(mensagem.toMap());
   }
+
+  /// Apaga uma mensagem. Só admin passa nas regras do Firestore — aqui não
+  /// há checagem de permissão de propósito: quem manda é `firestore.rules`,
+  /// duplicar a regra no cliente só criaria duas fontes de verdade.
+  Future<void> apagarMensagem({
+    required String salaId,
+    required String mensagemId,
+  }) {
+    return _firestore
+        .collection('Salas')
+        .doc(salaId)
+        .collection('Mensagens')
+        .doc(mensagemId)
+        .delete();
+  }
+
+  /// Apaga TODAS as mensagens da sala e devolve quantas foram apagadas.
+  ///
+  /// Vai em páginas de [_loteExclusao] docs porque um WriteBatch do Firestore
+  /// aceita no máximo 500 operações — um chat com histórico maior que isso
+  /// estouraria o batch único. Os IDs vêm de `.get()` (não da stream do chat,
+  /// que é limitada a [kLimiteMensagensChat]), senão as mensagens antigas
+  /// ficariam para trás.
+  Future<int> apagarTodasMensagens(String salaId) async {
+    final colecao = _firestore
+        .collection('Salas')
+        .doc(salaId)
+        .collection('Mensagens');
+
+    var apagadas = 0;
+    while (true) {
+      // Só os IDs interessam aqui; o Firestore não tem "keys only", mas
+      // limitar a página já mantém a leitura barata.
+      final pagina = await colecao.limit(_loteExclusao).get();
+      if (pagina.docs.isEmpty) break;
+
+      final lote = _firestore.batch();
+      for (final doc in pagina.docs) {
+        lote.delete(doc.reference);
+      }
+      await lote.commit();
+      apagadas += pagina.docs.length;
+
+      // Página incompleta = era a última.
+      if (pagina.docs.length < _loteExclusao) break;
+    }
+    return apagadas;
+  }
+
+  /// Teto de operações por WriteBatch do Firestore é 500.
+  static const int _loteExclusao = 400;
 }

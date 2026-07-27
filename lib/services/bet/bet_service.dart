@@ -296,6 +296,11 @@ List<Map<String, Object?>> _montarParticipantes(
       'data-hora': dados['data-hora'],
       'verificado': dados['verificado'] == true,
       'editadoAposVerificacao': dados['editadoAposVerificacao'] == true,
+      // Também aceita o prefixo do ID como sinal: apostas lançadas antes de
+      // `criadoPeloAdmin` existir só têm o `manual_` do ID artificial gerado
+      // por criarApostaManual().
+      'criadoPeloAdmin':
+          dados['criadoPeloAdmin'] == true || uid.startsWith('manual_'),
       'avatarColor': avatar?.cor.toARGB32(),
       'avatarEmoji': avatar?.emoji,
     };

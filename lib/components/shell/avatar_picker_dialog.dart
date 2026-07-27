@@ -1,12 +1,19 @@
+import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:flutter/material.dart';
 
+const Color _azul = Color(0xFF487DE5);
+const Color _tinta = Color(0xFF1F2937);
+
+/// Abre o seletor de avatar (emoji + cor).
+///
+/// [onSelecionado] recebe emoji e cor já persistidos no Firestore.
 Future<void> mostrarEscolhaAvatar(
   BuildContext context, {
   required Color corAtual,
   required String emojiAtual,
-  required void Function(String novoEmoji) onSelecionado,
+  required void Function(String novoEmoji, Color novaCor) onSelecionado,
   bool isAdmin = false,
 }) async {
   final isMobile = MediaQuery.of(context).size.width < 600;
@@ -16,52 +23,92 @@ Future<void> mostrarEscolhaAvatar(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => _AvatarBottomSheet(
+      builder: (_) => _SeletorAvatar(
         corAtual: corAtual,
         emojiAtual: emojiAtual,
         onSelecionado: onSelecionado,
+        isAdmin: isAdmin,
+        emBottomSheet: true,
       ),
     );
   } else {
     await showDialog(
       context: context,
-      builder: (_) => _AvatarDialog(
+      builder: (_) => _SeletorAvatar(
         corAtual: corAtual,
         emojiAtual: emojiAtual,
         onSelecionado: onSelecionado,
+        isAdmin: isAdmin,
+        emBottomSheet: false,
       ),
     );
   }
 }
 
-// ─── Dialog (desktop) ────────────────────────────────────────────────────────
-
-class _AvatarDialog extends StatefulWidget {
+/// Corpo único do seletor, embrulhado num `AlertDialog` no desktop e numa
+/// folha arrastável no mobile.
+///
+/// Antes eram duas classes com estado próprio e o mesmo conteúdo duplicado —
+/// qualquer mudança na seleção precisava ser feita em dois lugares e elas já
+/// tinham divergido (só o dialog tinha botão de cancelar).
+class _SeletorAvatar extends StatefulWidget {
   final Color corAtual;
   final String emojiAtual;
-  final void Function(String) onSelecionado;
+  final void Function(String, Color) onSelecionado;
+  final bool isAdmin;
+  final bool emBottomSheet;
 
-  const _AvatarDialog({
+  const _SeletorAvatar({
     required this.corAtual,
     required this.emojiAtual,
     required this.onSelecionado,
+    required this.isAdmin,
+    required this.emBottomSheet,
   });
 
   @override
-  State<_AvatarDialog> createState() => _AvatarDialogState();
+  State<_SeletorAvatar> createState() => _SeletorAvatarState();
 }
 
-class _AvatarDialogState extends State<_AvatarDialog> {
-  late String _selecionado;
+class _SeletorAvatarState extends State<_SeletorAvatar> {
+  late String _emoji;
+  late Color _cor;
+  bool _salvando = false;
 
   @override
   void initState() {
     super.initState();
-    _selecionado = widget.emojiAtual;
+    _emoji = widget.emojiAtual;
+    _cor = widget.corAtual;
+  }
+
+  bool get _mudou => _emoji != widget.emojiAtual || _cor != widget.corAtual;
+
+  Future<void> _confirmar() async {
+    if (_salvando) return;
+    setState(() => _salvando = true);
+
+    final navigator = Navigator.of(context);
+    // Emoji e cor são dois campos do mesmo doc mas duas escritas
+    // independentes: em série o usuário esperava dois round-trips para
+    // fechar o diálogo.
+    await (
+      AvatarService.salvarEmoji(_emoji),
+      AvatarService.salvarCor(_cor.toARGB32()),
+    ).wait;
+
+    widget.onSelecionado(_emoji, _cor);
+    if (mounted) navigator.pop();
   }
 
   @override
   Widget build(BuildContext context) {
+    return widget.emBottomSheet ? _comoBottomSheet() : _comoDialog();
+  }
+
+  // ─── Invólucros ────────────────────────────────────────────────────────────
+
+  Widget _comoDialog() {
     return AlertDialog(
       backgroundColor: const Color(0xFFFEFEFE),
       surfaceTintColor: Colors.transparent,
@@ -70,143 +117,283 @@ class _AvatarDialogState extends State<_AvatarDialog> {
         borderRadius: AppRadii.circularXxl,
         side: BorderSide(color: Colors.grey.shade200, width: 1),
       ),
-      title: const Text(
-        'Escolha o emoji do seu avatar',
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF1F2937),
-        ),
-      ),
+      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       content: SizedBox(
-        width: 320,
-        child: _GridEmojis(
-          corFundo: widget.corAtual,
-          selecionado: _selecionado,
-          onTap: (emoji) => setState(() => _selecionado = emoji),
-        ),
+        width: 380,
+        // O conteúdo é mais alto que a área útil de telas baixas (notebook
+        // com a janela reduzida), então rola dentro do diálogo em vez de
+        // estourar.
+        child: SingleChildScrollView(child: _conteudo()),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _salvando ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
         ),
         ElevatedButton(
-          onPressed: () async {
-            await AvatarService.salvarEmoji(_selecionado);
-            widget.onSelecionado(_selecionado);
-            if (context.mounted) Navigator.of(context).pop();
-          },
+          onPressed: _mudou && !_salvando ? _confirmar : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF487DE5),
+            backgroundColor: _azul,
             foregroundColor: Colors.white,
+            disabledBackgroundColor: Colors.grey.shade300,
             shape: RoundedRectangleBorder(borderRadius: AppRadii.circularSmd),
           ),
-          child: const Text('Confirmar'),
+          child: _salvando ? const _Progresso() : const Text('Confirmar'),
         ),
+      ],
+    );
+  }
+
+  Widget _comoBottomSheet() {
+    // Altura limitada + rolagem interna: com as quatro categorias abertas a
+    // grade não cabe na tela de um celular, e uma Column solta simplesmente
+    // estouraria por baixo.
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFFEFEFE),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: AppRadii.circularXs,
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: _conteudo(),
+              ),
+            ),
+            // Fora da área rolável: o botão de confirmar fica sempre à mão,
+            // sem obrigar a rolar até o fim da lista de emojis.
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _mudou && !_salvando ? _confirmar : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _azul,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadii.circularMd,
+                    ),
+                  ),
+                  child: _salvando
+                      ? const _Progresso()
+                      : const Text(
+                          'Confirmar',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Conteúdo compartilhado ────────────────────────────────────────────────
+
+  Widget _conteudo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Prévia grande: o avatar só aparecia em 32px dentro da grade, então
+        // não dava pra julgar a combinação de cor e emoji antes de confirmar.
+        Center(
+          child: Column(
+            children: [
+              AvatarEmoji(tamanho: 76, cor: _cor, emoji: _emoji),
+              const SizedBox(height: 10),
+              const Text(
+                'Seu avatar',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        const _TituloSecao('Cor'),
+        const SizedBox(height: 10),
+        _GradeCores(
+          selecionada: _cor,
+          isAdmin: widget.isAdmin,
+          onTap: (cor) => setState(() => _cor = cor),
+        ),
+        const SizedBox(height: 20),
+
+        const _TituloSecao('Emoji'),
+        for (final categoria in kCategoriasEmojiAvatar) ...[
+          const SizedBox(height: 12),
+          Text(
+            categoria.nome,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF9CA3AF),
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _GradeEmojis(
+            emojis: categoria.emojis,
+            corFundo: _cor,
+            selecionado: _emoji,
+            onTap: (emoji) => setState(() => _emoji = emoji),
+          ),
+        ],
       ],
     );
   }
 }
 
-// ─── Bottom Sheet (mobile) ───────────────────────────────────────────────────
+class _TituloSecao extends StatelessWidget {
+  final String texto;
 
-class _AvatarBottomSheet extends StatefulWidget {
-  final Color corAtual;
-  final String emojiAtual;
-  final void Function(String) onSelecionado;
-
-  const _AvatarBottomSheet({
-    required this.corAtual,
-    required this.emojiAtual,
-    required this.onSelecionado,
-  });
-
-  @override
-  State<_AvatarBottomSheet> createState() => _AvatarBottomSheetState();
-}
-
-class _AvatarBottomSheetState extends State<_AvatarBottomSheet> {
-  late String _selecionado;
-
-  @override
-  void initState() {
-    super.initState();
-    _selecionado = widget.emojiAtual;
-  }
+  const _TituloSecao(this.texto);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFFEFEFE),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: AppRadii.circularXs,
-            ),
-          ),
-          const Text(
-            'Escolha o emoji do seu avatar',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1F2937),
-            ),
-          ),
-          const SizedBox(height: 20),
-          _GridEmojis(
-            corFundo: widget.corAtual,
-            selecionado: _selecionado,
-            onTap: (emoji) => setState(() => _selecionado = emoji),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () async {
-                await AvatarService.salvarEmoji(_selecionado);
-                widget.onSelecionado(_selecionado);
-                if (context.mounted) Navigator.of(context).pop();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF487DE5),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadii.circularMd,
-                ),
-              ),
-              child: const Text(
-                'Confirmar',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-        ],
+    return Text(
+      texto,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: _tinta,
       ),
     );
   }
 }
 
-// ─── Grid de emojis compartilhado ────────────────────────────────────────────
+class _Progresso extends StatelessWidget {
+  const _Progresso();
 
-class _GridEmojis extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 18,
+      height: 18,
+      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+    );
+  }
+}
+
+// ─── Grade de cores ──────────────────────────────────────────────────────────
+
+class _GradeCores extends StatelessWidget {
+  final Color selecionada;
+  final bool isAdmin;
+  final void Function(Color) onTap;
+
+  const _GradeCores({
+    required this.selecionada,
+    required this.isAdmin,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // A cor base do admin não faz parte da paleta sorteada, mas o admin pode
+    // querer voltar pra ela depois de experimentar outra.
+    final cores = [if (isAdmin) kCorBaseAdmin, ...kCoresAvatar];
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (final cor in cores)
+          _BolhaCor(
+            cor: cor,
+            selecionada: cor.toARGB32() == selecionada.toARGB32(),
+            onTap: () => onTap(cor),
+          ),
+      ],
+    );
+  }
+}
+
+class _BolhaCor extends StatelessWidget {
+  final Color cor;
+  final bool selecionada;
+  final VoidCallback onTap;
+
+  const _BolhaCor({
+    required this.cor,
+    required this.selecionada,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: cor,
+            shape: BoxShape.circle,
+            // Anel branco entre a cor e a borda azul: sem ele, cores próximas
+            // do azul de seleção encostavam na borda e a marca de selecionado
+            // sumia.
+            border: Border.all(
+              color: selecionada ? Colors.white : Colors.transparent,
+              width: 2,
+            ),
+            boxShadow: selecionada
+                ? [const BoxShadow(color: _azul, spreadRadius: 2)]
+                : null,
+          ),
+          child: selecionada
+              ? const Icon(Icons.check, size: 16, color: Colors.white)
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Grade de emojis ─────────────────────────────────────────────────────────
+
+class _GradeEmojis extends StatelessWidget {
+  final List<String> emojis;
   final Color corFundo;
   final String selecionado;
   final void Function(String) onTap;
 
-  const _GridEmojis({
+  const _GradeEmojis({
+    required this.emojis,
     required this.corFundo,
     required this.selecionado,
     required this.onTap,
@@ -214,48 +401,57 @@ class _GridEmojis extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 5,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: kEmojisAvatar.length,
-      itemBuilder: (context, index) {
-        final emoji = kEmojisAvatar[index];
-        final isSelected = emoji == selecionado;
+    // Wrap em vez de GridView: as categorias têm tamanhos diferentes (8 e 12
+    // emojis) e um GridView de contagem fixa deixaria buracos no fim de cada
+    // seção.
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (final emoji in emojis)
+          _BolhaEmoji(
+            emoji: emoji,
+            corFundo: corFundo,
+            selecionado: emoji == selecionado,
+            onTap: () => onTap(emoji),
+          ),
+      ],
+    );
+  }
+}
 
-        return GestureDetector(
-          onTap: () => onTap(emoji),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected
-                    ? const Color(0xFF487DE5)
-                    : Colors.transparent,
-                width: 3,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: const Color(0xFF487DE5).withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: CircleAvatar(
-              backgroundColor: corFundo,
-              child: Text(emoji, style: const TextStyle(fontSize: 18)),
+class _BolhaEmoji extends StatelessWidget {
+  final String emoji;
+  final Color corFundo;
+  final bool selecionado;
+  final VoidCallback onTap;
+
+  const _BolhaEmoji({
+    required this.emoji,
+    required this.corFundo,
+    required this.selecionado,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: selecionado ? _azul : Colors.transparent,
+              width: 2,
             ),
           ),
-        );
-      },
+          child: AvatarEmoji(tamanho: 40, cor: corFundo, emoji: emoji),
+        ),
+      ),
     );
   }
 }

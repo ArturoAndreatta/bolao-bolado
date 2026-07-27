@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/components/shared/selo_manual.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -155,6 +156,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
             final isUsuarioLogado = item['uid'] == currentUid;
             final isVerificado = item['verificado'] == true;
             final isAlterada = item['editadoAposVerificacao'] == true;
+            final isManual = item['criadoPeloAdmin'] == true;
             final uid = item['uid']?.toString();
 
             final nome = item['nome']?.toString() ?? '—';
@@ -197,6 +199,9 @@ class _TabelaApostasState extends State<TabelaApostas> {
                           width: wNome,
                           alinhamento: TextAlign.left,
                           negrito: isUsuarioLogado,
+                          sufixo: isManual
+                              ? const SeloManual(tamanhoFonte: 9)
+                              : null,
                         ),
                         CelulaLinha(
                           texto: formatoMoeda.format(valor),
@@ -575,6 +580,10 @@ class CelulaLinha extends StatelessWidget {
   final double paddingVertical;
   final double fontSize;
 
+  /// Widget opcional colado à direita do texto (ex.: o selo de aposta
+  /// manual). Fica dentro da célula para herdar borda e padding dela.
+  final Widget? sufixo;
+
   const CelulaLinha({
     super.key,
     required this.texto,
@@ -586,6 +595,7 @@ class CelulaLinha extends StatelessWidget {
     this.negrito = false,
     this.paddingVertical = 7,
     this.fontSize = 13,
+    this.sufixo,
   });
 
   @override
@@ -600,24 +610,41 @@ class CelulaLinha extends StatelessWidget {
                 right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
               ),
             ),
-      child: Text(
-        texto,
-        textAlign: alinhamento,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: fontSize,
-          fontWeight: destaque
-              ? FontWeight.w600
-              : negrito
-              ? FontWeight.w700
-              : FontWeight.w400,
-          color: destaque
-              ? const Color(0xFF2E7D32)
-              : subTexto
-              ? Colors.grey
-              : const Color(0xFF1F2937),
+      child: _comSufixo(
+        Text(
+          texto,
+          textAlign: alinhamento,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: destaque
+                ? FontWeight.w600
+                : negrito
+                ? FontWeight.w700
+                : FontWeight.w400,
+            color: destaque
+                ? const Color(0xFF2E7D32)
+                : subTexto
+                ? Colors.grey
+                : const Color(0xFF1F2937),
+          ),
         ),
       ),
+    );
+  }
+
+  /// Sem sufixo devolve o texto puro, preservando o comportamento de largura
+  /// fixa das demais colunas. Com sufixo, o texto passa a ser Flexible para
+  /// encolher com reticências em vez de estourar a largura da célula.
+  Widget _comSufixo(Widget texto) {
+    if (sufixo == null) return texto;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(child: texto),
+        const SizedBox(width: 6),
+        sufixo!,
+      ],
     );
   }
 }
