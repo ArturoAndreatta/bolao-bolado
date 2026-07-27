@@ -6,6 +6,7 @@ import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
+import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/pages/admin/widgets/admin_widgets.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
@@ -35,9 +36,13 @@ class AbaAdminMeta {
 
 // Não inclui AbaAdmin.visaoGeral: essa seção virou dois cards próprios
 // (stats + pendentes) montados à parte no topo do dashboard, não um card
-// genérico como os demais — ver AdminCardStats/AdminCardPendentes. Também
-// não inclui AbaAdmin.config: virou um dialog acessível pelo botão de
-// engrenagem no cabeçalho, não um card da grade.
+// genérico como os demais — ver AdminCardStats/AdminCardPendentes.
+//
+// Config está aqui: voltou a ser um card da grade (e uma aba do fichário no
+// mobile), no lugar do dialog que abria pelo botão de engrenagem. Um botão
+// solto no cabeçalho escondia a seção atrás de um clique extra sem ganho —
+// como card ela segue o mesmo padrão visual das outras e fica visível junto
+// com o resto do painel.
 const List<AbaAdminMeta> kAbasAdmin = [
   AbaAdminMeta(
     aba: AbaAdmin.participantes,
@@ -53,6 +58,11 @@ const List<AbaAdminMeta> kAbasAdmin = [
     aba: AbaAdmin.sala,
     texto: 'Sala',
     icone: Icons.meeting_room_outlined,
+  ),
+  AbaAdminMeta(
+    aba: AbaAdmin.config,
+    texto: 'Configurações',
+    icone: Icons.settings_outlined,
   ),
 ];
 
@@ -98,81 +108,60 @@ class AdminCardStats extends StatelessWidget {
     );
     final verificados = bets.where((b) => b['verificado'] == true).length;
 
-    // Grade 2 colunas: os 6 tiles cabem lado a lado em vez de empilhados,
-    // então o card de stats fica compacto (altura previsível) mesmo com
-    // 6 métricas — sem isso ele ficava tão alto quanto o de pendentes.
+    // Um tile por linha: cada card ocupa a largura toda em vez de disputar
+    // espaço lado a lado, ficando legível mesmo em telas estreitas.
+    const espacamento = 12.0;
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const espacamento = 12.0;
-          final largura = (constraints.maxWidth - espacamento) / 2;
-
-          Widget tile(Widget child) => SizedBox(width: largura, child: child);
-
-          return Wrap(
-            spacing: espacamento,
-            runSpacing: espacamento,
-            children: [
-              tile(
-                AdminStatTile(
-                  icon: Icons.groups_outlined,
-                  label: 'Participantes',
-                  value: '${bets.length}',
-                  color: AdminCores.azul,
-                ),
-              ),
-              tile(
-                AdminStatTile(
-                  icon: Icons.payments_outlined,
-                  label: 'Total arrecadado',
-                  value: Formatters.moeda.format(totalApostado),
-                  color: AdminCores.verde,
-                ),
-              ),
-              tile(
-                AdminStatTile(
-                  icon: Icons.emoji_events_outlined,
-                  label: 'Prêmio total',
-                  value: Formatters.moeda.format(totalPremios),
-                  color: AdminCores.azul,
-                ),
-              ),
-              tile(
-                AdminStatTile(
-                  icon: Icons.confirmation_number_outlined,
-                  label: 'Cotas vendidas',
-                  value: '$totalCotas',
-                  color: AdminCores.dourado,
-                ),
-              ),
-              tile(
-                AdminStatTile(
-                  icon: Icons.verified_outlined,
-                  label: 'Apostas verificadas',
-                  value: '$verificados de ${bets.length}',
-                  color: AdminCores.verdeAgua,
-                ),
-              ),
-              tile(
-                AdminStatTile(
-                  icon: Icons.pending_actions_outlined,
-                  label: totalPendentes == -1
-                      ? 'Erro ao carregar'
-                      : totalPendentes > 0
-                      ? 'Aguardando verificação'
-                      : 'Tudo verificado',
-                  value: totalPendentes == -1
-                      ? '—'
-                      : '$totalPendentes pendentes',
-                  color: totalPendentes > 0
-                      ? AdminCores.vermelho
-                      : AdminCores.verde,
-                ),
-              ),
-            ],
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AdminStatTile(
+            icon: Icons.groups_outlined,
+            label: 'Participantes',
+            value: '${bets.length}',
+            color: AdminCores.azul,
+          ),
+          const SizedBox(height: espacamento),
+          AdminStatTile(
+            icon: Icons.payments_outlined,
+            label: 'Total arrecadado',
+            value: Formatters.moeda.format(totalApostado),
+            color: AdminCores.verde,
+          ),
+          const SizedBox(height: espacamento),
+          AdminStatTile(
+            icon: Icons.emoji_events_outlined,
+            label: 'Prêmio total',
+            value: Formatters.moeda.format(totalPremios),
+            color: AdminCores.azul,
+          ),
+          const SizedBox(height: espacamento),
+          AdminStatTile(
+            icon: Icons.confirmation_number_outlined,
+            label: 'Cotas vendidas',
+            value: '$totalCotas',
+            color: AdminCores.dourado,
+          ),
+          const SizedBox(height: espacamento),
+          AdminStatTile(
+            icon: Icons.verified_outlined,
+            label: 'Apostas verificadas',
+            value: '$verificados de ${bets.length}',
+            color: AdminCores.verdeAgua,
+          ),
+          const SizedBox(height: espacamento),
+          AdminStatTile(
+            icon: Icons.pending_actions_outlined,
+            label: totalPendentes == -1
+                ? 'Erro ao carregar'
+                : totalPendentes > 0
+                ? 'Aguardando verificação'
+                : 'Tudo verificado',
+            value: totalPendentes == -1 ? '—' : '$totalPendentes pendentes',
+            color: totalPendentes > 0 ? AdminCores.vermelho : AdminCores.verde,
+          ),
+        ],
       ),
     );
   }
@@ -976,28 +965,45 @@ class _AbaSalaState extends State<AbaSala> {
               prefix: const Text('R\$ '),
             ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: CustomDateField(
-                    hint: 'Data do sorteio',
-                    controller: _dataController,
-                    maxWidth: double.infinity,
-                    initialDate: _dataSelecionada,
-                    onPicked: (d) => _dataSelecionada = d,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CustomTimeField(
-                    hint: 'Hora',
-                    controller: _horaController,
-                    maxWidth: double.infinity,
-                    initialTime: _horaSelecionada,
-                    onPicked: (t) => _horaSelecionada = t,
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final dataField = CustomDateField(
+                  hint: 'Data do sorteio',
+                  controller: _dataController,
+                  maxWidth: double.infinity,
+                  initialDate: _dataSelecionada,
+                  onPicked: (d) => _dataSelecionada = d,
+                );
+                final horaField = CustomTimeField(
+                  hint: 'Hora',
+                  controller: _horaController,
+                  maxWidth: double.infinity,
+                  initialTime: _horaSelecionada,
+                  onPicked: (t) => _horaSelecionada = t,
+                );
+
+                // Lado a lado sobra pouco espaço pra cada campo (data
+                // formatada + ícone) quando o card fica estreito, como no
+                // mobile — empilha em Column abaixo de 340px em vez de
+                // espremer os dois na mesma linha.
+                if (constraints.maxWidth < 340) {
+                  return Column(
+                    children: [
+                      dataField,
+                      const SizedBox(height: 14),
+                      horaField,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: dataField),
+                    const SizedBox(width: 12),
+                    Expanded(child: horaField),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 14),
             CustomField(
@@ -1216,6 +1222,13 @@ class AdminDialogFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 340 fixo estoura em celulares estreitos (com o padding padrão do
+    // AlertDialog somado). Em mobile usa a largura da tela com respiro.
+    final larguraTela = MediaQuery.sizeOf(context).width;
+    final larguraConteudo = Responsive.isMobile(context)
+        ? larguraTela - 80
+        : 340.0;
+
     return AlertDialog(
       backgroundColor: AdminCores.fundoCard,
       surfaceTintColor: Colors.transparent,
@@ -1224,7 +1237,7 @@ class AdminDialogFrame extends StatelessWidget {
         titulo,
         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
       ),
-      content: SizedBox(width: 340, child: corpo),
+      content: SizedBox(width: larguraConteudo, child: corpo),
       // actionsPadding para o par de botões respirar da borda do card e do
       // conteúdo acima.
       actionsPadding: const EdgeInsets.fromLTRB(16, 4, 16, 16),

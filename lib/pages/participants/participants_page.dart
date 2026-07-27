@@ -348,8 +348,8 @@ class _ParticipantsState extends State<Participants> {
       // esperam uma altura fixa em pixels) preencham exatamente o espaço
       // certo, sem overflow nem sobra.
       builder: (context, aba) => LayoutBuilder(
-        builder: (context, constraints) => _conteudoAbaAtiva(
-          context: context,
+        builder: (context, constraints) => _conteudoAba(
+          aba: aba,
           currentUid: currentUid,
           isLoggedInDeVerdade: isLoggedInDeVerdade,
           alturaDisponivel: constraints.maxHeight,
@@ -358,16 +358,19 @@ class _ParticipantsState extends State<Participants> {
     );
   }
 
-  // Conteúdo do painel ativo: Minha Aposta, Participantes ou Chat, conforme
-  // a aba selecionada em _abaAtiva.
-  Widget _conteudoAbaAtiva({
-    required BuildContext context,
+  // Conteúdo de UMA aba do fichário (Minha Aposta, Participantes ou Chat).
+  // O Fichario agora constrói as três de uma vez e mantém as inativas
+  // "vivas" atrás de um Offstage (ver ficharios.dart) — por isso este método
+  // recebe [aba] em vez de olhar só pra _abaAtiva: precisa devolver o
+  // widget de qualquer uma das três, não só da selecionada no momento.
+  Widget _conteudoAba({
+    required AbaFichario aba,
     required String? currentUid,
     required bool isLoggedInDeVerdade,
     required double alturaDisponivel,
   }) {
     final alturaConteudo = alturaDisponivel;
-    if (_abaAtiva == 2 && isLoggedInDeVerdade) {
+    if (aba.indice == 2 && isLoggedInDeVerdade) {
       return MinhaApostaCard(
         onApostaConfirmada: () => setState(() => _abaAtiva = 0),
         mobile: true,
@@ -376,7 +379,7 @@ class _ParticipantsState extends State<Participants> {
         apenasConteudo: true,
       );
     }
-    if (_abaAtiva == 0) {
+    if (aba.indice == 0) {
       return PainelParticipantes(
         currentUid: currentUid,
         loading: _loading,
@@ -401,7 +404,13 @@ class _ParticipantsState extends State<Participants> {
         // Ocupa o restante da altura visível, medida a partir do
         // LayoutBuilder em _layoutMobile.
         height: alturaConteudo,
-        child: ChatSala(salaId: _salaId!, mostrarCabecalho: false),
+        child: ChatSala(
+          salaId: _salaId!,
+          mostrarCabecalho: false,
+          // A folha do Fichario já é o cartão: sem isso o chat desenharia uma
+          // segunda borda por dentro dela.
+          compacto: true,
+        ),
       );
     }
     return const SizedBox.shrink();

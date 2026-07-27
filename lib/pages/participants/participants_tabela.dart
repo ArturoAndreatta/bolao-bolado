@@ -12,18 +12,20 @@ const double wPremio = 198;
 const double wData = 190;
 const double larguraTotal = wNome + wValor + wCotas + wPremio + wData;
 
-// Compara o timestamp atual de um uid com o último visto e já atualiza o
-// registro em `conhecidos`. Usado para decidir se uma linha deve animar a
-// entrada (uid inédito, ou mesmo uid com timestamp diferente = reenviado).
+// Compara o valor apostado atual de um uid com o último visto e já atualiza
+// o registro em `conhecidos`. Usado para decidir se uma linha deve animar a
+// entrada (uid inédito, ou mesmo uid com valor diferente = aposta alterada).
+// Comparar por valor (não por timestamp) evita animar de novo quando o
+// usuário só reabre/reenvia o formulário sem mudar a quantia.
 bool detectarLinhaNova(
-  Map<String, int?> conhecidos,
+  Map<String, Object?> conhecidos,
   String? uid,
-  int? tsAtual,
+  Object? valorAtual,
 ) {
   if (uid == null) return false;
-  final tsConhecido = conhecidos[uid];
-  final isNova = !conhecidos.containsKey(uid) || tsConhecido != tsAtual;
-  conhecidos[uid] = tsAtual;
+  final valorConhecido = conhecidos[uid];
+  final isNova = !conhecidos.containsKey(uid) || valorConhecido != valorAtual;
+  conhecidos[uid] = valorAtual;
   return isNova;
 }
 
@@ -65,7 +67,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
   // linhas são novas (uid inédito) ou foram recriadas/reenviadas (mesmo uid,
   // timestamp diferente), e por isso devem animar a entrada. Evita reanimar
   // a cada rebuild quando nada mudou.
-  final Map<String, int?> _timestampsConhecidos = {};
+  final Map<String, Object?> _valoresConhecidos = {};
 
   List<Map<String, dynamic>> get rows => widget.rows;
   int get colunaOrdenada => widget.colunaOrdenada;
@@ -169,11 +171,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
             final tsAtual = dataHora is Timestamp
                 ? dataHora.millisecondsSinceEpoch
                 : null;
-            final isNova = detectarLinhaNova(
-              _timestampsConhecidos,
-              uid,
-              tsAtual,
-            );
+            final isNova = detectarLinhaNova(_valoresConhecidos, uid, valor);
 
             // Prioridade visual: edição pós-verificação > verificado > zebra (par/ímpar)
             return LinhaEntrandoAnimada(

@@ -23,12 +23,19 @@ class ChatSala extends StatefulWidget {
   // para reforçar a hierarquia visual de "por cima" da tabela.
   final bool flutuante;
 
+  // No mobile o chat vive dentro da folha do Fichario, que já desenha o
+  // cartão branco com borda e sombra. Sem isto o usuário vê dois retângulos
+  // encaixados (o da folha e o do próprio chat) e perde ~16px de largura útil
+  // de cada lado — que na tela estreita é justamente o que falta às bolhas.
+  final bool compacto;
+
   const ChatSala({
     super.key,
     required this.salaId,
     this.mostrarCabecalho = true,
     this.onFechar,
     this.flutuante = false,
+    this.compacto = false,
   });
 
   @override
@@ -86,6 +93,16 @@ class _ChatSalaState extends State<ChatSala> {
     }
   }
 
+  // Duas mensagens caem no mesmo dia? Usado tanto para agrupar mensagens
+  // seguidas do mesmo autor quanto para decidir onde entra o separador de
+  // data. Mensagem ainda sem `criadoEm` (escrita otimista local, antes do
+  // serverTimestamp voltar) conta como "mesmo dia" da vizinha para não piscar
+  // um separador que some no frame seguinte.
+  static bool _mesmoDia(DateTime? a, DateTime? b) {
+    if (a == null || b == null) return true;
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
   // A lista usa reverse:true (mensagem mais recente no topo visual), então
   // "rolar para o final" na prática é rolar até o offset 0.
   void _scrollParaFinal() {
@@ -131,13 +148,17 @@ class _ChatSalaState extends State<ChatSala> {
     return SizedBox.expand(
       child: Material(
         color: const Color(0xFFFEFEFE),
-        elevation: widget.flutuante ? 10 : 3,
+        // No modo compacto o cartão ao redor é do Fichario: aqui só o fundo,
+        // sem elevação nem borda própria (ver [ChatSala.compacto]).
+        elevation: widget.compacto ? 0 : (widget.flutuante ? 10 : 3),
         shadowColor: Colors.black,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadii.circularSmd,
-          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
-        ),
+        shape: widget.compacto
+            ? const RoundedRectangleBorder()
+            : RoundedRectangleBorder(
+                borderRadius: AppRadii.circularSmd,
+                side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+              ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
@@ -175,23 +196,62 @@ class _ChatSalaState extends State<ChatSala> {
                         );
                       }
 
+                      final uidAtual = FirebaseAuth.instance.currentUser?.uid;
+
                       final lista = ListView.builder(
                         controller: _scrollController,
                         reverse: true,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: widget.compacto ? 10 : 12,
                           vertical: 10,
                         ),
                         itemCount: mensagens.length,
                         itemBuilder: (context, index) {
                           final msg = mensagens[index];
-                          final isMinha =
-                              msg.autorUid ==
-                              FirebaseAuth.instance.currentUser?.uid;
-                          return _BolhaMensagem(
+                          // A lista é reverse:true e vem do mais recente para
+                          // o mais antigo, então o vizinho ANTERIOR na tela é
+                          // index+1 e o POSTERIOR é index-1.
+                          final anterior = index + 1 < mensagens.length
+                              ? mensagens[index + 1]
+                              : null;
+                          final posterior = index > 0
+                              ? mensagens[index - 1]
+                              : null;
+
+                          // Agrupa mensagens seguidas do mesmo autor: só a
+                          // primeira do bloco mostra nome e avatar, as demais
+                          // ganham um recuo equivalente. Evita repetir
+                          // "Orlindo Cruz" + avatar quatro vezes em sequência.
+                          final iniciaBloco =
+                              anterior == null ||
+                              anterior.autorUid != msg.autorUid ||
+                              !_mesmoDia(anterior.criadoEm, msg.criadoEm);
+                          final encerraBloco =
+                              posterior == null ||
+                              posterior.autorUid != msg.autorUid ||
+                              !_mesmoDia(posterior.criadoEm, msg.criadoEm);
+
+                          final bolha = _BolhaMensagem(
                             mensagem: msg,
-                            isMinha: isMinha,
+                            isMinha: msg.autorUid == uidAtual,
+                            iniciaBloco: iniciaBloco,
+                            encerraBloco: encerraBloco,
+                            compacto: widget.compacto,
                           );
+
+                          // Separador de data acima da primeira mensagem de
+                          // cada dia. Como a lista é invertida, "primeira do
+                          // dia" é aquela cujo vizinho mais antigo (index+1)
+                          // caiu em outro dia.
+                          if (!_mesmoDia(anterior?.criadoEm, msg.criadoEm)) {
+                            return Column(
+                              children: [
+                                _SeparadorData(dataHora: msg.criadoEm),
+                                bolha,
+                              ],
+                            );
+                          }
+                          return bolha;
                         },
                       );
 
@@ -208,6 +268,7 @@ class _ChatSalaState extends State<ChatSala> {
               controller: _textoController,
               focusNode: _campoFocusNode,
               onEnviar: _enviar,
+              compacto: widget.compacto,
             ),
           ],
         ),
@@ -226,6 +287,7 @@ class _CampoEnvioChat extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onEnviar;
+  final bool compacto;
 
   const _CampoEnvioChat({
     required this.verificandoPermissao,
@@ -234,6 +296,7 @@ class _CampoEnvioChat extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.onEnviar,
+    this.compacto = false,
   });
 
   @override
@@ -299,10 +362,16 @@ class _CampoEnvioChat extends StatelessWidget {
               maxLines: 3,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => onEnviar(),
-              style: const TextStyle(fontSize: 14),
+              // 16px no mobile não é escolha estética: abaixo disso o Safari
+              // do iOS dá zoom na página ao focar o campo, e a tela toda sai
+              // do lugar quando o teclado abre.
+              style: TextStyle(fontSize: compacto ? 16 : 14),
               decoration: InputDecoration(
                 hintText: 'Escreva algo...',
-                hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                hintStyle: TextStyle(
+                  fontSize: compacto ? 15 : 14,
+                  color: Colors.grey.shade400,
+                ),
                 counterText: '',
                 filled: true,
                 fillColor: const Color(0xFFF3F4F6),
@@ -318,13 +387,15 @@ class _CampoEnvioChat extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
+          // No mobile o botão precisa dos ~44px de alvo de toque
+          // recomendados: 12 de padding + 20 do ícone chegam lá.
           enviando
-              ? const Padding(
-                  padding: EdgeInsets.all(10),
+              ? Padding(
+                  padding: EdgeInsets.all(compacto ? 12 : 10),
                   child: SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    height: compacto ? 20 : 18,
+                    width: compacto ? 20 : 18,
+                    child: const CircularProgressIndicator(strokeWidth: 2),
                   ),
                 )
               : Material(
@@ -333,11 +404,11 @@ class _CampoEnvioChat extends StatelessWidget {
                   child: InkWell(
                     customBorder: const CircleBorder(),
                     onTap: onEnviar,
-                    child: const Padding(
-                      padding: EdgeInsets.all(10),
+                    child: Padding(
+                      padding: EdgeInsets.all(compacto ? 12 : 10),
                       child: Icon(
                         Icons.send_rounded,
-                        size: 18,
+                        size: compacto ? 20 : 18,
                         color: Colors.white,
                       ),
                     ),
@@ -422,93 +493,178 @@ class _CabecalhoChat extends StatelessWidget {
   }
 }
 
-class _BolhaMensagem extends StatelessWidget {
-  final Mensagem mensagem;
-  final bool isMinha;
+// Faixa "Hoje" / "Ontem" / "12/07/2026" entre blocos de dias diferentes.
+// Sem ela o chat vira um rolo contínuo em que só dá pra saber a data lendo o
+// carimbo de cada mensagem — que agora é só a hora.
+class _SeparadorData extends StatelessWidget {
+  final DateTime? dataHora;
 
-  const _BolhaMensagem({required this.mensagem, required this.isMinha});
+  const _SeparadorData({required this.dataHora});
 
-  String _formatarDataHora(DateTime dataHora) {
+  String _rotulo(DateTime data) {
     final agora = DateTime.now();
-    final mesmoDia =
-        agora.year == dataHora.year &&
-        agora.month == dataHora.month &&
-        agora.day == dataHora.day;
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    final dia = DateTime(data.year, data.month, data.day);
+    final diferenca = hoje.difference(dia).inDays;
 
-    if (mesmoDia) {
-      return Formatters.horaCurta.format(dataHora);
-    }
-    return Formatters.dataHora.format(dataHora);
+    if (diferenca == 0) return 'Hoje';
+    if (diferenca == 1) return 'Ontem';
+    return Formatters.data.format(data);
   }
 
   @override
   Widget build(BuildContext context) {
-    final horario = mensagem.criadoEm != null
-        ? _formatarDataHora(mensagem.criadoEm!)
-        : '';
+    if (dataHora == null) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Expanded(child: Divider(color: Color(0xFFE5E7EB), height: 1)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              _rotulo(dataHora!),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ),
+          const Expanded(child: Divider(color: Color(0xFFE5E7EB), height: 1)),
+        ],
+      ),
+    );
+  }
+}
+
+class _BolhaMensagem extends StatelessWidget {
+  final Mensagem mensagem;
+  final bool isMinha;
+
+  // Primeira/última mensagem de um bloco de mensagens seguidas do mesmo autor
+  // no mesmo dia. Controlam quem mostra avatar e nome (só a primeira) e o
+  // arredondamento do "rabinho" da bolha (só a última).
+  final bool iniciaBloco;
+  final bool encerraBloco;
+
+  final bool compacto;
+
+  const _BolhaMensagem({
+    required this.mensagem,
+    required this.isMinha,
+    required this.iniciaBloco,
+    required this.encerraBloco,
+    required this.compacto,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final horario = mensagem.criadoEm != null
+        ? Formatters.horaCurta.format(mensagem.criadoEm!)
+        : '';
+
+    const larguraAvatar = 28.0;
+    const espacoAvatar = 8.0;
+
+    return Padding(
+      // Dentro de um bloco as mensagens ficam bem mais próximas do que entre
+      // blocos: é o espaçamento que faz a sequência ser lida como uma fala só.
+      padding: EdgeInsets.only(top: iniciaBloco ? 8 : 2, bottom: 1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: isMinha
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         children: [
-          if (!isMinha) ...[_avatar(), const SizedBox(width: 8)],
+          if (!isMinha) ...[
+            // Continuações do bloco reservam o mesmo espaço do avatar para
+            // as bolhas ficarem alinhadas na vertical.
+            iniciaBloco
+                ? _avatar()
+                : const SizedBox(width: larguraAvatar, height: 0),
+            const SizedBox(width: espacoAvatar),
+          ],
           Flexible(
-            child: Column(
-              crossAxisAlignment: isMinha
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                if (!isMinha)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 2),
-                    child: Text(
-                      mensagem.autorNome,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade600,
+            child: ConstrainedBox(
+              // Bolha nunca encosta na margem oposta: mesmo no mobile sobra
+              // um respiro que deixa claro de que lado a mensagem está.
+              constraints: BoxConstraints(
+                maxWidth:
+                    MediaQuery.of(context).size.width *
+                    (compacto ? 0.78 : 0.85),
+              ),
+              child: Column(
+                crossAxisAlignment: isMinha
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
+                children: [
+                  if (!isMinha && iniciaBloco)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10, bottom: 3),
+                      child: Text(
+                        mensagem.autorNome,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF6B7280),
+                        ),
                       ),
                     ),
-                  ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isMinha
-                        ? const Color(0xFF487DE5)
-                        : const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(14),
-                      topRight: const Radius.circular(14),
-                      bottomLeft: Radius.circular(isMinha ? 14 : 4),
-                      bottomRight: Radius.circular(isMinha ? 4 : 14),
-                    ),
-                  ),
-                  child: Text(
-                    mensagem.texto,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      color: isMinha ? Colors.white : const Color(0xFF1F2937),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
-                  child: Text(
-                    horario,
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
-                  ),
-                ),
-              ],
+                  _corpoBolha(horario),
+                ],
+              ),
             ),
           ),
-          if (isMinha) const SizedBox(width: 4),
+        ],
+      ),
+    );
+  }
+
+  // Texto e horário dividem a mesma bolha: o carimbo flutua no canto inferior
+  // junto à última linha em vez de ocupar uma linha inteira abaixo — era isso
+  // que fazia cada mensagem custar três alturas de texto no mobile.
+  Widget _corpoBolha(String horario) {
+    final corTexto = isMinha ? Colors.white : const Color(0xFF1F2937);
+    final corHorario = isMinha
+        ? Colors.white.withValues(alpha: 0.75)
+        : Colors.grey.shade500;
+
+    const raio = Radius.circular(16);
+    const raioRabo = Radius.circular(5);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 7, 10, 7),
+      decoration: BoxDecoration(
+        color: isMinha ? const Color(0xFF487DE5) : const Color(0xFFF1F3F5),
+        borderRadius: BorderRadius.only(
+          topLeft: raio,
+          topRight: raio,
+          // Só a última bolha do bloco ganha o canto "rabinho" apontando para
+          // o avatar; as do meio ficam com os quatro cantos redondos.
+          bottomLeft: !isMinha && encerraBloco ? raioRabo : raio,
+          bottomRight: isMinha && encerraBloco ? raioRabo : raio,
+        ),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.end,
+        spacing: 8,
+        children: [
+          Text(
+            mensagem.texto,
+            style: TextStyle(fontSize: 14, height: 1.3, color: corTexto),
+          ),
+          Text(
+            horario,
+            style: TextStyle(
+              fontSize: 10,
+              height: 1.3,
+              color: corHorario,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
@@ -534,6 +690,8 @@ class _BolhaMensagem extends StatelessWidget {
     );
   }
 
+  // radius 14 = 28px de diâmetro, exatamente o espaço que as continuações do
+  // bloco reservam com o SizedBox em build() para manter o alinhamento.
   Widget _avatarCirculo(Color cor, String emoji) {
     return CircleAvatar(
       radius: 14,

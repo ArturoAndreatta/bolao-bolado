@@ -17,6 +17,11 @@ class AdminCores {
   // reservado para a seção "Sala" no dashboard, que é administrativa/config
   // e não deveria repetir o azul já usado em "Visão geral".
   static const Color roxo = Color(0xFF7C5CD6);
+  // Coral (o vermelho acima puxado para o quente do dourado do gradiente):
+  // seção "Configurações" no dashboard. Distinto de [vermelho], que é cor de
+  // estado (erro/pendência) — um cabeçalho de card nesse tom leria como
+  // alerta, e configurações não é um estado de erro.
+  static const Color coral = Color(0xFFE2685C);
   static const Color fundoCard = Color(0xFFFEFEFE);
   static const Color fundoTile = Color(0xFFF3F4F6);
   static const Color fundoSecao = Color(0xFFF3F1EF);

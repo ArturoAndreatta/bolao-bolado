@@ -446,11 +446,11 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
   }
 
   /// Constrói o conteúdo de uma seção do dashboard (participantes, ranking,
-  /// sala, config). Visão geral tem construtor próprio acima porque virou
-  /// card separado, não uma "aba" única. Card de pendentes foi removido do
-  /// dashboard — verificação individual de aposta segue disponível na seção
-  /// Participantes (onAlternarVerificacao) e o lançamento manual pelo botão
-  /// "Lançar" do mesmo card.
+  /// sala, configurações). Visão geral tem construtor próprio acima porque
+  /// virou card separado, não uma "aba" única. Card de pendentes foi
+  /// removido do dashboard — verificação individual de aposta segue
+  /// disponível na seção Participantes (onAlternarVerificacao) e o
+  /// lançamento manual pelo botão "Lançar" do mesmo card.
   Widget conteudoAba(
     AbaAdmin aba,
     AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot,

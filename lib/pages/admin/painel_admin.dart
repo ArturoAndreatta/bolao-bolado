@@ -1,25 +1,27 @@
 import 'package:bolao_bolado/components/shared/custom_card.dart';
+import 'package:bolao_bolado/components/shared/ficharios.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
+import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/pages/admin/admin_abas.dart';
 import 'package:bolao_bolado/pages/admin/painel_admin_base.dart';
 import 'package:bolao_bolado/pages/admin/widgets/admin_widgets.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
-/// Painel ADM em cards soltos (sem abas/navegação), todos agrupados dentro
-/// de um card pai único com o cabeçalho da página — mesmo padrão de card
-/// (colorido por fora, branco por dentro) usado no resto do app. Cada
-/// seção — visão geral, pendentes, participantes, ranking, sala, config —
-/// é o seu próprio card interno, visíveis ao mesmo tempo, reflindo em 1, 2
-/// ou 3 colunas conforme a largura disponível.
+/// Painel ADM com dois layouts conforme o espaço disponível:
+/// - Desktop/tablet largo: cards soltos lado a lado (grade), todos visíveis
+///   ao mesmo tempo, dentro de um card pai com o cabeçalho da página.
+/// - Mobile/janela estreita ([Responsive.isCompact]): fichário de abas
+///   (mesmo padrão visual de Participantes/Minha Aposta/Chat) — cada seção
+///   já era um card independente, então virou uma folha do fichário sem
+///   precisar duplicar nenhum conteúdo.
 ///
 /// Toda a lógica de estado/ações vive em [PainelAdminMixin] — este widget só
-/// monta a grade de cards.
+/// monta o layout.
 class PainelAdmin extends StatefulWidget {
   const PainelAdmin({super.key});
 
@@ -28,8 +30,84 @@ class PainelAdmin extends StatefulWidget {
 }
 
 class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
+  // Aba ativa no fichário mobile.
+  AbaAdmin _abaAtiva = AbaAdmin.visaoGeral;
+
   @override
   Widget build(BuildContext context) {
+    final compact = Responsive.isCompact(context);
+
+    return DefaultLayout(
+      drawer: AppDrawer(),
+      esticarLarguraCompact: compact,
+      child: compact ? _layoutMobile() : _layoutDesktop(context),
+    );
+  }
+
+  // ── Layout mobile: fichário de abas ─────────────────────────────────────
+  Widget _layoutMobile() {
+    if (loading) return _skeleton();
+    if (!autorizado) return mensagemAcessoNegado();
+
+    // Ordem visual da fileira de abas — define também a cor automática do
+    // Fichario (1ª verde-água, 2ª azul, 3ª dourado, 4ª roxo, 5ª coral: a
+    // paleta cobre as cinco seções sem repetir cor). Config é a última aba,
+    // não mais um dialog no botão de engrenagem.
+    const abas = [
+      AbaFichario(
+        texto: 'Visão geral',
+        icone: Icons.dashboard_outlined,
+        indice: 0,
+      ),
+      AbaFichario(
+        texto: 'Participantes',
+        icone: Icons.groups_outlined,
+        indice: 1,
+      ),
+      AbaFichario(
+        texto: 'Ranking',
+        icone: Icons.leaderboard_outlined,
+        indice: 2,
+      ),
+      AbaFichario(texto: 'Sala', icone: Icons.meeting_room_outlined, indice: 3),
+      AbaFichario(
+        texto: 'Configurações',
+        icone: Icons.settings_outlined,
+        indice: 4,
+      ),
+    ];
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: apostasPendentesStream,
+      builder: (context, pendentesSnapshot) {
+        if (pendentesSnapshot.hasError) {
+          debugPrint(
+            'Erro ao carregar apostas pendentes: ${pendentesSnapshot.error}',
+          );
+        }
+
+        return Fichario(
+          abaAtiva: _abaAtiva.index,
+          onSelecionar: (i) => setState(() => _abaAtiva = AbaAdmin.values[i]),
+          abas: abas,
+          semMargem: true,
+          esticarAltura: true,
+          mostrarAssinatura: false,
+          builder: (context, aba) {
+            final abaSelecionada = AbaAdmin.values[aba.indice];
+            return SingleChildScrollView(
+              child: abaSelecionada == AbaAdmin.visaoGeral
+                  ? conteudoStats(pendentesSnapshot)
+                  : conteudoAba(abaSelecionada, pendentesSnapshot),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ── Layout desktop: grade de cards ──────────────────────────────────────
+  Widget _layoutDesktop(BuildContext context) {
     // Altura do card pai travada na tela (viewport menos AppBar/rodapé/
     // respiro), calculada na mão em vez de esticarAltura/Expanded: o
     // DefaultLayout só dá altura finita ao body na faixa "compact"
@@ -47,49 +125,37 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
     const alturaCabecalho = 90.0;
     final alturaConteudo = alturaCard - alturaCabecalho;
 
-    return DefaultLayout(
-      drawer: AppDrawer(),
-      child: CustomCard(
-        color: AdminCores.fundoSecao,
-        maxWidth: 1450,
-        height: alturaCard,
-        esticarLargura: true,
-        mostrarAssinatura: true,
-        children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 730),
-            child: HeaderPaginas(
-              text: 'Painel ADM',
-              subtitle: 'Gerencie apostas, participantes e a sala',
-              trailing: IconButton(
-                tooltip: 'Configurações',
-                onPressed: _abrirConfig,
-                icon: const Icon(Icons.settings_outlined),
-                style: IconButton.styleFrom(
-                  backgroundColor: AdminCores.fundoTile,
-                  foregroundColor: AdminCores.textoSuave,
-                ),
-              ),
+    return CustomCard(
+      color: AdminCores.fundoSecao,
+      maxWidth: 1450,
+      height: alturaCard,
+      esticarLargura: true,
+      mostrarAssinatura: true,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 730),
+          child: const HeaderPaginas(
+            text: 'Painel ADM',
+            subtitle: 'Gerencie apostas, participantes e a sala',
+          ),
+        ),
+        CustomCard(
+          isChild: true,
+          maxWidth: double.infinity,
+          height: alturaConteudo,
+          esticarLargura: true,
+          children: [
+            SizedBox(
+              height: alturaConteudo - 20,
+              child: loading
+                  ? _skeleton()
+                  : !autorizado
+                  ? mensagemAcessoNegado()
+                  : SingleChildScrollView(child: _grade()),
             ),
-          ),
-          CustomCard(
-            isChild: true,
-            maxWidth: double.infinity,
-            height: alturaConteudo,
-            esticarLargura: true,
-            children: [
-              SizedBox(
-                height: alturaConteudo - 20,
-                child: loading
-                    ? _skeleton()
-                    : !autorizado
-                    ? mensagemAcessoNegado()
-                    : SingleChildScrollView(child: _grade()),
-              ),
-            ],
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -97,35 +163,6 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
     return const Padding(
       padding: EdgeInsets.all(16),
       child: SkeletonDashboardStats(),
-    );
-  }
-
-  // Config saiu da grade de cards e virou um dialog acessível pelo botão de
-  // engrenagem no cabeçalho — não é uma seção operacional do dia a dia
-  // (skeleton de dev + info do admin logado), então não precisa competir
-  // por espaço com participantes/ranking/sala na tela principal.
-  Future<void> _abrirConfig() {
-    return showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AdminCores.fundoCard,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: AppRadii.circularXxl),
-        title: const Text(
-          'Configurações',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
-        content: SizedBox(
-          width: 420,
-          child: SingleChildScrollView(child: AbaConfig(adminUser: adminUser)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => dialogContext.pop(),
-            child: const Text('Fechar'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -141,9 +178,10 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            // 1 coluna em telas estreitas (mobile), 2 a partir de ~760px,
-            // 3 a partir de ~1180px — cada card mantém uma largura mínima
-            // legível em vez de espremer texto/tabelas.
+            // 2 colunas a partir de ~760px, 3 a partir de ~1180px — cada
+            // card mantém uma largura mínima legível em vez de espremer
+            // texto/tabelas. Este layout só roda fora da faixa "compact"
+            // (>= 1440px), então a largura mínima real aqui já garante 2+.
             final largura = constraints.maxWidth;
             final colunas = largura >= 1180 ? 3 : (largura >= 760 ? 2 : 1);
             const espacamento = 16.0;
@@ -152,15 +190,20 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
             // Cor do cabeçalho por seção — cada uma com um tom próprio e um
             // porquê: azul para o resumo geral (ação primária/neutra),
             // verde-água para participantes (tom "de gente" do gradiente
-            // do app), dourado para ranking (associação com prêmio/pódio)
-            // e roxo para sala (administrativo/config, deliberadamente
-            // fora da paleta "operacional" das outras). Config não entra
-            // aqui: virou um dialog no botão de engrenagem do cabeçalho,
-            // não uma seção da grade.
+            // do app), dourado para ranking (associação com prêmio/pódio),
+            // roxo para sala (administrativo, deliberadamente fora da
+            // paleta "operacional" das outras) e coral para configurações.
+            //
+            // Mesma sequência (e mesmos valores) da paleta automática do
+            // Fichario em ficharios.dart, na mesma ordem: no mobile estas
+            // seções viram abas e recebem a cor pela posição na fileira, então
+            // manter os dois alinhados é o que faz uma seção ter a MESMA cor
+            // nos dois layouts. Ao mexer aqui, mexa lá também.
             const cores = {
               AbaAdmin.participantes: AdminCores.verdeAgua,
               AbaAdmin.ranking: AdminCores.dourado,
               AbaAdmin.sala: AdminCores.roxo,
+              AbaAdmin.config: AdminCores.coral,
             };
 
             Widget card(AbaAdmin aba, {double? larguraExtra}) {
@@ -194,6 +237,7 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
                     card(AbaAdmin.participantes),
                     card(AbaAdmin.ranking),
                     card(AbaAdmin.sala),
+                    card(AbaAdmin.config),
                   ],
                 ),
               ],

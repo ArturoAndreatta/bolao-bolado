@@ -41,9 +41,10 @@ class ListaParticipantes extends StatefulWidget {
 }
 
 class _ListaParticipantesState extends State<ListaParticipantes> {
-  // Mesmo mecanismo usado em TabelaApostas: guarda o último timestamp por uid
-  // para detectar linhas novas/recriadas e disparar a animação de entrada.
-  final Map<String, int?> _timestampsConhecidos = {};
+  // Mesmo mecanismo usado em TabelaApostas: guarda o último valor apostado
+  // por uid para detectar apostas novas/alteradas e disparar a animação de
+  // entrada só quando o valor realmente muda.
+  final Map<String, Object?> _valoresConhecidos = {};
 
   @override
   Widget build(BuildContext context) {
@@ -60,10 +61,11 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
               final tsAtual = dataHora is Timestamp
                   ? dataHora.millisecondsSinceEpoch
                   : null;
+              final valorAtual = rows[i]['valor'];
               final isNova = detectarLinhaNova(
-                _timestampsConhecidos,
+                _valoresConhecidos,
                 uid,
-                tsAtual,
+                valorAtual,
               );
 
               return LinhaEntrandoAnimada(
