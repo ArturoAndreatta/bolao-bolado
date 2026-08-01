@@ -44,6 +44,10 @@ dependencies:
   firebase_auth: ^6.1.4
   go_router: ^17.3.0
   qr_flutter: ^4.1.0
+  # Guarda só a preferência de tema (claro/escuro). Na web é localStorage, que
+  # é síncrono e independente do IndexedDB usado pelo cache do Firestore —
+  # então ler o tema não disputa nada com as leituras do caminho crítico.
+  shared_preferences: ^2.3.3
 
 dev_dependencies:
   flutter_test:

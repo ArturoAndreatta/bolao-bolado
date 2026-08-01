@@ -1,5 +1,6 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/selo_manual.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -52,12 +53,45 @@ class TabelaApostas extends StatefulWidget {
     this.alturaFixa = false,
   });
 
-  static const _corLinhaA = Color(0xFFFEFEFE);
-  static const _corLinhaB = Color(0xFFF3F4F6);
-  static const _corLinhaVerificada = Color(0xFFDCFCE7);
-  static const _corLinhaAlterada = Color(0xFFFEF3C7);
-  static const _corBorda = Color(0xFFE5E7EB);
-  static const _corCabecalho = Color(0xFFE9EAEC);
+  // As cores da tabela deixaram de ser `static const` com o dark mode: cada
+  // uma vem da paleta do tema ativo (zebra, borda e cabeçalho).
+  static Color corLinhaA(BuildContext c) => AppCores.de(c).linhaPar;
+  static Color corLinhaB(BuildContext c) => AppCores.de(c).linhaImpar;
+  static Color corBorda(BuildContext c) => AppCores.de(c).borda;
+  static Color corCabecalho(BuildContext c) => AppCores.de(c).superficieAlta;
+
+  /// Fundo de uma linha verificada / editada após verificação.
+  ///
+  /// No CLARO devolve o pastel de sempre (verde/âmbar), que sobre branco é
+  /// discreto. No ESCURO devolve a própria zebra: lá o estado é comunicado
+  /// pela barra lateral ([corBarraEstado]), porque pintar a linha inteira
+  /// transformava a tabela num tabuleiro de faixas que competia com os dados.
+  static Color corLinhaEstado(
+    BuildContext c, {
+    required bool verificada,
+    required bool alterada,
+    required bool isPar,
+  }) {
+    final cores = AppCores.de(c);
+    if (cores.escuro || (!verificada && !alterada)) {
+      return isPar ? cores.linhaPar : cores.linhaImpar;
+    }
+    return alterada ? cores.fundoAmarelo : cores.fundoVerde;
+  }
+
+  /// Cor da barra lateral de estado, ou `null` quando a linha não tem estado
+  /// (ou quando o tema comunica o estado pelo fundo, como no claro).
+  static Color? corBarraEstado(
+    BuildContext c, {
+    required bool verificada,
+    required bool alterada,
+  }) {
+    final cores = AppCores.de(c);
+    if (cores.larguraBarraEstado == 0) return null;
+    if (alterada) return cores.dourado;
+    if (verificada) return cores.verde;
+    return null;
+  }
 
   @override
   State<TabelaApostas> createState() => _TabelaApostasState();
@@ -81,13 +115,14 @@ class _TabelaApostasState extends State<TabelaApostas> {
   @override
   Widget build(BuildContext context) {
     final formatoMoeda = Formatters.moeda;
+    final corBorda = TabelaApostas.corBorda(context);
 
     final tabela = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Container(
         constraints: const BoxConstraints(minWidth: larguraTotal),
         decoration: BoxDecoration(
-          border: Border.all(color: TabelaApostas._corBorda, width: 1.5),
+          border: Border.all(color: corBorda, width: 1.5),
           borderRadius: AppRadii.circularSmd,
         ),
         clipBehavior: Clip.antiAlias,
@@ -100,23 +135,17 @@ class _TabelaApostasState extends State<TabelaApostas> {
               ascendente: ascendente,
               onCabecalhoTap: onCabecalhoTap,
             ),
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: TabelaApostas._corBorda,
-            ),
+            Divider(height: 1, thickness: 1, color: corBorda),
             if (alturaFixa)
               Expanded(
-                child: SingleChildScrollView(child: _corpoTabela(formatoMoeda)),
+                child: SingleChildScrollView(
+                  child: _corpoTabela(context, formatoMoeda),
+                ),
               )
             else if (mensagemVazio == null)
-              _corpoTabela(formatoMoeda),
+              _corpoTabela(context, formatoMoeda),
             if (mensagemVazio == null) ...[
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: TabelaApostas._corBorda,
-              ),
+              Divider(height: 1, thickness: 1, color: corBorda),
               RodapeTotalizador(rows: rows, formatoMoeda: formatoMoeda),
             ],
           ],
@@ -143,7 +172,8 @@ class _TabelaApostasState extends State<TabelaApostas> {
     );
   }
 
-  Widget _corpoTabela(NumberFormat formatoMoeda) {
+  Widget _corpoTabela(BuildContext context, NumberFormat formatoMoeda) {
+    final corBorda = TabelaApostas.corBorda(context);
     return SelectionArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -175,22 +205,43 @@ class _TabelaApostasState extends State<TabelaApostas> {
                 : null;
             final isNova = detectarLinhaNova(_valoresConhecidos, uid, valor);
 
-            // Prioridade visual: edição pós-verificação > verificado > zebra (par/ímpar)
+            // Prioridade visual: edição pós-verificação > verificado > zebra
+            // (par/ímpar). No escuro o estado não pinta o fundo — vira a
+            // barra lateral montada logo abaixo (ver corBarraEstado).
+            final corBarra = TabelaApostas.corBarraEstado(
+              context,
+              verificada: isVerificado,
+              alterada: isAlterada,
+            );
+
             return LinhaEntrandoAnimada(
               key: ValueKey('$uid-${tsAtual ?? index}'),
               animar: isNova,
-              corBase: isAlterada
-                  ? TabelaApostas._corLinhaAlterada
-                  : isVerificado
-                  ? TabelaApostas._corLinhaVerificada
-                  : (isPar
-                        ? TabelaApostas._corLinhaA
-                        : TabelaApostas._corLinhaB),
+              corBase: TabelaApostas.corLinhaEstado(
+                context,
+                verificada: isVerificado,
+                alterada: isAlterada,
+                isPar: isPar,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     color: Colors.transparent,
+                    // A barra entra como borda esquerda do próprio Container
+                    // da linha (não como um filho da Row): assim ela ocupa a
+                    // altura real da linha, sem depender de IntrinsicHeight
+                    // nem alterar as larguras fixas das colunas.
+                    foregroundDecoration: corBarra == null
+                        ? null
+                        : BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: corBarra,
+                                width: AppCores.de(context).larguraBarraEstado,
+                              ),
+                            ),
+                          ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -230,11 +281,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
                     ),
                   ),
                   if (index < rows.length - 1)
-                    const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: TabelaApostas._corBorda,
-                    ),
+                    Divider(height: 1, thickness: 1, color: corBorda),
                 ],
               ),
             );
@@ -328,7 +375,7 @@ class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: Color.lerp(
-                      const Color(0xFFBFDDFB),
+                      AppCores.de(context).linhaNova,
                       widget.corBase,
                       _destaque.value,
                     ),
@@ -368,7 +415,7 @@ class RodapeTotalizador extends StatelessWidget {
     );
 
     return Container(
-      color: TabelaApostas._corCabecalho,
+      color: TabelaApostas.corCabecalho(context),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -432,7 +479,7 @@ class CabecalhoTabela extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: TabelaApostas._corCabecalho,
+      color: TabelaApostas.corCabecalho(context),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -512,6 +559,7 @@ class CelulaCabecalho extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     final ativa = colunaOrdenada == indice;
 
     return MouseRegion(
@@ -524,9 +572,9 @@ class CelulaCabecalho extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: isLast
               ? null
-              : const BoxDecoration(
+              : BoxDecoration(
                   border: Border(
-                    right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                    right: BorderSide(color: cores.borda, width: 1),
                   ),
                 ),
           child: Row(
@@ -538,7 +586,7 @@ class CelulaCabecalho extends StatelessWidget {
                 Icon(
                   ascendente ? Icons.arrow_upward : Icons.arrow_downward,
                   size: 12,
-                  color: const Color(0xFF487DE5),
+                  color: cores.azul,
                 ),
                 const SizedBox(width: 4),
               ],
@@ -548,9 +596,7 @@ class CelulaCabecalho extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: ativa
-                      ? const Color(0xFF487DE5)
-                      : const Color(0xFF1F2937),
+                  color: ativa ? cores.azul : cores.texto,
                 ),
               ),
               if (alinhamento == TextAlign.left && ativa) ...[
@@ -558,7 +604,7 @@ class CelulaCabecalho extends StatelessWidget {
                 Icon(
                   ascendente ? Icons.arrow_upward : Icons.arrow_downward,
                   size: 12,
-                  color: const Color(0xFF487DE5),
+                  color: cores.azul,
                 ),
               ],
             ],
@@ -600,15 +646,14 @@ class CelulaLinha extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Container(
       width: width,
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: paddingVertical),
       decoration: isLast
           ? null
-          : const BoxDecoration(
-              border: Border(
-                right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-              ),
+          : BoxDecoration(
+              border: Border(right: BorderSide(color: cores.borda, width: 1)),
             ),
       child: _comSufixo(
         Text(
@@ -623,10 +668,10 @@ class CelulaLinha extends StatelessWidget {
                 ? FontWeight.w700
                 : FontWeight.w400,
             color: destaque
-                ? const Color(0xFF2E7D32)
+                ? cores.textoVerde
                 : subTexto
-                ? Colors.grey
-                : const Color(0xFF1F2937),
+                ? cores.textoFraco
+                : cores.texto,
           ),
         ),
       ),

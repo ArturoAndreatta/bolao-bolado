@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/services/bet/preco_cota.dart';
 import 'package:flutter/material.dart';
@@ -42,6 +43,7 @@ class _PainelEstatisticasState extends State<PainelEstatisticas> {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     final rows = widget.rows;
     final sorteio = widget.sorteio;
     final premioSala = widget.premioSala;
@@ -74,15 +76,15 @@ class _PainelEstatisticasState extends State<PainelEstatisticas> {
         percentual: chancePercentual,
         fracao: chanceFracao,
         horizontal: true,
-        percentualStyle: const TextStyle(
+        percentualStyle: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF1F2937),
+          color: cores.texto,
         ),
         fracaoStyle: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
-          color: Colors.grey.shade600,
+          color: cores.textoSuave,
         ),
       ),
     );
@@ -170,6 +172,7 @@ class _BotaoAlternarEstatisticas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: InkWell(
@@ -178,31 +181,31 @@ class _BotaoAlternarEstatisticas extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           decoration: BoxDecoration(
-            color: const Color(0xFFEEE9FB),
+            color: cores.fundoRoxo,
             borderRadius: AppRadii.circularSmd,
-            border: Border.all(color: const Color(0xFFD3C4F2), width: 1),
+            border: Border.all(color: cores.bordaRoxo, width: 1),
           ),
           child: Row(
             children: [
-              const Icon(Icons.query_stats, size: 18, color: Color(0xFF7C5CD9)),
+              Icon(Icons.query_stats, size: 18, color: cores.roxo),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Estatísticas do bolão',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6B46C1),
+                    color: cores.textoRoxo,
                   ),
                 ),
               ),
               AnimatedRotation(
                 turns: expandido ? 0.5 : 0,
                 duration: const Duration(milliseconds: 200),
-                child: const Icon(
+                child: Icon(
                   Icons.keyboard_arrow_down,
                   size: 20,
-                  color: Color(0xFF7C5CD9),
+                  color: cores.roxo,
                 ),
               ),
             ],
@@ -372,20 +375,39 @@ class CardEstatistica extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    // Cor "tema" do card (verde/azul/dourado), usada no rótulo e na borda.
+    final corTema = destaqueCor == DestaqueCor.verde
+        ? cores.verde
+        : destaqueCor == DestaqueCor.azul
+        ? cores.azul
+        : cores.dourado;
+
+    // No claro os três cards são pastéis levíssimos sobre branco e a cor
+    // chapada funciona. No escuro os mesmos blocos viravam três manchas
+    // sólidas disputando atenção logo acima da tabela — o card que deveria
+    // ser um indicador discreto virava o elemento mais forte da tela.
+    //
+    // Lá o fundo fica praticamente na cor do próprio card, com a cor
+    // aparecendo só onde ela informa: o rótulo e um fio de borda.
     final corFundo = !destaque
-        ? const Color(0xFFFEFEFE)
+        ? cores.card
+        : cores.escuro
+        ? Color.alphaBlend(corTema.withValues(alpha: 0.07), cores.card)
         : destaqueCor == DestaqueCor.verde
-        ? const Color(0xFFE3F3E9)
+        ? cores.fundoVerde
         : destaqueCor == DestaqueCor.azul
-        ? const Color(0xFFE3EDF8)
-        : const Color(0xFFFDF4E3);
+        ? cores.fundoAzul
+        : cores.fundoAmarelo;
     final corBorda = !destaque
-        ? const Color(0xFFE5E7EB)
+        ? cores.borda
+        : cores.escuro
+        ? Color.alphaBlend(corTema.withValues(alpha: 0.28), cores.card)
         : destaqueCor == DestaqueCor.verde
-        ? const Color(0xFFBFE0CB)
+        ? cores.bordaVerde
         : destaqueCor == DestaqueCor.azul
-        ? const Color(0xFFBBD3EC)
-        : const Color(0xFFF2D9A8);
+        ? cores.bordaAzul
+        : cores.bordaAmarelo;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
@@ -398,7 +420,7 @@ class CardEstatistica extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icone != null) ...[
-            Icon(icone, size: 18, color: const Color(0xFFCB8A2C)),
+            Icon(icone, size: 18, color: cores.dourado),
             const SizedBox(width: 6),
           ],
           Text(
@@ -407,13 +429,18 @@ class CardEstatistica extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
+              // No escuro o rótulo carrega sozinho a identidade do card (o
+              // fundo é quase neutro), então usa a cor de marca cheia; no
+              // claro segue o tom escurecido, legível sobre o pastel.
               color: !destaque
-                  ? Colors.grey.shade600
+                  ? cores.textoSuave
+                  : cores.escuro
+                  ? corTema
                   : destaqueCor == DestaqueCor.verde
-                  ? const Color(0xFF2E7D32)
+                  ? cores.textoVerde
                   : destaqueCor == DestaqueCor.azul
-                  ? const Color(0xFF2A5C94)
-                  : const Color(0xFF8A6116),
+                  ? cores.textoAzul
+                  : cores.textoAmarelo,
             ),
           ),
           if (infoTooltip != null) ...[
@@ -423,7 +450,7 @@ class CardEstatistica extends StatelessWidget {
               child: Icon(
                 Icons.info_outline,
                 size: 15,
-                color: Colors.grey.shade500,
+                color: cores.textoFraco,
               ),
             ),
           ],
@@ -440,7 +467,7 @@ class CardEstatistica extends StatelessWidget {
                     style: TextStyle(
                       fontSize: fontSizeValor,
                       fontWeight: FontWeight.w700,
-                      color: corValor ?? const Color(0xFF1F2937),
+                      color: corValor ?? cores.texto,
                     ),
                   ),
             ),

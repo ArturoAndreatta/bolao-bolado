@@ -7,6 +7,7 @@ import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -39,8 +40,7 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
       child: Stack(
         children: [
           CustomCard(
-            color: const Color(0xFFF3F1EF),
-            mostrarAssinatura: true,
+            color: AppCores.de(context).cardExterno,
             children: [
               HeaderPaginas(
                 text: 'Recuperar senha',
@@ -58,25 +58,27 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
                         padding: const EdgeInsets.symmetric(vertical: 20),
                         child: Column(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.mark_email_read_outlined,
                               size: 60,
-                              color: Color(0xFF7CC8B5),
+                              color: AppCores.de(context).verdeAgua,
                             ),
                             const SizedBox(height: 12),
                             Text(
                               'E-mail enviado para\n${emailController.text}',
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
-                                color: Color(0xFF1F2937),
+                                color: AppCores.de(context).texto,
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               'Verifique sua caixa de entrada e spam.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey),
+                              style: TextStyle(
+                                color: AppCores.de(context).textoSuave,
+                              ),
                             ),
                           ],
                         ),

@@ -1,13 +1,21 @@
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:flutter/material.dart';
 
 class GradientDecoration {
-  static BoxDecoration backgroundGradient() {
+  /// Gradiente de fundo da aplicação.
+  ///
+  /// Recebe [context] (em vez de ser const como antes) porque os dois tons
+  /// mudam com o tema: no escuro eles descem para versões profundas do mesmo
+  /// dourado→verde-água, senão a moldura da página ficaria clara e ofuscante
+  /// em volta de cards escuros.
+  static BoxDecoration backgroundGradient(BuildContext context) {
+    final cores = AppCores.de(context);
     return BoxDecoration(
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFFFFE082), Color(0xFF7CC8B5)],
-        stops: [0.5, 0.9],
+        colors: cores.gradienteFundo,
+        stops: cores.paradasGradiente,
       ),
     );
   }

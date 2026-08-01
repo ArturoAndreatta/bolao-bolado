@@ -61,21 +61,78 @@ service cloud.firestore {
         // Leitura: qualquer autenticado pode ver a lista (tela Participantes)
         allow read: if estaLogado();
 
-        // Escrita do PRÓPRIO participante (criar/editar a própria aposta):
-        // permitida, MAS o usuário comum não pode marcar a si mesmo como
+        // Teto por aposta configurado na sala (campo `valorMaximo`).
+        //
+        // Sala sem o campo, ou com valor <= 0, não tem limite — é como
+        // valorMaximoDe() trata o caso no app, e um teto de zero só poderia
+        // recusar toda e qualquer aposta.
+        //
+        // CUSTO: esta função faz um get() no doc da sala, cobrado como uma
+        // leitura extra por escrita de aposta. É aceito de propósito — sem
+        // ela o limite vive só no cliente, e qualquer chamada direta pelo SDK
+        // grava acima do teto, distorcendo o rateio do prêmio.
+        function respeitaValorMaximo() {
+          let sala = get(/databases/$(database)/documents/Salas/$(salaId)).data;
+          let maximo = sala.get('valorMaximo', 0);
+          // `valor` é string por invariante; float() converte para comparar.
+          return maximo <= 0
+                 || float(request.resource.data.valor) <= maximo;
+        }
+
+        // Criação da PRÓPRIA aposta: o usuário comum não pode nascer
         // `verificado: true` — essa flag define quem entra no rateio do
         // prêmio, e só o admin pode aprová-la. Sem isso, qualquer um poderia
         // se auto-verificar com um valor gigante e sacar prêmio indevido.
         // `valor` é sempre salvo como string pelo app (ver minha_aposta_card).
-        allow write: if naoAnonimo()
-                      && request.auth.uid == uid
-                      && request.resource.data.get('verificado', false) == false
-                      && request.resource.data.valor is string;
+        allow create: if naoAnonimo()
+                       && request.auth.uid == uid
+                       && request.resource.data.get('verificado', false) == false
+                       && request.resource.data.valor is string
+                       && respeitaValorMaximo();
+
+        // Edição da PRÓPRIA aposta. Além de não poder se auto-verificar, o
+        // usuário não pode apagar o rastro de uma edição feita DEPOIS da
+        // aprovação: se a aposta já estava verificada, o update é obrigado a
+        // deixá-la pendente E marcada como `editadoAposVerificacao: true`,
+        // que é o sinal que faz o admin revisar de novo.
+        //
+        // Antes isso dependia do cliente cooperar: um `update` direto pelo
+        // SDK podia mudar `valor` mandando só `verificado: false`, saindo do
+        // rateio-aprovado sem deixar nenhuma marca de que o valor mudou
+        // depois de aprovado.
+        allow update: if naoAnonimo()
+                       && request.auth.uid == uid
+                       && request.resource.data.get('verificado', false) == false
+                       && request.resource.data.valor is string
+                       && respeitaValorMaximo()
+                       && (
+                            resource.data.get('verificado', false) == false
+                            || request.resource.data.get('editadoAposVerificacao', false) == true
+                          );
+
+        // Apagar a própria aposta não é permitido: sair do bolão depois de
+        // ter pago é decisão de admin (o dinheiro já entrou no rateio).
+        // Isto já valia na prática — a regra anterior usava `allow write`,
+        // que cobre delete, e a checagem de `request.resource` (nulo em
+        // delete) reprovava. Agora é explícito em vez de acidental.
+        allow delete: if false;
 
         // Escrita do ADMIN em qualquer participante: aprovar (verificado),
-        // lançar aposta manual em nome de terceiros, etc. Sem restrição de
-        // campos além de exigir isAdmin.
-        allow write: if naoAnonimo() && ehAdmin();
+        // lançar aposta manual em nome de terceiros, remover aposta.
+        // `valor is string` vale para o admin também: é a invariante que o
+        // resto do app assume ao ler (o parse pra número acontece na
+        // leitura), e gravar num aqui quebraria o cálculo de cotas.
+        //
+        // O admin NÃO passa por respeitaValorMaximo(): quem define o teto é
+        // ele próprio, e lançar uma aposta acima do limite (alguém que pagou
+        // mais por fora, correção pontual) é caso de uso legítimo do painel.
+        // O painel valida o teto na UI; aqui a regra não impede. Isso também
+        // poupa o get() extra da sala nas escritas do admin, que são as mais
+        // frequentes durante a conferência das apostas.
+        allow create, update: if naoAnonimo()
+                               && ehAdmin()
+                               && request.resource.data.valor is string;
+        allow delete: if naoAnonimo() && ehAdmin();
       }
 
       // ── Mensagens do chat ───────────────────────────────────────────────

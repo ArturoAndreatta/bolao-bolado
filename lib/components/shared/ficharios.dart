@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/components/shared/custom_card.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:flutter/material.dart';
 
 /// Descreve uma seção do [Fichario]: rótulo, ícone e o índice que ela
@@ -39,12 +40,18 @@ class AbaFichario {
 /// AdminCores.vermelho puxado para um tom mais quente/terroso, coerente com o
 /// dourado do gradiente) e com contraste suficiente para texto branco por
 /// cima, já que a aba ativa desenha ícone e rótulo em branco.
-const List<Color> _paletaCores = [
-  Color(0xFF4FA98A), // verde-água do gradiente, mais saturado — sempre 1ª
-  Color(0xFF487DE5), // azul de ação primária do app — sempre 2ª
-  Color(0xFFDBA92E), // dourado do gradiente, mais saturado — sempre 3ª
-  Color(0xFF7C5CD6), // roxo (mesma família do azul, um passo mais frio)
-  Color(0xFFE2685C), // coral: vermelho do app puxado para o quente do dourado
+///
+/// Deixou de ser uma `const List` e virou função do tema: no escuro os cinco
+/// tons são versões clareadas dos mesmos matizes (ver [AppCores]), senão as
+/// abas ficariam escuras demais para o texto branco que elas desenham por
+/// cima. A ORDEM é a mesma nos dois temas, então nenhuma aba troca de cor ao
+/// alternar claro/escuro — só de tom.
+List<Color> _paletaCores(AppCores cores) => [
+  cores.verdeAgua, // verde-água do gradiente, mais saturado — sempre 1ª
+  cores.azul, // azul de ação primária do app — sempre 2ª
+  cores.dourado, // dourado do gradiente, mais saturado — sempre 3ª
+  cores.roxo, // roxo (mesma família do azul, um passo mais frio)
+  cores.coral, // coral: vermelho do app puxado para o quente do dourado
 ];
 
 /// Layout de fichário mobile: pill de navegação encostada direto no
@@ -61,7 +68,8 @@ const List<Color> _paletaCores = [
 /// ([Visibility] com maintainState esconde as outras sem desmontá-las). Isso
 /// preserva StreamSubscriptions e estado (ex: streamBets, chat) entre trocas
 /// de aba, em vez de recarregar tudo do zero a cada clique — era o que
-/// acontecia antes, quando só a folha ativa era construída.
+/// acontecia antes, quando só a folha ativa era construída. O porquê de
+/// Visibility e não Offstage está no build().
 ///
 /// A troca de aba é resolvida DENTRO deste widget, por um [ValueNotifier]
 /// interno, e só depois notificada ao pai via [onSelecionar]. O motivo é
@@ -93,11 +101,6 @@ class Fichario extends StatefulWidget {
   // a altura sobrando via LayoutBuilder embutido, então pode devolver
   // conteúdo com scroll interno sem precisar calcular altura manualmente.
   final bool esticarAltura;
-  // Exibe a assinatura no canto inferior direito da folha ativa. Como só
-  // uma seção do fichário fica visível de cada vez (as outras ficam atrás
-  // das abas), é seguro deixar true por padrão nas telas que usam Fichario
-  // como único elemento visível da página.
-  final bool mostrarAssinatura;
 
   const Fichario({
     super.key,
@@ -107,7 +110,6 @@ class Fichario extends StatefulWidget {
     required this.builder,
     this.semMargem = false,
     this.esticarAltura = false,
-    this.mostrarAssinatura = false,
   });
 
   @override
@@ -152,18 +154,20 @@ class _FicharioState extends State<Fichario> {
   // Cor de cada aba pela posição na fileira (não pelo índice de estado):
   // a 1ª aba visível sempre recebe a mesma cor, a 2ª outra, etc. — mantém a
   // sequência coerente mesmo se abas forem adicionadas/removidas/reordenadas.
-  Color _corPara(int posicao, AbaFichario aba) {
-    return aba.corAtiva ?? _paletaCores[posicao % _paletaCores.length];
+  Color _corPara(AppCores cores, int posicao, AbaFichario aba) {
+    final paleta = _paletaCores(cores);
+    return aba.corAtiva ?? paleta[posicao % paleta.length];
   }
 
-  Color _corDaAbaAtiva(int abaAtiva) {
+  Color _corDaAbaAtiva(AppCores cores, int abaAtiva) {
     final posicao = widget.abas.indexWhere((a) => a.indice == abaAtiva);
     final aba = posicao == -1 ? widget.abas.first : widget.abas[posicao];
-    return _corPara(posicao == -1 ? 0 : posicao, aba);
+    return _corPara(cores, posicao == -1 ? 0 : posicao, aba);
   }
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     final margem = widget.semMargem ? 0.0 : 10.0;
 
     // Constrói TODAS as abas de uma vez (não só a ativa) e as mantém
@@ -222,7 +226,7 @@ class _FicharioState extends State<Fichario> {
                 abas: widget.abas,
                 abaAtiva: abaAtiva,
                 onSelecionar: _selecionar,
-                corPara: _corPara,
+                corPara: (posicao, aba) => _corPara(cores, posicao, aba),
                 cantosSuperioresRetos: widget.semMargem,
               ),
             ),
@@ -248,7 +252,21 @@ class _FicharioState extends State<Fichario> {
                   ? Expanded(child: conteudo)
                   : conteudo,
               builder: (context, abaAtiva, child) {
-                final corAtiva = _corDaAbaAtiva(abaAtiva);
+                final corAtiva = _corDaAbaAtiva(cores, abaAtiva);
+                // Moldura da folha (faixa de 7px + borda do CustomCard pai).
+                //
+                // No claro é a própria cor da seção, e é ela que faz a folha
+                // parecer uma peça só com a aba. No escuro a mesma cor cheia
+                // vira uma tarja fluorescente contornando todo o conteúdo —
+                // num app já denso de números, é a coisa mais chamativa da
+                // tela. Aqui a cor entra só insinuada sobre a superfície: a
+                // conexão com a aba continua legível, sem o brilho.
+                final corMoldura = cores.escuro
+                    ? Color.alphaBlend(
+                        corAtiva.withValues(alpha: 0.22),
+                        cores.cardExterno,
+                      )
+                    : corAtiva;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: widget.esticarAltura
@@ -263,14 +281,14 @@ class _FicharioState extends State<Fichario> {
                     // para não desconectar visualmente pill e card.
                     Padding(
                       padding: EdgeInsets.fromLTRB(margem, 0, margem, 0),
-                      child: Container(height: 7, color: corAtiva),
+                      child: Container(height: 7, color: corMoldura),
                     ),
                     CustomCard(
                       // Sem key por aba.indice: isso trocaria a identidade do
                       // widget a cada troca de aba, desmontando o Stack de abas
                       // abaixo (e todo o estado/streams das inativas junto) — o
                       // oposto do que se quer aqui.
-                      color: corAtiva,
+                      color: corMoldura,
                       maxWidth: double.infinity,
                       esticarLargura: true,
                       esticarAltura: widget.esticarAltura,
@@ -287,7 +305,6 @@ class _FicharioState extends State<Fichario> {
                       cantoInferiorEsquerdoReto: widget.semMargem,
                       cantoInferiorDireitoReto: widget.semMargem,
                       margemFichario: margem,
-                      mostrarAssinatura: widget.mostrarAssinatura,
                       children: [
                         CustomCard(
                           isChild: true,
@@ -354,10 +371,6 @@ class _PillNavegacao extends StatelessWidget {
   });
 
   static const double _altura = 48;
-  // Cinza claro (mesmo tom neutro usado em cards/fundos do app inteiro):
-  // a barra de navegação precisa se integrar à paleta clara existente, não
-  // destoar como um elemento de dark-mode isolado no meio da tela.
-  static const Color _corFundo = Color(0xFFEDEBE8);
 
   @override
   Widget build(BuildContext context) {
@@ -366,6 +379,7 @@ class _PillNavegacao extends StatelessWidget {
     // troca no mesmo frame do toque). Sem nada animando, a pill repinta uma
     // única vez por troca de aba, e manter a boundary só somaria uma camada
     // de composição extra a cada frame para economizar um repaint pontual.
+    final cores = AppCores.de(context);
     return Container(
       // width infinity: sem isso, o Container encolhia para o tamanho do
       // conteúdo (SingleChildScrollView/Row das abas), então o fundo cinza
@@ -380,7 +394,9 @@ class _PillNavegacao extends StatelessWidget {
       // da margem de cada _ItemNavegacao, não deste padding.
       padding: const EdgeInsets.only(top: 4),
       decoration: BoxDecoration(
-        color: _corFundo,
+        // Mesmo tom neutro usado em cards/fundos do app: a barra precisa se
+        // integrar à paleta do tema ativo, não destoar como um bloco solto.
+        color: cores.ficharioFundo,
         borderRadius: BorderRadius.only(
           topLeft: cantosSuperioresRetos
               ? Radius.zero
@@ -427,6 +443,7 @@ class _ItemNavegacao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return GestureDetector(
       onTap: onTap,
       child: MouseRegion(
@@ -460,16 +477,41 @@ class _ItemNavegacao extends StatelessWidget {
                 ? LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color.lerp(cor, Colors.white, 0.12)!, cor],
+                    colors: cores.escuro
+                        // Mesma tinta da moldura logo abaixo (22% sobre a
+                        // superfície): aba e folha precisam ler como UMA peça,
+                        // e a cor cheia deixava a aba fluorescente sobre o
+                        // feltro enquanto a moldura já vinha suavizada.
+                        // O volume continua vindo do degradê topo→base, agora
+                        // entre dois tons insinuados em vez de dois berrantes.
+                        ? [
+                            Color.alphaBlend(
+                              cor.withValues(alpha: 0.30),
+                              cores.cardExterno,
+                            ),
+                            Color.alphaBlend(
+                              cor.withValues(alpha: 0.22),
+                              cores.cardExterno,
+                            ),
+                          ]
+                        : [Color.lerp(cor, Colors.white, 0.12)!, cor],
                   )
                 : null,
             // Contorno sutil nos itens inativos: sem isso, todos ficavam
             // visualmente fundidos numa única massa cinza contra o fundo
             // da pill (mesma cor), sem separação clara entre uma aba e
             // outra quando nenhuma delas está selecionada.
+            // No escuro o contorno precisa CLAREAR a aba inativa: um preto
+            // translúcido sobre superfície escura simplesmente some, e as
+            // abas voltariam a se fundir numa massa só (o problema que este
+            // contorno existe para resolver).
             border: ativo
                 ? null
-                : Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                : Border.all(
+                    color: cores.escuro
+                        ? Colors.white.withValues(alpha: 0.10)
+                        : Colors.black.withValues(alpha: 0.08),
+                  ),
             // Cantos inferiores sempre retos (ativa ou não): todas as abas
             // "descem" até a base da pill como divisórias planas, só o
             // topo arredonda — reforça a leitura de aba de fichário em vez
@@ -483,10 +525,15 @@ class _ItemNavegacao extends StatelessWidget {
             // sem sombra) reforça que só a selecionada se destaca da
             // capa do fichário, que é como abas de divisória real
             // funcionam (a aberta "salta" para frente).
+            // No escuro o brilho colorido a 35% virava um halo em volta da
+            // aba — sobre feltro a sombra é preta e discreta, como a de
+            // qualquer outra superfície elevada.
             boxShadow: ativo
                 ? [
                     BoxShadow(
-                      color: cor.withValues(alpha: 0.35),
+                      color: cores.escuro
+                          ? Colors.black.withValues(alpha: 0.35)
+                          : cor.withValues(alpha: 0.35),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -497,10 +544,16 @@ class _ItemNavegacao extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Ícone e rótulo da aba ativa ficam brancos também no escuro.
+              // Chegaram a usar a cor da seção (para compensar o fundo que
+              // deixou de ser cor cheia), mas cor sobre a MESMA cor a 22% não
+              // passa AA em nenhuma tinta testada — no roxo e no azul fica em
+              // ~3.4:1. A identificação da seção vem do fundo tingido da aba e
+              // da moldura logo abaixo.
               Icon(
                 aba.icone,
                 size: 17,
-                color: ativo ? Colors.white : Colors.grey.shade500,
+                color: ativo ? Colors.white : cores.textoFraco,
               ),
               // Nome sempre visível (ativa ou não): identifica cada seção
               // por extenso na fileira, não só pelo ícone.
@@ -511,7 +564,7 @@ class _ItemNavegacao extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: ativo ? Colors.white : Colors.grey.shade600,
+                    color: ativo ? Colors.white : cores.textoSuave,
                   ),
                 ),
               ),

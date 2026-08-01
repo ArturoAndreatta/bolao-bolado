@@ -92,17 +92,96 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
           abas: abas,
           semMargem: true,
           esticarAltura: true,
-          mostrarAssinatura: false,
           builder: (context, aba) {
             final abaSelecionada = AbaAdmin.values[aba.indice];
-            return SingleChildScrollView(
-              child: abaSelecionada == AbaAdmin.visaoGeral
-                  ? conteudoStats(pendentesSnapshot)
-                  : conteudoAba(abaSelecionada, pendentesSnapshot),
-            );
+            // Participantes e Ranking preenchem a folha inteira sozinhos
+            // (lista paginada com Expanded) — o Fichario com esticarAltura
+            // já entrega altura limitada aqui, e envolver em
+            // SingleChildScrollView reintroduz altura infinita bem em cima
+            // do Expanded deles, o que no Flutter web não estoura
+            // visivelmente: só deixa a aba em branco (mesma armadilha do
+            // RenderFlex documentada em _layoutDesktop). Visão geral, Sala e
+            // Configurações são conteúdo empilhado (Column mainAxisSize.min,
+            // sem Expanded) e continuam precisando de scroll em telas
+            // baixas — Visão geral em mobile usa bentoGrid:false por isso
+            // (ver AdminCardStats.bentoGrid).
+            final conteudo = abaSelecionada == AbaAdmin.visaoGeral
+                ? conteudoStats(pendentesSnapshot, bentoGrid: false)
+                : conteudoAba(abaSelecionada, pendentesSnapshot);
+            final precisaScroll =
+                abaSelecionada == AbaAdmin.visaoGeral ||
+                abaSelecionada == AbaAdmin.sala ||
+                abaSelecionada == AbaAdmin.config;
+            return precisaScroll
+                ? SingleChildScrollView(child: conteudo)
+                : conteudo;
           },
         );
       },
+    );
+  }
+
+  // Config só existe como dialog no desktop (engrenagem no header) — no
+  // mobile continua como aba do fichário (ver _layoutMobile).
+  void _abrirConfiguracoes(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 700),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AdminCores.de(context).fundoCard,
+              borderRadius: AppRadii.circularXl,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  color: AdminCores.de(context).coral,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.settings_outlined, color: Colors.white),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Configurações',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: AbaConfig(
+                      adminUser: adminUser,
+                      salaId: salaId,
+                      onModerarChat: abrirModeracaoChat,
+                      onApagarMensagens: confirmarApagarMensagensChat,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -126,17 +205,22 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
     final alturaConteudo = alturaCard - alturaCabecalho;
 
     return CustomCard(
-      color: AdminCores.fundoSecao,
+      color: AdminCores.de(context).fundoSecao,
       maxWidth: 1450,
       height: alturaCard,
       esticarLargura: true,
-      mostrarAssinatura: true,
       children: [
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 730),
-          child: const HeaderPaginas(
+          child: HeaderPaginas(
             text: 'Painel ADM',
             subtitle: 'Gerencie apostas, participantes e a sala',
+            trailing: IconButton(
+              onPressed: () => _abrirConfiguracoes(context),
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Configurações',
+              color: AdminCores.de(context).coral,
+            ),
           ),
         ),
         CustomCard(
@@ -192,18 +276,19 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
             // verde-água para participantes (tom "de gente" do gradiente
             // do app), dourado para ranking (associação com prêmio/pódio),
             // roxo para sala (administrativo, deliberadamente fora da
-            // paleta "operacional" das outras) e coral para configurações.
+            // paleta "operacional" das outras). Config não tem mais card na
+            // grade — vive num dialog aberto pela engrenagem do header.
             //
             // Mesma sequência (e mesmos valores) da paleta automática do
             // Fichario em ficharios.dart, na mesma ordem: no mobile estas
             // seções viram abas e recebem a cor pela posição na fileira, então
             // manter os dois alinhados é o que faz uma seção ter a MESMA cor
             // nos dois layouts. Ao mexer aqui, mexa lá também.
-            const cores = {
-              AbaAdmin.participantes: AdminCores.verdeAgua,
-              AbaAdmin.ranking: AdminCores.dourado,
-              AbaAdmin.sala: AdminCores.roxo,
-              AbaAdmin.config: AdminCores.coral,
+            final admin = AdminCores.de(context);
+            final cores = {
+              AbaAdmin.participantes: admin.verdeAgua,
+              AbaAdmin.ranking: admin.dourado,
+              AbaAdmin.sala: admin.roxo,
             };
 
             Widget card(AbaAdmin aba, {double? larguraExtra}) {
@@ -211,7 +296,7 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
                 width: larguraExtra ?? larguraCard,
                 child: _CardSecao(
                   meta: kAbasAdmin.firstWhere((m) => m.aba == aba),
-                  cor: cores[aba] ?? AdminCores.azul,
+                  cor: cores[aba] ?? admin.azul,
                   child: conteudoAba(aba, pendentesSnapshot),
                 ),
               );
@@ -226,7 +311,7 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
                     texto: 'Visão geral',
                     icone: Icons.dashboard_outlined,
                   ),
-                  cor: AdminCores.azul,
+                  cor: admin.azul,
                   child: conteudoStats(pendentesSnapshot),
                 ),
                 const SizedBox(height: espacamento),
@@ -237,7 +322,6 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
                     card(AbaAdmin.participantes),
                     card(AbaAdmin.ranking),
                     card(AbaAdmin.sala),
-                    card(AbaAdmin.config),
                   ],
                 ),
               ],
@@ -250,12 +334,12 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
 }
 
 /// Moldura de um card de seção do dashboard: cabeçalho colorido (ícone +
-/// título) + corpo branco abaixo, mesmo par de cores usado nos outros cards
-/// do app (CustomCard colorido por fora, branco por dentro). A cor vem de
-/// fora (não do enum) porque duas seções podem compartilhar o mesmo
-/// [AbaAdmin] com cores diferentes — caso da Visão geral, que virou dois
-/// cards (stats azul, pendentes vermelho).
-class _CardSecao extends StatelessWidget {
+/// título + botão de recolher) + corpo branco abaixo, mesmo par de cores
+/// usado nos outros cards do app (CustomCard colorido por fora, branco por
+/// dentro). A cor vem de fora (não do enum) porque duas seções podem
+/// compartilhar o mesmo [AbaAdmin] com cores diferentes — caso da Visão
+/// geral, que virou dois cards (stats azul, pendentes vermelho).
+class _CardSecao extends StatefulWidget {
   final AbaAdminMeta meta;
   final Color cor;
   final Widget child;
@@ -267,14 +351,31 @@ class _CardSecao extends StatelessWidget {
   });
 
   @override
+  State<_CardSecao> createState() => _CardSecaoState();
+}
+
+class _CardSecaoState extends State<_CardSecao> {
+  bool _recolhido = false;
+
+  // Altura padrão do corpo de TODOS os cards da grade — mesma altura pra
+  // Visão geral, Participantes, Ranking e Sala, pra grade não ficar com
+  // cards de tamanhos desencontrados. Sem scroll interno: cada conteúdo
+  // paginado (Participantes, Ranking) se limita sozinho a essa altura.
+  static const double _alturaCorpoPadrao = 560;
+
+  @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     return Container(
       decoration: BoxDecoration(
-        color: AdminCores.fundoCard,
+        color: cores.fundoCard,
         borderRadius: AppRadii.circularXl,
-        border: Border.all(color: AdminCores.borda),
+        border: Border.all(color: cores.borda),
         boxShadow: [
           BoxShadow(
+            // Sombra quase imperceptível no escuro: sobre superfície escura
+            // ela só sujaria a borda do card, que já se separa do fundo pela
+            // diferença de luminosidade.
             color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 16,
             offset: const Offset(0, 4),
@@ -287,24 +388,56 @@ class _CardSecao extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            color: cor,
+            color: widget.cor,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Row(
               children: [
-                Icon(meta.icone, color: Colors.white, size: 20),
+                Icon(widget.meta.icone, color: Colors.white, size: 20),
                 const SizedBox(width: 10),
-                Text(
-                  meta.texto,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                Expanded(
+                  child: Text(
+                    widget.meta.texto,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: InkWell(
+                    onTap: () => setState(() => _recolhido = !_recolhido),
+                    borderRadius: AppRadii.circularSmd,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: AnimatedRotation(
+                        turns: _recolhido ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: const Icon(
+                          Icons.keyboard_arrow_up,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          child,
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: SizedBox(
+              height: _alturaCorpoPadrao,
+              child: widget.child,
+            ),
+            crossFadeState: _recolhido
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            duration: const Duration(milliseconds: 200),
+            sizeCurve: Curves.easeOutCubic,
+          ),
         ],
       ),
     );

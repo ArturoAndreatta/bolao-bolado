@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
@@ -5,27 +6,71 @@ import 'package:flutter/material.dart';
 /// derivada da identidade do app (gradiente dourado→verde-água + azul de
 /// ação primária). Fonte única para nenhum tom divergir entre um card e
 /// outro do dashboard.
+///
+/// Com o dark mode, os campos deixaram de ser `static const` e passaram a
+/// vir de uma instância resolvida por tema — `AdminCores.de(context)`. A
+/// classe continua existindo (em vez de o painel usar [AppCores] direto)
+/// porque ela dá NOMES DO PAINEL aos papéis (`fundoSecao`, `fundoTile`), e
+/// trocar ~50 pontos de uso por nomes genéricos não tornaria nada mais claro.
+@immutable
 class AdminCores {
-  static const Color texto = Color(0xFF1F2937);
-  static const Color textoSuave = Color(0xFF6B7280);
-  static const Color azul = Color(0xFF487DE5);
-  static const Color verde = Color(0xFF2E7D32);
-  static const Color verdeAgua = Color(0xFF4FA98A);
-  static const Color dourado = Color(0xFFDBA92E);
-  static const Color vermelho = Color(0xFFEF4444);
-  // Roxo (mesma família tonal do azul de ação, um passo mais frio):
-  // reservado para a seção "Sala" no dashboard, que é administrativa/config
-  // e não deveria repetir o azul já usado em "Visão geral".
-  static const Color roxo = Color(0xFF7C5CD6);
-  // Coral (o vermelho acima puxado para o quente do dourado do gradiente):
-  // seção "Configurações" no dashboard. Distinto de [vermelho], que é cor de
-  // estado (erro/pendência) — um cabeçalho de card nesse tom leria como
-  // alerta, e configurações não é um estado de erro.
-  static const Color coral = Color(0xFFE2685C);
-  static const Color fundoCard = Color(0xFFFEFEFE);
-  static const Color fundoTile = Color(0xFFF3F4F6);
-  static const Color fundoSecao = Color(0xFFF3F1EF);
-  static const Color borda = Color(0xFFE5E7EB);
+  final Color texto;
+  final Color textoSuave;
+  final Color azul;
+  final Color verde;
+  final Color verdeAgua;
+  final Color dourado;
+  final Color vermelho;
+
+  /// Roxo (mesma família tonal do azul de ação, um passo mais frio):
+  /// reservado para a seção "Sala" no dashboard, que é administrativa/config
+  /// e não deveria repetir o azul já usado em "Visão geral".
+  final Color roxo;
+
+  /// Coral (o vermelho acima puxado para o quente do dourado do gradiente):
+  /// seção "Configurações" no dashboard. Distinto de [vermelho], que é cor de
+  /// estado (erro/pendência) — um cabeçalho de card nesse tom leria como
+  /// alerta, e configurações não é um estado de erro.
+  final Color coral;
+  final Color fundoCard;
+  final Color fundoTile;
+  final Color fundoSecao;
+  final Color borda;
+
+  const AdminCores._({
+    required this.texto,
+    required this.textoSuave,
+    required this.azul,
+    required this.verde,
+    required this.verdeAgua,
+    required this.dourado,
+    required this.vermelho,
+    required this.roxo,
+    required this.coral,
+    required this.fundoCard,
+    required this.fundoTile,
+    required this.fundoSecao,
+    required this.borda,
+  });
+
+  factory AdminCores.de(BuildContext context) {
+    final c = AppCores.de(context);
+    return AdminCores._(
+      texto: c.texto,
+      textoSuave: c.textoSuave,
+      azul: c.azul,
+      verde: c.verde,
+      verdeAgua: c.verdeAgua,
+      dourado: c.dourado,
+      vermelho: c.vermelho,
+      roxo: c.roxo,
+      coral: c.coral,
+      fundoCard: c.card,
+      fundoTile: c.campo,
+      fundoSecao: c.cardExterno,
+      borda: c.borda,
+    );
+  }
 }
 
 /// Título de uma seção interna de uma aba (ex: "Ações rápidas",
@@ -44,19 +89,20 @@ class AdminTituloSecao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     return Row(
       children: [
         if (icone != null) ...[
-          Icon(icone, size: 18, color: AdminCores.textoSuave),
+          Icon(icone, size: 18, color: cores.textoSuave),
           const SizedBox(width: 8),
         ],
         Expanded(
           child: Text(
             texto,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: AdminCores.texto,
+              color: cores.texto,
             ),
           ),
         ),
@@ -74,6 +120,12 @@ class AdminStatTile extends StatelessWidget {
   final String value;
   final Color color;
   final VoidCallback? onTap;
+  // Estica o tile pra ocupar toda a altura da célula do bento grid da Visão
+  // geral, em vez de encolher pro tamanho do próprio conteúdo — sem isso o
+  // Container fica baixinho dentro do Expanded e sobra espaço vazio na
+  // célula (o card inteiro já tem altura fixa, então a célula tem altura de
+  // verdade pra preencher).
+  final bool preencherAltura;
 
   const AdminStatTile({
     super.key,
@@ -82,26 +134,40 @@ class AdminStatTile extends StatelessWidget {
     required this.value,
     required this.color,
     this.onTap,
+    this.preencherAltura = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    // preencherAltura hoje só é usado nas células (altas) do bento grid da
+    // Visão geral — nesse contexto o tile ganha texto/ícone maiores, senão o
+    // conteúdo fica pequeno e centralizado sobrando bastante espaço vazio
+    // acima e abaixo dele.
+    final tamanhoIcone = preencherAltura ? 30.0 : 20.0;
+    final tamanhoValor = preencherAltura ? 26.0 : 17.0;
+    final tamanhoLabel = preencherAltura ? 14.0 : 12.0;
     final conteudo = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      width: preencherAltura ? double.infinity : null,
+      height: preencherAltura ? double.infinity : null,
+      padding: EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: preencherAltura ? 0 : 14,
+      ),
       decoration: BoxDecoration(
-        color: AdminCores.fundoTile,
+        color: cores.fundoTile,
         borderRadius: AppRadii.circularMd,
-        border: Border.all(color: AdminCores.borda),
+        border: Border.all(color: cores.borda),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(preencherAltura ? 10 : 8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
               borderRadius: AppRadii.circularSmd,
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: Icon(icon, color: color, size: tamanhoIcone),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -114,7 +180,7 @@ class AdminStatTile extends StatelessWidget {
                   value,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: tamanhoValor,
                     fontWeight: FontWeight.w700,
                     color: color,
                   ),
@@ -123,20 +189,16 @@ class AdminStatTile extends StatelessWidget {
                 Text(
                   label,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AdminCores.textoSuave,
+                  style: TextStyle(
+                    fontSize: tamanhoLabel,
+                    color: cores.textoSuave,
                   ),
                 ),
               ],
             ),
           ),
           if (onTap != null)
-            const Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: AdminCores.textoSuave,
-            ),
+            Icon(Icons.chevron_right, size: 20, color: cores.textoSuave),
         ],
       ),
     );
@@ -149,6 +211,105 @@ class AdminStatTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: AppRadii.circularMd,
         child: conteudo,
+      ),
+    );
+  }
+}
+
+/// Tile de destaque para o número mais importante do dashboard (hoje: prêmio
+/// total). Retângulo largo com ícone maior e valor em fonte bem acima dos
+/// [AdminStatTile] normais — a assimetria de tamanho é o que sinaliza
+/// hierarquia entre os números sem precisar de texto extra tipo "principal".
+class AdminStatDestaque extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  // Ver AdminStatTile.preencherAltura — mesma ideia, pro destaque ocupar a
+  // altura toda quando vive numa célula alta do bento grid da Visão geral.
+  final bool preencherAltura;
+  // Linha extra abaixo do rótulo, só quando faz sentido (ex: preço da cota
+  // junto do prêmio total) — usa o espaço vertical que sobra numa célula
+  // alta sem inventar uma métrica nova só pra preencher.
+  final String? sublabel;
+
+  const AdminStatDestaque({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    this.preencherAltura = false,
+    this.sublabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    // Numa célula alta do bento grid (ver AdminStatTile.preencherAltura),
+    // ícone/valor crescem bastante em vez de ficar pequenos e centralizados
+    // sobrando espaço vazio acima e abaixo.
+    final tamanhoIcone = preencherAltura ? 52.0 : 28.0;
+    final tamanhoValor = preencherAltura ? 46.0 : 26.0;
+    final tamanhoLabel = preencherAltura ? 17.0 : 13.0;
+    return Container(
+      width: double.infinity,
+      height: preencherAltura ? double.infinity : null,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: AppRadii.circularLg,
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(preencherAltura ? 16 : 12),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.18),
+              borderRadius: AppRadii.circularMd,
+            ),
+            child: Icon(icon, color: color, size: tamanhoIcone),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: tamanhoValor,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: tamanhoLabel,
+                    fontWeight: FontWeight.w600,
+                    color: cores.textoSuave,
+                  ),
+                ),
+                if (sublabel != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    sublabel!,
+                    style: TextStyle(
+                      fontSize: tamanhoLabel - 2,
+                      fontWeight: FontWeight.w500,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -168,13 +329,14 @@ class AdminSecaoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     return Container(
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: AdminCores.fundoSecao,
+        color: cores.fundoSecao,
         borderRadius: AppRadii.circularLg,
-        border: Border.all(color: AdminCores.borda),
+        border: Border.all(color: cores.borda),
       ),
       child: child,
     );
@@ -208,7 +370,7 @@ class AdminEstadoVazio extends StatelessWidget {
             Text(
               mensagem,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AdminCores.textoSuave),
+              style: TextStyle(color: AdminCores.de(context).textoSuave),
             ),
           ],
         ),
@@ -236,6 +398,7 @@ class AdminBarraDistribuicao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -245,10 +408,10 @@ class AdminBarraDistribuicao extends StatelessWidget {
               child: Text(
                 rotulo,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AdminCores.texto,
+                  color: cores.texto,
                 ),
               ),
             ),
@@ -268,8 +431,11 @@ class AdminBarraDistribuicao extends StatelessWidget {
           borderRadius: AppRadii.circularPill,
           child: LinearProgressIndicator(
             value: fracao.clamp(0.0, 1.0),
-            minHeight: 8,
-            backgroundColor: AdminCores.borda,
+            // 20% mais fina que o padrão (8 → 6.4): ganha um pouco de altura
+            // de volta pra página de 10 no Ranking caber sem cortar a
+            // última posição, sem precisar apertar padding/espaçamento.
+            minHeight: 6.4,
+            backgroundColor: cores.borda,
             valueColor: AlwaysStoppedAnimation(cor),
           ),
         ),

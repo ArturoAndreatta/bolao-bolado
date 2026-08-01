@@ -8,6 +8,7 @@ import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -48,8 +49,7 @@ class _RegisterState extends State<Register> {
       child: Stack(
         children: [
           CustomCard(
-            color: const Color(0xFFF3F1EF),
-            mostrarAssinatura: true,
+            color: AppCores.de(context).cardExterno,
             children: [
               HeaderPaginas(
                 text: 'Criar conta',

@@ -3,6 +3,7 @@ import 'package:bolao_bolado/components/shared/ficharios.dart';
 import 'package:bolao_bolado/components/shared/header_card.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/dev/simulador_apostas.dart';
 import 'package:bolao_bolado/pages/participants/participants_painel.dart';
@@ -207,8 +208,6 @@ class _ParticipantsState extends State<Participants> {
         subtitle: 'Visualize quem está participando',
         maxWidth: 937,
         height: chatHeight,
-        // Footer/assinatura desativado (pedido do usuário).
-        mostrarAssinatura: false,
         trailing: _botoesTrailingDesktop(),
         // Participants é sempre acessada via context.go (login ou
         // "Visualizar" na Home), nunca empilhada. Usuário logado não tem
@@ -285,6 +284,7 @@ class _ParticipantsState extends State<Participants> {
   }
 
   Widget _botaoChatDesktop() {
+    final cores = AppCores.de(context);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: OutlinedButton.icon(
@@ -295,8 +295,8 @@ class _ParticipantsState extends State<Participants> {
         ),
         label: const Text('Chat'),
         style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF487DE5),
-          side: const BorderSide(color: Color(0xFF487DE5)),
+          foregroundColor: cores.azul,
+          side: BorderSide(color: cores.azul),
         ),
       ),
     );
@@ -340,8 +340,6 @@ class _ParticipantsState extends State<Participants> {
       abas: abas,
       semMargem: true,
       esticarAltura: true,
-      // Footer/assinatura desativado (pedido do usuário).
-      mostrarAssinatura: false,
       // LayoutBuilder mede a altura real que o Expanded do Fichario cedeu
       // pra folha ativa — evita recalcular manualmente o chrome (pill,
       // paddings dos cards etc) e garante que os widgets internos (que
@@ -421,7 +419,7 @@ class _ParticipantsState extends State<Participants> {
       cursor: SystemMouseCursors.click,
       child: IconButton(
         tooltip: 'Editar sala',
-        icon: const Icon(Icons.edit_outlined, color: Color(0xFF487DE5)),
+        icon: Icon(Icons.edit_outlined, color: AppCores.de(context).azul),
         onPressed: _salaId == null
             ? null
             : () async {
@@ -442,7 +440,7 @@ class _ParticipantsState extends State<Participants> {
       cursor: SystemMouseCursors.click,
       child: IconButton(
         tooltip: 'Simular apostas',
-        icon: const Icon(Icons.groups_2_outlined, color: Color(0xFF7C5CD9)),
+        icon: Icon(Icons.groups_2_outlined, color: AppCores.de(context).roxo),
         onPressed: _salaId == null ? null : _abrirDialogoSimulacao,
       ),
     );

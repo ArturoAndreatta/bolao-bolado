@@ -4,6 +4,7 @@ import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/models/sala.dart';
 import 'package:bolao_bolado/router/app_router.dart';
@@ -73,8 +74,7 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
       child: Stack(
         children: [
           CustomCard(
-            color: Color(0xFFF3F1EF),
-            mostrarAssinatura: true,
+            color: AppCores.de(context).cardExterno,
             children: [
               HeaderPaginas(
                 text: 'Consultar Salas',
@@ -122,10 +122,13 @@ class _ListaSalas extends StatelessWidget {
       return const SingleChildScrollView(child: SkeletonListaSalas());
     }
     if (salas.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Nenhuma sala encontrada.',
-          style: TextStyle(color: Colors.grey, fontSize: 16),
+          style: TextStyle(
+            color: AppCores.de(context).textoSuave,
+            fontSize: 16,
+          ),
         ),
       );
     }
@@ -142,6 +145,7 @@ class _SalaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
@@ -150,9 +154,9 @@ class _SalaCard extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Color(0xFFFEFEFE),
+            color: cores.card,
             borderRadius: AppRadii.circularMd,
-            border: Border.all(color: Color(0xFFDDDDDD), width: 1.5),
+            border: Border.all(color: cores.bordaCampo, width: 1.5),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.06),
@@ -172,7 +176,7 @@ class _SalaCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1F2937),
+                        color: cores.texto,
                       ),
                     ),
                     if (sala.descricao.isNotEmpty) ...[
@@ -181,7 +185,7 @@ class _SalaCard extends StatelessWidget {
                         sala.descricao,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey,
+                          color: cores.textoSuave,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -189,7 +193,7 @@ class _SalaCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+              Icon(Icons.arrow_forward_ios, size: 16, color: cores.textoSuave),
             ],
           ),
         ),

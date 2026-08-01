@@ -8,11 +8,13 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
+import 'package:bolao_bolado/components/shared/snackbar_deslizante.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/services/bet/preco_cota.dart';
+import 'package:bolao_bolado/services/bet/valor_maximo.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
-// import 'package:bolao_bolado/widgets/money_rain.dart'; // comentado junto com moneyRain em build()
 import 'package:bolao_bolado/widgets/como_funciona.dart';
 import 'package:bolao_bolado/widgets/pix_info.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -20,9 +22,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-// Card "Minha Aposta": formulário de valor/cotas + chuva de emojis de
-// dinheiro proporcional ao valor apostado. Usado dentro da tela de
-// Participantes, lado a lado com o painel de participantes.
+// Card "Minha Aposta": formulário onde o usuário informa nome e valor,
+// vê quantas cotas aquilo compra e o prêmio estimado, e confirma a aposta.
+// No desktop aparece lado a lado com o painel de Participantes; no mobile é
+// uma das abas do Fichario (ver [apenasConteudo]).
 class MinhaApostaCard extends StatefulWidget {
   final VoidCallback? onApostaConfirmada;
 
@@ -42,11 +45,6 @@ class MinhaApostaCard extends StatefulWidget {
   // nenhum CustomCard) — o Fichario já monta o cartão branco e a barra de
   // destaque ao redor, então um CustomCard aqui dentro duplicaria a moldura.
   final bool apenasConteudo;
-  // Repassado ao CustomCard externo (quando não apenasConteudo): exibe a
-  // assinatura no canto inferior direito. Quem usa MinhaApostaCard decide —
-  // hoje ele fica sempre lado a lado com o card de Participantes (que é o
-  // mais à direita), então este widget nunca deve receber true.
-  final bool mostrarAssinatura;
 
   const MinhaApostaCard({
     super.key,
@@ -56,7 +54,6 @@ class MinhaApostaCard extends StatefulWidget {
     this.esticarLargura = false,
     this.mostrarCabecalho = true,
     this.apenasConteudo = false,
-    this.mostrarAssinatura = false,
   });
 
   @override
@@ -91,6 +88,8 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
   double _precoCota = kPrecoCotaMega;
   int _totalCotasOutros = 0;
   String _chavePix = '';
+  // Teto por aposta configurado na sala; null quando a sala não tem limite.
+  double? _valorMaximo;
   // Altura real do bloco de campos (até o botão Confirmar), informada pelo
   // próprio layout — ver _MedidorDeAltura e o cálculo de escalaPix.
   double? _alturaTopoMedida;
@@ -111,13 +110,13 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     if (!_apostaExistente) {
       // Sem aposta gravada pra restaurar: nunca deixa o campo vazio/zerado,
       // pra não disparar o erro "Campo obrigatório" (que cresce o card e
-      // gera scroll indevido) — volta pro mínimo permitido (múltiplo de 6).
+      // gera scroll indevido) — volta pro mínimo apostável, que é UMA cota
+      // da sala (R$6 na Mega, R$3,50 na Lotofácil).
       _restaurarValorTimer?.cancel();
       _restaurarValorTimer = Timer(const Duration(milliseconds: 200), () {
         if (!mounted) return;
-        if (_valorApostado < _passoValor) {
-          final texto = _formatarValor(_passoValor.toString());
-          valueController.text = texto;
+        if (_valorApostado < _precoCota) {
+          valueController.text = _formatarValor(_precoCota.toString());
         }
       });
       return;
@@ -138,6 +137,9 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
         _premioSala = (doc.data()?['premio'] as num?)?.toDouble() ?? 0;
         _precoCota = precoCotaPara(doc.data()?['sorteio']?.toString());
         _chavePix = doc.data()?['chavePix']?.toString() ?? '';
+        // Sai do mesmo snapshot já em uso: o teto acompanha edições do admin
+        // sem custar nenhuma leitura extra.
+        _valorMaximo = valorMaximoDe(doc.data()?['valorMaximo']);
       });
     });
 
@@ -180,19 +182,19 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     return double.tryParse(valorEditado) ?? 0;
   }
 
-  // Botões +/- ao lado do campo Valor: sobem/descem de 6 em 6 (mesmo
-  // degrau exigido por _confirmar, que só aceita múltiplos de 6), sempre
-  // arredondando para o múltiplo de 6 mais próximo antes de aplicar o
-  // passo — assim funciona mesmo se o usuário tiver digitado um valor
-  // "quebrado" manualmente.
-  static const _passoValor = 6;
-
-  void _ajustarValor(int delta) {
-    final atual = _valorApostado.round();
-    final baseArredondada = delta > 0
-        ? (atual ~/ _passoValor) * _passoValor
-        : ((atual + _passoValor - 1) ~/ _passoValor) * _passoValor;
-    final novoValor = (baseArredondada + delta).clamp(_passoValor, 1 << 30);
+  /// Move o valor apostado em [deltaCotas] cotas (+1 / -1 pelos botões),
+  /// respeitando o preço de cota e o teto da sala — ver [ajustarValorEmCotas].
+  ///
+  /// O passo era 6 fixo (preço da Mega-Sena): em sala de Lotofácil o stepper
+  /// andava de 6 em 6, valores que não fecham cota de R$3,50, e a confirmação
+  /// recusava tudo que viesse dos botões.
+  void _ajustarValor(int deltaCotas) {
+    final novoValor = ajustarValorEmCotas(
+      valor: _valorApostado,
+      deltaCotas: deltaCotas,
+      precoCota: _precoCota,
+      valorMaximo: _valorMaximo,
+    );
     final texto = _formatarValor(novoValor.toString());
     valueController.value = TextEditingValue(
       text: texto,
@@ -201,18 +203,6 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
   }
 
   int get _minhasCotas => (_valorApostado / _precoCota).floor();
-
-  // Comentado junto com moneyRain em build() — reativar quando a
-  // animação de emojis voltar a ser usada na aba Minha Aposta.
-  // Quantidade repassada a MoneyRain: cresce com o valor apostado e satura
-  // em maxQuantidade (a partir daí só a raridade dos emojis muda, ver
-  // MoneyRain._indiceEmojiPara). R$500 já enche a pilha visualmente.
-  // static const _valorSaturacaoEmojis = 500.0;
-  //
-  // int get _quantidadeEmojis {
-  //   final proporcao = (_valorApostado / _valorSaturacaoEmojis).clamp(0.0, 1.0);
-  //   return (proporcao * MoneyRain.maxQuantidade).round();
-  // }
 
   double get _meuPremio {
     final minhasCotas = _minhasCotas;
@@ -364,9 +354,9 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     // usada pelas abas Participantes/Chat); no desktop mantém a altura
     // fixa histórica que casa com o painel de participantes ao lado.
     final alturaCard = widget.mobile ? widget.alturaMobile : 486.0;
-    // Largura dos campos/botão: no mobile acompanha a largura maior do
-    // card (730, igual Participantes); no desktop mantém a largura
-    // estreita histórica (380) que cabe ao lado do painel de participantes.
+    // Largura dos campos/botão: no mobile acompanha a largura maior do card
+    // (730, igual Participantes); no desktop usa [_larguraConteudo], estreita
+    // o bastante para caber ao lado do painel de participantes.
     final larguraConteudo = widget.mobile ? 730.0 : _larguraConteudo;
 
     // Campos do form: extraídos numa lista simples para poderem ser usados
@@ -410,8 +400,9 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           prefix: const Text('R\$ '),
           autofocus: _apostaExistente,
           suffix: _StepperValorButtons(
-            onIncrementar: () => _ajustarValor(_passoValor),
-            onDecrementar: () => _ajustarValor(-_passoValor),
+            // Uma cota por toque, seja ela R$6 ou R$3,50.
+            onIncrementar: () => _ajustarValor(1),
+            onDecrementar: () => _ajustarValor(-1),
           ),
         ),
       ),
@@ -433,10 +424,11 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       const SizedBox(height: 12),
       FocusTraversalOrder(
         order: const NumericFocusOrder(3),
-        child: _BotaoConfirmar(
-          saving: _saving,
+        child: PrimaryButton(
+          text: 'Confirmar',
           width: larguraConteudo,
           onTap: _confirmar,
+          loading: _saving,
         ),
       ),
     ];
@@ -490,26 +482,6 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
             constraints: BoxConstraints(maxWidth: larguraConteudo),
             child: PixInfo(chavePix: _chavePix, valor: _valorApostado),
           );
-
-    // Chuva de emojis: some no fim do card, empurrada para baixo pelo
-    // Spacer e ocupando toda a altura restante do card (até onde o PixInfo
-    // termina hoje) — em vez de somar altura extra ao conteúdo do form.
-    // Comentado por ora — reativar quando a animação de emojis voltar a
-    // ser usada na aba Minha Aposta.
-    // final moneyRain = widget.mobile && _chavePix.isNotEmpty
-    //     ? Expanded(
-    //         child: ValueListenableBuilder<MoneyRainEstiloAnimacao>(
-    //           valueListenable: moneyRainEstiloGlobal,
-    //           builder: (context, estilo, _) {
-    //             return MoneyRain(
-    //               quantidade: _quantidadeEmojis,
-    //               valorReais: _valorApostado,
-    //               estiloAnimacao: estilo,
-    //             );
-    //           },
-    //         ),
-    //       )
-    //     : null;
 
     final form = Form(
       key: _formKey,
@@ -621,10 +593,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
                         children: [
                           ...camposTopo,
                           if (blocoApenasPix != null) ...[
-                            // 4 (não 12): compensa os ~8px que o Material
-                            // sempre reserva pro slot de erro dos campos
-                            // (mesmo com errorStyle de altura zero), pra não
-                            // sobrar scroll residual no card de altura fixa.
+                            // Respiro entre o botão Confirmar e o card do Pix.
                             const SizedBox(height: 12),
                             blocoApenasPix,
                           ],
@@ -654,7 +623,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     }
 
     return CustomCard(
-      color: const Color(0xFFF3F1EF),
+      color: AppCores.de(context).cardExterno,
       // No mobile usa a mesma largura (730) do card de Participantes, para
       // que ambas as seções ocupem a tela até a mesma margem — 420
       // (desktop, lado a lado com o painel) é mais estreito que a tela do
@@ -665,7 +634,6 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           ? double.infinity
           : (widget.mobile ? 730 : _larguraCard),
       esticarLargura: widget.esticarLargura,
-      mostrarAssinatura: widget.mostrarAssinatura,
       children: [
         if (widget.mostrarCabecalho)
           const HeaderPaginas(
@@ -745,17 +713,23 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     // O valor precisa fechar cotas inteiras do sorteio da sala. O preço da
     // cota varia (Mega R$6, Lotofácil R$3,50), então usa _precoCota em vez
     // de um "6" fixo — senão salas de Lotofácil rejeitariam valores válidos.
-    // Comparação feita em centavos (inteiros) para evitar erro de ponto
-    // flutuante com preços fracionários como 3,50.
-    final valorCentavos = (valorNum * 100).round();
-    final cotaCentavos = (_precoCota * 100).round();
-    if (valorNum == 0 || valorCentavos % cotaCentavos != 0) {
-      final precoFormatado = _precoCota % 1 == 0
-          ? _precoCota.toStringAsFixed(0)
-          : _precoCota.toStringAsFixed(2).replaceAll('.', ',');
+    if (!valorFechaCotasInteiras(valorNum, _precoCota)) {
       CustomShowDialog.show(
         context,
-        "O valor deve ser múltiplo de R\$ $precoFormatado!",
+        'O valor deve ser múltiplo de '
+        'R\$ ${precoCotaFormatado(_precoCota)}!',
+      );
+      return;
+    }
+
+    // Teto por aposta da sala (campo `valorMaximo`). Até aqui esse limite era
+    // só informativo: aparecia no cadastro da sala e na tela de detalhes, mas
+    // nada impedia apostar acima dele.
+    if (!valorRespeitaMaximo(valorNum, _valorMaximo)) {
+      CustomShowDialog.show(
+        context,
+        'O valor máximo por aposta nesta sala é '
+        '${Formatters.moeda.format(_valorMaximo)}.',
       );
       return;
     }
@@ -790,9 +764,33 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
         'editadoAposVerificacao': isAdmin ? false : jaEstavaVerificada,
       });
 
+      final eraEdicao = apostaAnterior.exists;
+      // Editar aposta JÁ verificada zera a aprovação (campo
+      // `editadoAposVerificacao` acima) e ela sai do rateio até o admin
+      // revisar de novo. Isso era totalmente silencioso: o usuário mexia no
+      // valor e não tinha como saber que tinha perdido a verificação.
+      final perdeuVerificacao = jaEstavaVerificada && !isAdmin;
+
       _apostaExistente = true;
       _valorOriginal = valueController.text;
       widget.onApostaConfirmada?.call();
+
+      if (mounted) {
+        final cores = AppCores.de(context);
+        mostrarSnackBarDeslizante(
+          context,
+          corFundo: perdeuVerificacao ? cores.dourado : cores.verde,
+          conteudo: Text(
+            perdeuVerificacao
+                ? 'Aposta atualizada — precisa ser verificada de novo'
+                : eraEdicao
+                ? 'Aposta atualizada'
+                : isAdmin
+                ? 'Aposta registrada'
+                : 'Aposta registrada — aguardando verificação',
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('Erro ao salvar aposta: $e');
       if (mounted) {
@@ -807,33 +805,9 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
   }
 }
 
-// Botão "Confirmar" do formulário: mantém a forma e mostra um spinner
-// pequeno dentro dele enquanto a aposta está sendo salva no Firestore.
-class _BotaoConfirmar extends StatelessWidget {
-  final bool saving;
-  final double width;
-  final VoidCallback onTap;
-
-  const _BotaoConfirmar({
-    required this.saving,
-    required this.width,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return PrimaryButton(
-      text: 'Confirmar',
-      width: width,
-      onTap: onTap,
-      loading: saving,
-    );
-  }
-}
-
-// Botões +/- exibidos dentro do campo Valor (suffix), para subir/descer o
-// valor apostado de 6 em 6 sem precisar digitar — mesmo degrau exigido na
-// confirmação da aposta (múltiplo de 6).
+// Botões +/- exibidos dentro do campo Valor (suffix), para ajustar o valor
+// apostado sem precisar digitar. Cada toque vale UMA cota da sala — ver
+// _MinhaApostaCardState._ajustarValor.
 class _StepperValorButtons extends StatelessWidget {
   final VoidCallback onIncrementar;
   final VoidCallback onDecrementar;
@@ -918,7 +892,11 @@ class _StepperButtonState extends State<_StepperButton> {
         onTapCancel: _pararRepeticao,
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Icon(widget.icon, size: 20, color: Colors.grey.shade700),
+          child: Icon(
+            widget.icon,
+            size: 20,
+            color: AppCores.de(context).textoSuave,
+          ),
         ),
       ),
     );
@@ -933,13 +911,14 @@ class _DisplayInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
+        color: cores.campo,
         borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
-        border: const Border.fromBorderSide(
-          BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
+        border: Border.fromBorderSide(
+          BorderSide(color: cores.bordaCampo, width: 1.5),
         ),
       ),
       child: Row(
@@ -948,7 +927,7 @@ class _DisplayInfo extends StatelessWidget {
           Text(
             titulo,
             softWrap: true,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 14, color: cores.textoSuave),
           ),
           const SizedBox(width: 8),
           Flexible(
@@ -956,10 +935,10 @@ class _DisplayInfo extends StatelessWidget {
               valor,
               textAlign: TextAlign.end,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1F2937),
+                color: cores.texto,
               ),
             ),
           ),

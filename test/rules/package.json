@@ -1,0 +1,13 @@
+{
+  "name": "bolao-bolado-rules-test",
+  "private": true,
+  "type": "module",
+  "description": "Testes das regras do Firestore contra o emulador. Fora do flutter test: precisa do emulador (Java) e do runtime Node.",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-bolao-rules \"node participantes.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase": "^12.4.0"
+  }
+}

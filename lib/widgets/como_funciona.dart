@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
@@ -17,13 +18,14 @@ class ComoFunciona extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFDF6E3),
+        color: cores.fundoAmarelo,
         borderRadius: AppRadii.circularMd,
-        border: Border.all(color: const Color(0xFFF0E4B8), width: 1.5),
+        border: Border.all(color: cores.bordaAmarelo, width: 1.5),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -35,7 +37,7 @@ class ComoFunciona extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: Colors.grey.shade800,
+                color: cores.texto,
               ),
             ),
             const SizedBox(height: 12),
@@ -67,6 +69,7 @@ class _PassoItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -74,8 +77,8 @@ class _PassoItem extends StatelessWidget {
           width: 20,
           height: 20,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: Color(0xFF7CC8A0),
+          decoration: BoxDecoration(
+            color: cores.verdeAgua,
             shape: BoxShape.circle,
           ),
           child: Text(
@@ -97,13 +100,13 @@ class _PassoItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade800,
+                  color: cores.texto,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 descricao,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 13, color: cores.textoSuave),
               ),
             ],
           ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:bolao_bolado/services/bet/preco_cota.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Prefixo usado nos uids dos participantes fake gerados pela simulação,
@@ -80,11 +81,29 @@ class SimuladorApostas {
   bool _passoEmAndamento = false;
   Timer? _timer;
 
+  /// Preço da cota da sala simulada, lido uma vez em [iniciar].
+  ///
+  /// Começa no padrão da Mega-Sena e é corrigido assim que o doc da sala
+  /// responde. Era 6 fixo: numa sala de Lotofácil (cota R$3,50) o simulador
+  /// gerava apostas que não fecham cota inteira, então a tela de teste ficava
+  /// cheia de valores que o app recusaria de um usuário real.
+  double _precoCota = kPrecoCotaMega;
+
   bool get rodando => _rodando;
 
   void iniciar(String salaId) {
     if (_rodando) return;
     _rodando = true;
+
+    // Uma leitura só por sessão de simulação, sem bloquear o primeiro passo:
+    // até ela responder os passos usam o padrão da Mega-Sena.
+    unawaited(
+      FirebaseFirestore.instance.collection('Salas').doc(salaId).get().then((
+        doc,
+      ) {
+        _precoCota = precoCotaPara(doc.data()?['sorteio']?.toString());
+      }, onError: (Object _) {}),
+    );
     _timer = Timer.periodic(const Duration(milliseconds: 900), (_) async {
       // Evita sobrepor passos: se a leitura+escrita do passo anterior ainda
       // não terminou, duas execuções concorrentes poderiam ler o mesmo
@@ -103,6 +122,14 @@ class SimuladorApostas {
     _rodando = false;
     _timer?.cancel();
     _timer = null;
+  }
+
+  /// Valor (em string, como manda a invariante de `Participantes.valor`) de
+  /// uma aposta de [cotas] cotas ao preço da sala. Sem casas decimais quando
+  /// a cota é inteira, para o texto ficar igual ao que o app grava.
+  String _valorDe(int cotas) {
+    final total = cotas * _precoCota;
+    return total % 1 == 0 ? total.toStringAsFixed(0) : total.toStringAsFixed(2);
   }
 
   Future<void> _executarPasso(String salaId) async {
@@ -151,7 +178,7 @@ class SimuladorApostas {
       final cotas = _random.nextInt(5) + 1;
       await participantesRef.doc(uid).set({
         'nome': nome,
-        'valor': (cotas * 6).toString(),
+        'valor': _valorDe(cotas),
         'data-hora': FieldValue.serverTimestamp(),
         'verificado': false,
         'editadoAposVerificacao': false,
@@ -165,7 +192,7 @@ class SimuladorApostas {
       final jaVerificado = doc.data()['verificado'] == true;
       final cotas = _random.nextInt(6) + 1;
       await doc.reference.update({
-        'valor': (cotas * 6).toString(),
+        'valor': _valorDe(cotas),
         'data-hora': FieldValue.serverTimestamp(),
         if (jaVerificado) 'editadoAposVerificacao': true,
       });

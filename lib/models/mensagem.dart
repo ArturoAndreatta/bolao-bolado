@@ -15,8 +15,12 @@ class Mensagem {
     this.criadoEm,
   });
 
+  /// Monta uma [Mensagem] a partir de um documento do Firestore.
+  ///
+  /// Mesma proteção de [Sala.fromDoc]: doc sem dados vira mensagem vazia em
+  /// vez de lançar e derrubar o chat inteiro.
   factory Mensagem.fromDoc(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = (doc.data() as Map<String, dynamic>?) ?? const {};
     return Mensagem(
       id: doc.id,
       texto: data['texto'] ?? '',

@@ -50,6 +50,37 @@ Gerado a partir de uma análise completa da base de código em 2026-07-09.
 
 ---
 
+## Animação de "chuva de dinheiro" (MoneyRain) — removida
+
+O widget `lib/widgets/money_rain.dart` (pilha de emojis de dinheiro que crescia
+conforme o valor apostado, na aba Minha Aposta) foi **removido**: estava
+desativado havia tempo, com o import e três blocos de uso comentados no
+`minha_aposta_card.dart`. O código está no git (último commit que o tocou:
+`f58b5a7`) se um dia a animação voltar.
+
+Vale guardar o que **já foi tentado e não funciona** no Flutter Web, para não
+repetir:
+
+- **Chuva contínua em loop com até 1000 emojis**: travava o Flutter Web.
+- **`CustomPainter` desenhando `TextPainter` cru**, ou pré-rasterizar via
+  `Overlay` + `RepaintBoundary` + `toImage` e desenhar com `canvas.drawAtlas`:
+  ambos quebravam a cor do emoji (tofu / ruído de pixels) no CanvasKit.
+- **Um `AnimationController` por moeda**: satura o scheduler quando muitas
+  moedas nascem de uma vez.
+- **Um único controller compartilhado por todas as moedas**, resetado a cada
+  novo lote: reseta também a curva das moedas já acomodadas.
+- **Debounce na sincronização**: resolvia o custo, mas deixava a UI com
+  sensação de atraso/morta enquanto o usuário digitava — pior que o
+  travamento.
+
+A abordagem que de fato funcionava era separar as moedas em dois grupos, em
+`Stack`s distintas: uma pilha estática (moedas já acomodadas, que só ganha
+itens e nunca é reconstruída do zero) e um lote dinâmico pequeno (só as moedas
+em queda no momento, com seu próprio controller), migrando o lote inteiro para
+a pilha estática ao fim da queda.
+
+---
+
 ## Notas de contexto (do levantamento original)
 
 - Estrutura organizada por tipo técnico (`lib/pages`, `lib/services`, `lib/components`), não por feature — funciona, mas há lógica de acesso a dados espalhada direto nas telas em vez de repositórios centralizados.

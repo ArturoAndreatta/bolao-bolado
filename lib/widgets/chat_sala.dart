@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/models/mensagem.dart';
@@ -136,6 +137,9 @@ class _ChatSalaState extends State<ChatSala> {
       );
       _textoController.clear();
       _scrollParaFinal();
+      // onSubmitted do TextField tira o foco por padrão; sem isso o usuário
+      // precisa clicar de novo no campo pra mandar a próxima mensagem.
+      if (mounted) _campoFocusNode.requestFocus();
     } catch (_) {
       // Falha silenciosa é ruim, mas evita poluir com showDialog
       // em um componente lateral pequeno. Mantemos o texto no campo.
@@ -146,19 +150,20 @@ class _ChatSalaState extends State<ChatSala> {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return SizedBox.expand(
       child: Material(
-        color: const Color(0xFFFEFEFE),
+        color: cores.card,
         // No modo compacto o cartão ao redor é do Fichario: aqui só o fundo,
         // sem elevação nem borda própria (ver [ChatSala.compacto]).
         elevation: widget.compacto ? 0 : (widget.flutuante ? 10 : 3),
-        shadowColor: Colors.black,
+        shadowColor: cores.sombra,
         surfaceTintColor: Colors.transparent,
         shape: widget.compacto
             ? const RoundedRectangleBorder()
             : RoundedRectangleBorder(
                 borderRadius: AppRadii.circularSmd,
-                side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                side: BorderSide(color: cores.borda, width: 1.5),
               ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -188,7 +193,7 @@ class _ChatSalaState extends State<ChatSala> {
                                 'Nenhuma mensagem ainda.\nSeja o primeiro a falar! 💬',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: Colors.grey.shade500,
+                                  color: cores.textoFraco,
                                   fontSize: 13,
                                 ),
                               ),
@@ -302,11 +307,12 @@ class _CampoEnvioChat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     if (verificandoPermissao) {
       return Container(
         padding: const EdgeInsets.all(14),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: cores.borda, width: 1)),
         ),
         child: const Shimmer(
           child: Row(
@@ -327,19 +333,19 @@ class _CampoEnvioChat extends StatelessWidget {
 
       return Container(
         padding: const EdgeInsets.all(14),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: cores.borda, width: 1)),
         ),
         child: Row(
           children: [
-            Icon(Icons.lock_outline, size: 16, color: Colors.grey.shade500),
+            Icon(Icons.lock_outline, size: 16, color: cores.textoFraco),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 logado
                     ? 'Faça sua aposta para participar do chat'
                     : 'Faça login para enviar mensagens',
-                style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12.5, color: cores.textoSuave),
               ),
             ),
           ],
@@ -349,8 +355,8 @@ class _CampoEnvioChat extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: cores.borda, width: 1)),
       ),
       child: Row(
         children: [
@@ -371,11 +377,11 @@ class _CampoEnvioChat extends StatelessWidget {
                 hintText: 'Escreva algo...',
                 hintStyle: TextStyle(
                   fontSize: compacto ? 15 : 14,
-                  color: Colors.grey.shade400,
+                  color: cores.textoFraco,
                 ),
                 counterText: '',
                 filled: true,
-                fillColor: const Color(0xFFF3F4F6),
+                fillColor: cores.campo,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 10,
@@ -400,7 +406,7 @@ class _CampoEnvioChat extends StatelessWidget {
                   ),
                 )
               : Material(
-                  color: const Color(0xFF487DE5),
+                  color: cores.azul,
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
@@ -410,7 +416,7 @@ class _CampoEnvioChat extends StatelessWidget {
                       child: Icon(
                         Icons.send_rounded,
                         size: compacto ? 20 : 18,
-                        color: Colors.white,
+                        color: cores.textoSobreCor,
                       ),
                     ),
                   ),
@@ -451,27 +457,24 @@ class _CabecalhoChat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF3F4F6),
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+      decoration: BoxDecoration(
+        color: cores.campo,
+        border: Border(bottom: BorderSide(color: cores.borda, width: 1)),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.chat_bubble_outline,
-            size: 16,
-            color: Color(0xFF487DE5),
-          ),
+          Icon(Icons.chat_bubble_outline, size: 16, color: cores.azul),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Chat da Sala',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF1F2937),
+              color: cores.texto,
             ),
           ),
           if (onFechar != null) ...[
@@ -481,7 +484,7 @@ class _CabecalhoChat extends StatelessWidget {
               child: IconButton(
                 tooltip: 'Fechar chat',
                 icon: const Icon(Icons.close, size: 18),
-                color: Colors.grey.shade600,
+                color: cores.textoSuave,
                 onPressed: onFechar,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -517,11 +520,12 @@ class _SeparadorData extends StatelessWidget {
   Widget build(BuildContext context) {
     if (dataHora == null) return const SizedBox.shrink();
 
+    final cores = AppCores.de(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          const Expanded(child: Divider(color: Color(0xFFE5E7EB), height: 1)),
+          Expanded(child: Divider(color: cores.borda, height: 1)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Text(
@@ -529,11 +533,11 @@ class _SeparadorData extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade500,
+                color: cores.textoFraco,
               ),
             ),
           ),
-          const Expanded(child: Divider(color: Color(0xFFE5E7EB), height: 1)),
+          Expanded(child: Divider(color: cores.borda, height: 1)),
         ],
       ),
     );
@@ -606,14 +610,14 @@ class _BolhaMensagem extends StatelessWidget {
                       padding: const EdgeInsets.only(left: 10, bottom: 3),
                       child: Text(
                         mensagem.autorNome,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF6B7280),
+                          color: AppCores.de(context).textoSuave,
                         ),
                       ),
                     ),
-                  _corpoBolha(horario),
+                  _corpoBolha(context, horario),
                 ],
               ),
             ),
@@ -626,11 +630,12 @@ class _BolhaMensagem extends StatelessWidget {
   // Texto e horário dividem a mesma bolha: o carimbo flutua no canto inferior
   // junto à última linha em vez de ocupar uma linha inteira abaixo — era isso
   // que fazia cada mensagem custar três alturas de texto no mobile.
-  Widget _corpoBolha(String horario) {
-    final corTexto = isMinha ? Colors.white : const Color(0xFF1F2937);
+  Widget _corpoBolha(BuildContext context, String horario) {
+    final cores = AppCores.de(context);
+    final corTexto = isMinha ? cores.textoSobreCor : cores.bolhaOutroTexto;
     final corHorario = isMinha
-        ? Colors.white.withValues(alpha: 0.75)
-        : Colors.grey.shade500;
+        ? cores.textoSobreCor.withValues(alpha: 0.75)
+        : cores.textoFraco;
 
     const raio = Radius.circular(16);
     const raioRabo = Radius.circular(5);
@@ -638,7 +643,7 @@ class _BolhaMensagem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 7, 10, 7),
       decoration: BoxDecoration(
-        color: isMinha ? const Color(0xFF487DE5) : const Color(0xFFF1F3F5),
+        color: isMinha ? cores.azul : cores.bolhaOutro,
         borderRadius: BorderRadius.only(
           topLeft: raio,
           topRight: raio,
@@ -682,7 +687,7 @@ class _BolhaMensagem extends StatelessWidget {
           stream: cache.emojiStream(mensagem.autorUid),
           builder: (context, emojiSnapshot) {
             return _avatarCirculo(
-              corSnapshot.data ?? const Color(0xFFE5E7EB),
+              corSnapshot.data ?? AppCores.de(context).borda,
               emojiSnapshot.data ?? kEmojiAvatarPadrao,
             );
           },

@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/components/shared/back_screen_button.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:flutter/material.dart';
 
@@ -20,6 +21,7 @@ class HeaderPaginas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     final isMobile = Responsive.isMobile(context);
 
     return Padding(
@@ -29,11 +31,7 @@ class HeaderPaginas extends StatelessWidget {
         children: [
           if (showBackButton) BackScreenButton(floating: false, onTap: onBack),
           const SizedBox(width: 14),
-          Container(
-            width: 1,
-            height: isMobile ? 50 : 40,
-            color: Colors.grey.shade300,
-          ),
+          Container(width: 1, height: isMobile ? 50 : 40, color: cores.borda),
 
           const SizedBox(width: 14),
 
@@ -50,7 +48,7 @@ class HeaderPaginas extends StatelessWidget {
                     style: TextStyle(
                       fontSize: isMobile ? 24 : 21,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1F2937),
+                      color: cores.texto,
                       height: 1.0,
                     ),
                   ),
@@ -61,7 +59,7 @@ class HeaderPaginas extends StatelessWidget {
                     subtitle,
                     style: TextStyle(
                       fontSize: isMobile ? 15 : 14,
-                      color: Colors.grey.shade600,
+                      color: cores.textoSuave,
                       height: 1.0,
                     ),
                   ),

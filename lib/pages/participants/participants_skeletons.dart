@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/components/shared/skeletons.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart';
 import 'package:flutter/material.dart';
@@ -12,13 +13,14 @@ class SkeletonCardEstatistica extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: destaque ? const Color(0xFFFDF4E3) : const Color(0xFFFEFEFE),
+        color: destaque ? cores.fundoAmarelo : cores.card,
         borderRadius: AppRadii.circularSmd,
         border: Border.all(
-          color: destaque ? const Color(0xFFF2D9A8) : const Color(0xFFE5E7EB),
+          color: destaque ? cores.bordaAmarelo : cores.borda,
           width: 1,
         ),
       ),
@@ -74,6 +76,7 @@ class SkeletonTabela extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Shimmer(
       // Mesma rolagem horizontal da tabela real (participants_tabela.dart):
       // sem ela, o Container com minWidth: larguraTotal estoura em telas
@@ -83,7 +86,7 @@ class SkeletonTabela extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(minWidth: larguraTotal),
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
+            border: Border.all(color: cores.borda, width: 1.5),
             borderRadius: AppRadii.circularSmd,
           ),
           clipBehavior: Clip.antiAlias,
@@ -92,7 +95,7 @@ class SkeletonTabela extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                color: const Color(0xFFE9EAEC),
+                color: cores.superficieAlta,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -108,12 +111,10 @@ class SkeletonTabela extends StatelessWidget {
                   ],
                 ),
               ),
-              const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+              Divider(height: 1, thickness: 1, color: cores.borda),
               for (var linha = 0; linha < 6; linha++) ...[
                 Container(
-                  color: linha % 2 == 0
-                      ? const Color(0xFFFEFEFE)
-                      : const Color(0xFFF3F4F6),
+                  color: linha % 2 == 0 ? cores.linhaPar : cores.linhaImpar,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -130,11 +131,7 @@ class SkeletonTabela extends StatelessWidget {
                   ),
                 ),
                 if (linha < 5)
-                  const Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Color(0xFFE5E7EB),
-                  ),
+                  Divider(height: 1, thickness: 1, color: cores.borda),
               ],
             ],
           ),
@@ -231,15 +228,16 @@ class SkeletonChatSala extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return SizedBox.expand(
       child: Material(
-        color: const Color(0xFFFEFEFE),
+        color: cores.card,
         elevation: 3,
-        shadowColor: Colors.black,
+        shadowColor: cores.sombra,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadii.circularSmd,
-          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+          side: BorderSide(color: cores.borda, width: 1.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -247,10 +245,10 @@ class SkeletonChatSala extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF3F4F6),
+              decoration: BoxDecoration(
+                color: cores.campo,
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                  bottom: BorderSide(color: cores.borda, width: 1),
                 ),
               ),
               child: Row(
@@ -258,7 +256,7 @@ class SkeletonChatSala extends StatelessWidget {
                   Icon(
                     Icons.chat_bubble_outline,
                     size: 18,
-                    color: const Color(0xFF487DE5).withValues(alpha: 0.4),
+                    color: cores.azul.withValues(alpha: 0.4),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -266,7 +264,7 @@ class SkeletonChatSala extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade400,
+                      color: cores.textoFraco,
                     ),
                   ),
                 ],
@@ -293,24 +291,39 @@ class SkeletonChatSala extends StatelessWidget {
               ),
             ),
             Container(
-              padding: const EdgeInsets.all(14),
-              decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                ),
+              // Mesmo padding/estrutura do estado "campo de texto liberado"
+              // de _CampoEnvioChat (não o estado "sem permissão", mais baixo):
+              // é esse o estado que a maioria dos usuários vê ao abrir o chat,
+              // e a diferença de altura entre os dois fazia o card "pular" ao
+              // trocar do skeleton para o ChatSala real.
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: cores.borda, width: 1)),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.lock_outline,
-                    size: 16,
-                    color: Colors.grey.shade400,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: SkeletonBox(width: double.infinity, height: 12),
-                  ),
-                ],
+              child: Shimmer(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 38,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: cores.campo,
+                          borderRadius: AppRadii.circularPill,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: cores.campo,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -333,6 +346,7 @@ class SkeletonParticipantes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     if (!mobile) return const SkeletonEstatisticasDesktop();
 
     // Cabeçalho de altura fixa: busca + botões de ordenação (mesma barra de
@@ -358,13 +372,12 @@ class SkeletonParticipantes extends StatelessWidget {
     final linhas = <Widget>[
       for (var i = 0; i < 6; i++) ...[
         const SkeletonLinhaParticipante(),
-        if (i < 5)
-          Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+        if (i < 5) Divider(height: 1, thickness: 1, color: cores.borda),
       ],
     ];
     final listaComRodape = Container(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
+        border: Border.all(color: cores.borda, width: 1.5),
         borderRadius: AppRadii.circularSmd,
       ),
       clipBehavior: Clip.antiAlias,
@@ -381,9 +394,9 @@ class SkeletonParticipantes extends StatelessWidget {
               ),
             ),
           ),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+          Divider(height: 1, thickness: 1, color: cores.borda),
           Container(
-            color: const Color(0xFFE9EAEC),
+            color: cores.superficieAlta,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,

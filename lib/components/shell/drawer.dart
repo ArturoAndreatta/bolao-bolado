@@ -4,7 +4,9 @@ import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shell/avatar_picker_dialog.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
+import 'package:bolao_bolado/core/tema_controller.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -71,6 +73,7 @@ class _AppDrawerState extends State<AppDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     final user = FirebaseAuth.instance.currentUser;
     final isLoggedIn = user != null && !user.isAnonymous;
     final nome = user?.displayName ?? 'Visitante';
@@ -79,7 +82,7 @@ class _AppDrawerState extends State<AppDrawer> {
 
     return Drawer(
       width: 280,
-      backgroundColor: const Color(0xFF1F2937),
+      backgroundColor: cores.drawerFundo,
       child: SafeArea(
         child: Column(
           children: [
@@ -87,9 +90,9 @@ class _AppDrawerState extends State<AppDrawer> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFF374151), width: 1),
+                  bottom: BorderSide(color: cores.drawerBorda, width: 1),
                 ),
               ),
               child: Row(
@@ -123,9 +126,9 @@ class _AppDrawerState extends State<AppDrawer> {
                         children: [
                           AvatarEmoji(
                             tamanho: 52,
-                            cor: _corAvatarAtual ?? const Color(0xFF487DE5),
+                            cor: _corAvatarAtual ?? cores.azul,
                             emoji: _emojiAvatarAtual ?? inicial,
-                            corBorda: const Color(0xFF487DE5),
+                            corBorda: cores.azul,
                           ),
                           if (isLoggedIn)
                             Positioned(
@@ -135,10 +138,10 @@ class _AppDrawerState extends State<AppDrawer> {
                                 width: 18,
                                 height: 18,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF487DE5),
+                                  color: cores.azul,
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: const Color(0xFF1F2937),
+                                    color: cores.drawerFundo,
                                     width: 1.5,
                                   ),
                                 ),
@@ -170,8 +173,8 @@ class _AppDrawerState extends State<AppDrawer> {
                         const SizedBox(height: 2),
                         Text(
                           email,
-                          style: const TextStyle(
-                            color: Color(0xFF9CA3AF),
+                          style: TextStyle(
+                            color: cores.textoFraco,
                             fontSize: 12,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -276,6 +279,11 @@ class _AppDrawerState extends State<AppDrawer> {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
               child: Column(
                 children: [
+                  // Fica no rodapé do menu (e não numa tela de ajustes): o
+                  // drawer é o único lugar alcançável de qualquer tela do app,
+                  // e trocar de tema é algo que se faz pelo ambiente do
+                  // momento — não vale esconder atrás de mais navegação.
+                  const _AlternadorTema(),
                   const _DrawerDivider(),
                   const SizedBox(height: 4),
                   if (isLoggedIn)
@@ -314,6 +322,149 @@ class _AppDrawerState extends State<AppDrawer> {
   }
 }
 
+/// Seletor de tema no rodapé do drawer: Claro / Escuro / Sistema.
+///
+/// Três opções, e não um interruptor de dois estados, porque "seguir o
+/// sistema" é um estado próprio — quem tem o celular agendado para escurecer
+/// à noite quer que o app acompanhe, e um toggle simples obrigaria a escolher
+/// manualmente duas vezes por dia. É também o padrão de fábrica do app.
+class _AlternadorTema extends StatelessWidget {
+  const _AlternadorTema();
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: temaModoGlobal,
+      builder: (context, modo, _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.palette_outlined,
+                    size: 18,
+                    color: cores.drawerTexto,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Tema',
+                    style: TextStyle(
+                      color: cores.drawerTexto,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Pill com as três opções lado a lado. As cores aqui saem do
+              // drawer (que é escuro nos DOIS temas), não da paleta de
+              // superfícies — por isso o branco/alpha em vez de cores.card.
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: AppRadii.circularSmd,
+                ),
+                padding: const EdgeInsets.all(3),
+                child: Row(
+                  children: [
+                    _OpcaoTema(
+                      icone: Icons.light_mode_outlined,
+                      rotulo: 'Claro',
+                      ativo: modo == ThemeMode.light,
+                      onTap: () => salvarTema(ThemeMode.light),
+                    ),
+                    _OpcaoTema(
+                      icone: Icons.dark_mode_outlined,
+                      rotulo: 'Escuro',
+                      ativo: modo == ThemeMode.dark,
+                      onTap: () => salvarTema(ThemeMode.dark),
+                    ),
+                    _OpcaoTema(
+                      icone: Icons.brightness_auto_outlined,
+                      rotulo: 'Auto',
+                      ativo: modo == ThemeMode.system,
+                      onTap: () => salvarTema(ThemeMode.system),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OpcaoTema extends StatelessWidget {
+  final IconData icone;
+  final String rotulo;
+  final bool ativo;
+  final VoidCallback onTap;
+
+  const _OpcaoTema({
+    required this.icone,
+    required this.rotulo,
+    required this.ativo,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    // Sobre o verde-água claro do escuro, branco dá só 2.18:1 — o rótulo
+    // ativo lá é escuro (8.6:1 contra o mesmo fundo). No claro o bloco ativo
+    // é o azul, sobre o qual branco continua sendo o certo.
+    final cor = ativo
+        ? (cores.escuro ? cores.drawerFundo : Colors.white)
+        : cores.textoFraco;
+
+    return Expanded(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              // Verde-água no escuro em vez do azul de ação: dentro do drawer
+              // de feltro, um bloco azul era a única coisa fria da tela. No
+              // claro o azul continua, que é a cor de seleção do app lá.
+              color: ativo
+                  ? (cores.escuro ? cores.verdeAgua : cores.azul)
+                  : Colors.transparent,
+              borderRadius: AppRadii.circularSm,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icone, size: 17, color: cor),
+                const SizedBox(height: 3),
+                Text(
+                  rotulo,
+                  style: TextStyle(
+                    color: cor,
+                    fontSize: 10.5,
+                    fontWeight: ativo ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DrawerItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -331,9 +482,8 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDestructive
-        ? const Color(0xFFEF4444)
-        : const Color(0xFFD1D5DB);
+    final cores = AppCores.de(context);
+    final color = isDestructive ? cores.vermelho : cores.drawerTexto;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -363,7 +513,7 @@ class _DrawerItem extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444),
+                    color: cores.vermelho,
                     borderRadius: AppRadii.circularPill,
                   ),
                   child: Text(
@@ -388,6 +538,10 @@ class _DrawerDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(color: Color(0xFF374151), height: 16, thickness: 1);
+    return Divider(
+      color: AppCores.de(context).drawerBorda,
+      height: 16,
+      thickness: 1,
+    );
   }
 }

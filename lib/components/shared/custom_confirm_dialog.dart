@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:flutter/material.dart';
@@ -56,9 +57,8 @@ class _CorpoConfirmacao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final corAcao = destrutivo
-        ? const Color(0xFFEF4444)
-        : const Color(0xFF487DE5);
+    final cores = AppCores.de(context);
+    final corAcao = destrutivo ? cores.vermelho : cores.azul;
 
     // Mesma conta do AdminDialogFrame: 340 fixo estoura em celular estreito
     // depois de somado o padding do AlertDialog.
@@ -66,12 +66,12 @@ class _CorpoConfirmacao extends StatelessWidget {
     final largura = Responsive.isMobile(context) ? larguraTela - 80 : 340.0;
 
     return AlertDialog(
-      backgroundColor: const Color(0xFFFEFEFE),
+      backgroundColor: cores.card,
       surfaceTintColor: Colors.transparent,
       elevation: 18,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadii.circularXxl,
-        side: BorderSide(color: Colors.grey.shade200, width: 1),
+        side: BorderSide(color: cores.borda, width: 1),
       ),
       contentPadding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
       content: SizedBox(
@@ -88,14 +88,10 @@ class _CorpoConfirmacao extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: destrutivo
-                        ? const Color(0xFFFEE2E2)
-                        : const Color(0xFFE0EAFB),
+                    color: destrutivo ? cores.fundoVermelho : cores.fundoAzul,
                     borderRadius: AppRadii.circularLg,
                     border: Border.all(
-                      color: destrutivo
-                          ? const Color(0xFFFECACA)
-                          : const Color(0xFFC7DAF7),
+                      color: destrutivo ? cores.bordaVermelho : cores.bordaAzul,
                     ),
                   ),
                   child: Center(
@@ -109,10 +105,10 @@ class _CorpoConfirmacao extends StatelessWidget {
                 Expanded(
                   child: Text(
                     titulo,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF111827),
+                      color: cores.texto,
                     ),
                   ),
                 ),
@@ -121,10 +117,10 @@ class _CorpoConfirmacao extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               mensagem,
-              style: const TextStyle(
+              style: TextStyle(
                 height: 1.35,
                 fontSize: 14,
-                color: Colors.grey,
+                color: cores.textoSuave,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -138,7 +134,7 @@ class _CorpoConfirmacao extends StatelessWidget {
             Expanded(
               child: _BotaoContorno(
                 texto: textoCancelar,
-                cor: const Color(0xFF487DE5),
+                cor: cores.azul,
                 onTap: () => Navigator.of(context).pop(false),
               ),
             ),
@@ -184,8 +180,8 @@ class _BotaoSolido extends StatelessWidget {
             child: Text(
               texto,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFFFEFEFE),
+              style: TextStyle(
+                color: AppCores.de(context).textoSobreCor,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),

@@ -36,6 +36,11 @@ migrate_working_dir/
 # Credenciais de login automático em dev (nunca commitar)
 dev.env.json
 
+# Dependências dos testes de regras do Firestore (test/rules) e do tool/
+node_modules/
+firebase-debug.log
+firestore-debug.log
+
 # Symbolication related
 app.*.symbols
 

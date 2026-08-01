@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/components/shell/gradient_decoration.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:flutter/material.dart';
 
@@ -25,9 +26,10 @@ class DefaultLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final esticar = esticarLarguraCompact && Responsive.isCompact(context);
+    final cores = AppCores.de(context);
 
     return Container(
-      decoration: GradientDecoration.backgroundGradient(),
+      decoration: GradientDecoration.backgroundGradient(context),
       child: Scaffold(
         drawer: drawer,
         onDrawerChanged: onDrawerChanged,
@@ -38,7 +40,7 @@ class DefaultLayout extends StatelessWidget {
                 elevation: 0,
                 scrolledUnderElevation: 0,
                 automaticallyImplyLeading: true,
-                iconTheme: const IconThemeData(color: Color(0xFF1F2937)),
+                iconTheme: IconThemeData(color: cores.texto),
                 centerTitle: true,
                 title: showLogo
                     ? SizedBox(

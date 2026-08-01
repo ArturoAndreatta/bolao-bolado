@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
@@ -26,20 +27,29 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+
     return Container(
       width: width,
       decoration: BoxDecoration(
         borderRadius: AppRadii.circularXl,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: compact ? 0.15 : 0.3),
+            // Sombra mais contida no escuro: sobre fundo escuro a sombra
+            // preta forte do tema claro vira uma mancha suja em volta do
+            // botão em vez de profundidade.
+            color: cores.sombra.withValues(
+              alpha: cores.escuro
+                  ? (compact ? 0.35 : 0.5)
+                  : (compact ? 0.15 : 0.3),
+            ),
             blurRadius: compact ? 6 : 10,
             offset: Offset(0, compact ? 2 : 4),
           ),
         ],
       ),
       child: Material(
-        color: Color(0xFF487DE5),
+        color: cores.acaoPrimaria,
         borderRadius: AppRadii.circularXl,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -55,8 +65,8 @@ class PrimaryButton extends StatelessWidget {
                   ? SizedBox(
                       width: compact ? 16 : 20,
                       height: compact ? 16 : 20,
-                      child: const CircularProgressIndicator(
-                        color: Color(0xFFFEFEFE),
+                      child: CircularProgressIndicator(
+                        color: cores.textoSobreAcao,
                         strokeWidth: 2.5,
                       ),
                     )
@@ -64,7 +74,7 @@ class PrimaryButton extends StatelessWidget {
                       text,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Color(0xFFFEFEFE),
+                        color: cores.textoSobreAcao,
                         fontSize: compact ? 14 : 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -91,11 +101,13 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+
     return Container(
       width: width,
       decoration: BoxDecoration(
         borderRadius: AppRadii.circularXl,
-        border: Border.all(color: const Color(0xFF487DE5), width: 2),
+        border: Border.all(color: cores.acaoPrimaria, width: 2),
       ),
       child: Material(
         color: Colors.transparent,
@@ -108,8 +120,10 @@ class SecondaryButton extends StatelessWidget {
             child: Text(
               text,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF487DE5),
+              style: TextStyle(
+                // Acompanha o primário: com o "Confirmar" dourado e este ainda
+                // azul, os dois botões empilhados brigariam entre si.
+                color: cores.acaoPrimaria,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),

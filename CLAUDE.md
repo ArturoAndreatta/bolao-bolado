@@ -4,6 +4,25 @@ Guia para agentes de IA trabalhando neste repositório. O código, comentários 
 identificadores estão em **português** — mantenha esse padrão ao escrever código
 novo, comentários e mensagens de commit.
 
+## Como responder ao usuário
+
+As respostas em texto (não o código) devem seguir isto:
+
+- **Linguagem direta, sem jargão desnecessário.** Nada de enfeitar a resposta
+  com termo técnico onde uma palavra normal serve.
+- Comece pelo **que muda na prática** — o que aparece na tela, o que fica mais
+  rápido, o que pode quebrar — e só depois detalhe como foi feito.
+- Respostas **curtas**, sem despejar código ou logs que não foram pedidos. Se um
+  trecho de código ajudar a explicar, mostre só ele.
+- Quando um termo específico do projeto for necessário (stream compartilhada,
+  precache do service worker, sala principal), **diga em uma frase o que ele
+  significa aqui** em vez de assumir o contexto.
+- Se o usuário pedir mais profundidade ("explica melhor", "como funciona por
+  baixo"), aí sim entre no detalhe técnico completo.
+
+Isso vale só para a conversa: **o código, os comentários e os commits continuam
+no padrão técnico e em português** descrito no resto deste arquivo.
+
 ## O que é o projeto
 
 **Bolão Bolado** — app Flutter multiplataforma (web, Android, iOS, desktop) para
@@ -124,6 +143,113 @@ Transições de página são instantâneas (`_noTransitionPage`, `Duration.zero`
 
 **Camada de serviços:** funções top-level (não classes) que encapsulam Firestore,
 em `services/`. É onde vive a lógica de apostas, avatares, chat, auth e PIX.
+
+## Cores e tema (claro/escuro)
+
+O app tem **dark mode**, e por isso **nenhum widget escreve cor literal**. Toda
+cor sai da paleta semântica de [app_cores.dart](lib/core/app_cores.dart):
+
+```dart
+final cores = AppCores.de(context);   // resolve pelo Theme.of(context).brightness
+Container(color: cores.card, child: Text('x', style: TextStyle(color: cores.texto)));
+```
+
+Os nomes descrevem o **papel** da cor, não o tom (`card`, `cardExterno`, `campo`,
+`superficieAlta`, `texto`, `textoSuave`, `textoFraco`, `borda`, `azul`, `verde`,
+`fundoVerde`/`bordaVerde`/`textoVerde` para blocos de estado, etc). Ao precisar
+de uma cor nova, **adicione um campo nos dois temas** em vez de escrever um hex
+no widget — um `Color(0xFF...)` solto fica correto num tema e quebra no outro.
+
+- Os valores do tema claro são exatamente os hex que existiam antes do dark
+  mode: **o tema claro não mudou de aparência**.
+- O tema escuro **não é o claro invertido**. As superfícies sobem de tom
+  conforme se aproximam do usuário (`ficharioFundo` < `cardExterno` < `card` <
+  `campo`) — no escuro a sombra quase não aparece, então a hierarquia vem da
+  luminosidade. Azul e verde são versões CLAREADAS (o `#2E7D32` original tem
+  ~2:1 de contraste sobre fundo escuro, ilegível).
+- **Traduzir cor do claro para o escuro é baixar SATURAÇÃO, não só
+  luminosidade.** Escurecer os tons originais mantendo a saturação foi o que
+  produziu, nas primeiras tentativas, uma tela lodosa/amarronzada. Vale para
+  o gradiente de fundo (que preserva os matizes exatos do claro — 43° e 163°)
+  e para os `fundoVerde`/`fundoAmarelo` dos cards.
+- **A metáfora do tema escuro é MESA DE JOGO: feltro e ouro.** Toda a escala de
+  superfícies (`ficharioFundo` → `superficieAlta`) usa o matiz **163°**, que é
+  o do `#7CC8B5` do gradiente claro, com saturação caindo de 20% a 13% conforme
+  sobe. O `dourado` (`#E5C061`, sat 72%) é a cor de acento e lê como metal
+  sobre o feltro. Isso não é decoração arbitrária: é a identidade que o tema
+  claro já tinha (gradiente ouro→verde-água), agora levada a sério no escuro —
+  e combina com um produto de bolão/aposta em vez de um dashboard genérico.
+- **Superfície e gradiente compartilham o matiz de propósito.** Duas tentativas
+  anteriores erraram os extremos: azul-ardósia a sat 25% (matiz 222°) brigava
+  com o gradiente dourado/verde-água — ~175° de distância, praticamente
+  complementares, e o card lia como placa colada por cima; e carvão neutro a
+  sat 6% era correto porém sem personalidade nenhuma. Usar o **mesmo matiz** na
+  escala inteira torna o conflito impossível por construção, e é o que libera
+  o gradiente a ter saturação alta (~43%) sem risco.
+- **O gradiente escuro é MAIS ESCURO que o card** (contraste ~1.12), e usa
+  `paradasGradiente` `[0.0, 1.0]` em vez do `[0.5, 0.9]` do claro. Os dois
+  detalhes resolvem problemas opostos: mais escuro faz o card flutuar sobre a
+  mesa (no escuro a sombra some, a profundidade vem da luminosidade), e
+  espalhar o degradê pela tela inteira é o que torna a diagonal ouro→feltro
+  perceptível apesar da amplitude curta — com os stops do claro, metade do
+  viewport ficava em cor chapada e o fundo lia como preto uniforme. **Ao mexer
+  no fundo, mexa junto no `card`**: clarear o fundo para destacar a diagonal
+  faz o card afundar, escurecer para destacar o card apaga a diagonal.
+- **Estado de linha no escuro é BARRA, não fundo.** Pintar a linha inteira de
+  verde/âmbar (a tradução direta do claro) transformava a tabela num tabuleiro
+  de faixas que competia com os dados. No escuro o fundo fica na cor da zebra
+  e o estado vira uma barra de 3px na borda esquerda — `cores.larguraBarraEstado`
+  (0 no claro, 3 no escuro) é o que decide, e `TabelaApostas.corLinhaEstado` /
+  `corBarraEstado` encapsulam a regra para tabela e lista mobile.
+- **Blocos coloridos grandes precisam ser insinuados no escuro.** Cards de
+  estatística, a moldura do Fichario e a **aba ativa** usam `Color.alphaBlend`
+  da cor de marca a 7–30% sobre a superfície. Cor chapada num bloco grande
+  vira a coisa mais forte da tela. Cuidado ao inverter isso: pintar o RÓTULO
+  com a cor cheia sobre o fundo tingido da mesma cor não passa AA (o roxo e o
+  azul ficam em ~3.4:1) — nas abas o texto continua branco, e é o fundo que
+  identifica a seção.
+- **Toda cor nova precisa passar AA (4.5:1) sobre `card` e `campo`.** Vale
+  também para `textoFraco`, que apesar do nome carrega dado real (cotas,
+  timestamps na lista) — ele já foi clareado duas vezes por isso.
+- **CTA usa `acaoPrimaria`/`textoSobreAcao`, nunca `azul` direto.** Azul no
+  claro, dourado no escuro: sobre feltro o botão azul era a única coisa fria
+  da tela, e branco sobre ele dava 2.74:1 (reprovado, no botão que confirma
+  dinheiro). O `azul` continua na paleta para cursor, chips, ícones e a 2ª cor
+  do Fichario — o que mudou foi só o papel de ação primária.
+- `AdminCores.de(context)` ([admin_widgets.dart](lib/pages/admin/widgets/admin_widgets.dart))
+  é a mesma ideia com nomes do painel admin (`fundoSecao`, `fundoTile`).
+- `cores.escuro` existe para os poucos casos em que a decisão não é uma cor e
+  sim uma medida (elevação do card, campo que precisa recuar em vez de saltar).
+- **Cuidado com `const`:** a paleta não é mais `const`, então `const TextStyle(
+  color: cores.texto)` não compila. Tire o `const` do literal mais interno.
+- **A troca de tema é ANIMADA (450ms), e a estrutura que permite isso é
+  frágil.** `AppCores` é um `ThemeExtension` com `lerp`, registrado em
+  `ThemeData.extensions` — é o que faz os ~95 pontos que leem a paleta
+  atravessarem juntos, sem precisar de `AnimatedContainer` em lugar nenhum. Ao
+  adicionar um campo, adicione a linha correspondente no `lerp`, senão ele
+  salta enquanto o resto desliza. Campos `bool` (como `escuro`) viram em
+  `t < 0.5`: quem decide por eles escolhe uma forma, não uma cor, e forma não
+  tem meio-termo.
+- **Em [bolao_bolado.dart](lib/bolao_bolado.dart) o `MaterialApp` fica FORA do
+  `ValueListenableBuilder` do tema, e a animação acontece num `AnimatedTheme`
+  dentro do `builder`.** Não inverta: com o notifier envolvendo o
+  `MaterialApp`, trocar de tema reconstrói o próprio `MaterialApp` e o
+  `AnimatedTheme` interno perde o estado — fica sem tema anterior de onde
+  partir, e `themeAnimationDuration` não produz animação nenhuma (as cores
+  saltam no primeiro frame). Pelo mesmo motivo o `themeMode` do `MaterialApp`
+  é fixo em `light`: quem decide o tema exibido é o `AnimatedTheme`.
+
+O modo (claro/escuro/sistema) vive em `temaModoGlobal`
+([tema_controller.dart](lib/core/tema_controller.dart)), **persistido** via
+`shared_preferences` e lido em `main.dart` **antes do primeiro frame** (junto do
+`Firebase.initializeApp`, com `.wait`) — senão o app pinta claro e pisca para o
+escuro. O seletor fica no rodapé do Drawer. Os `ThemeData` dos dois modos são
+montados em [app_tema.dart](lib/core/app_tema.dart), que também cobre o que o
+Material desenha sozinho (menus, date/time picker, tooltip, seleção de texto).
+
+**Assets precisam de alpha real.** `images/logo.png` é opaco com fundo branco
+chapado — invisível no tema claro, um retângulo branco no escuro. Por isso o
+`Logo` usa `logo4.png` por padrão. Ao trocar arte, confira o canal alfa.
 
 ## Firebase / Firestore — modelo de dados
 

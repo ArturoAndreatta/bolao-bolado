@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
@@ -25,6 +26,7 @@ class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -35,10 +37,10 @@ class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
             return LinearGradient(
               begin: Alignment(-1 + dx, 0),
               end: Alignment(1 + dx, 0),
-              colors: const [
-                Color(0xFFE5E7EB),
-                Color(0xFFF3F4F6),
-                Color(0xFFE5E7EB),
+              colors: [
+                cores.skeletonBase,
+                cores.skeletonBrilho,
+                cores.skeletonBase,
               ],
               stops: const [0.35, 0.5, 0.65],
             ).createShader(bounds);
@@ -70,7 +72,7 @@ class SkeletonBox extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: const Color(0xFFE5E7EB),
+        color: AppCores.de(context).skeletonBase,
         borderRadius: BorderRadius.circular(radius),
       ),
     );
@@ -92,7 +94,7 @@ class SkeletonCampoFormulario extends StatelessWidget {
         height: 54,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
+          color: AppCores.de(context).campo,
           borderRadius: AppRadii.circularLg,
         ),
         child: Row(
@@ -119,12 +121,13 @@ class SkeletonStatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
+        color: cores.campo,
         borderRadius: AppRadii.circularMd,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: cores.borda),
       ),
       child: Row(
         children: [
@@ -177,12 +180,13 @@ class SkeletonLinhaApostaPendente extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEFEFE),
+        color: cores.card,
         borderRadius: AppRadii.circularSmd,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: cores.borda),
       ),
       child: Row(
         children: [
@@ -236,9 +240,12 @@ class SkeletonCardSala extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEFEFE),
+          color: AppCores.de(context).card,
           borderRadius: AppRadii.circularMd,
-          border: Border.all(color: const Color(0xFFDDDDDD), width: 1.5),
+          border: Border.all(
+            color: AppCores.de(context).bordaCampo,
+            width: 1.5,
+          ),
         ),
         child: Row(
           children: [

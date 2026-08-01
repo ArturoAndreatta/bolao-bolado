@@ -1,10 +1,8 @@
 import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:flutter/material.dart';
-
-const Color _azul = Color(0xFF487DE5);
-const Color _tinta = Color(0xFF1F2937);
 
 /// Abre o seletor de avatar (emoji + cor).
 ///
@@ -109,13 +107,14 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
   // ─── Invólucros ────────────────────────────────────────────────────────────
 
   Widget _comoDialog() {
+    final cores = AppCores.de(context);
     return AlertDialog(
-      backgroundColor: const Color(0xFFFEFEFE),
+      backgroundColor: cores.card,
       surfaceTintColor: Colors.transparent,
       elevation: 18,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadii.circularXxl,
-        side: BorderSide(color: Colors.grey.shade200, width: 1),
+        side: BorderSide(color: cores.borda, width: 1),
       ),
       contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       content: SizedBox(
@@ -128,14 +127,14 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
       actions: [
         TextButton(
           onPressed: _salvando ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+          child: Text('Cancelar', style: TextStyle(color: cores.textoSuave)),
         ),
         ElevatedButton(
           onPressed: _mudou && !_salvando ? _confirmar : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: _azul,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: Colors.grey.shade300,
+            backgroundColor: cores.azul,
+            foregroundColor: cores.textoSobreCor,
+            disabledBackgroundColor: cores.superficieAlta,
             shape: RoundedRectangleBorder(borderRadius: AppRadii.circularSmd),
           ),
           child: _salvando ? const _Progresso() : const Text('Confirmar'),
@@ -145,6 +144,7 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
   }
 
   Widget _comoBottomSheet() {
+    final cores = AppCores.de(context);
     // Altura limitada + rolagem interna: com as quatro categorias abertas a
     // grade não cabe na tela de um celular, e uma Column solta simplesmente
     // estouraria por baixo.
@@ -154,9 +154,9 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFFEFEFE),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: cores.card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
@@ -165,7 +165,7 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
               height: 4,
               margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: cores.borda,
                 borderRadius: AppRadii.circularXs,
               ),
             ),
@@ -181,16 +181,16 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
               decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                border: Border(top: BorderSide(color: cores.borda)),
               ),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _mudou && !_salvando ? _confirmar : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _azul,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade300,
+                    backgroundColor: cores.azul,
+                    foregroundColor: cores.textoSobreCor,
+                    disabledBackgroundColor: cores.superficieAlta,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: AppRadii.circularMd,
@@ -217,6 +217,7 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
   // ─── Conteúdo compartilhado ────────────────────────────────────────────────
 
   Widget _conteudo() {
+    final cores = AppCores.de(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -228,11 +229,11 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
             children: [
               AvatarEmoji(tamanho: 76, cor: _cor, emoji: _emoji),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'Seu avatar',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF6B7280),
+                  color: cores.textoSuave,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -255,10 +256,10 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
           const SizedBox(height: 12),
           Text(
             categoria.nome,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF9CA3AF),
+              color: cores.textoFraco,
               letterSpacing: 0.4,
             ),
           ),
@@ -284,10 +285,10 @@ class _TituloSecao extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       texto,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.bold,
-        color: _tinta,
+        color: AppCores.de(context).texto,
       ),
     );
   }
@@ -353,6 +354,7 @@ class _BolhaCor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -367,12 +369,15 @@ class _BolhaCor extends StatelessWidget {
             // Anel branco entre a cor e a borda azul: sem ele, cores próximas
             // do azul de seleção encostavam na borda e a marca de selecionado
             // sumia.
+            // Anel na cor do card (não branco fixo): no escuro um anel
+            // branco entre a bolha e a borda azul brilharia mais que a
+            // própria cor sendo escolhida.
             border: Border.all(
-              color: selecionada ? Colors.white : Colors.transparent,
+              color: selecionada ? cores.card : Colors.transparent,
               width: 2,
             ),
             boxShadow: selecionada
-                ? [const BoxShadow(color: _azul, spreadRadius: 2)]
+                ? [BoxShadow(color: cores.azul, spreadRadius: 2)]
                 : null,
           ),
           child: selecionada
@@ -445,7 +450,9 @@ class _BolhaEmoji extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: selecionado ? _azul : Colors.transparent,
+              color: selecionado
+                  ? AppCores.de(context).azul
+                  : Colors.transparent,
               width: 2,
             ),
           ),

@@ -1,5 +1,6 @@
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:flutter/material.dart';
 
 /// Padrão de card usado em toda tela do Bolão Bolado: um CustomCard externo
@@ -16,7 +17,9 @@ class HeaderCard extends StatelessWidget {
   final bool mostrarCabecalho;
 
   final List<Widget> children;
-  final Color color;
+
+  /// Null (padrão) usa a superfície de card externo do tema ativo.
+  final Color? color;
   final double maxWidth;
   final double? height;
 
@@ -34,7 +37,7 @@ class HeaderCard extends StatelessWidget {
 
   // Repassado ao CustomCard externo: zera o arredondamento do canto superior
   // esquerdo/direito individualmente, quando esse lado do card encosta em
-  // algo acima (ex: aba ativa do FicharioAbas, quando ela é a primeira/
+  // algo acima (ex: aba ativa do Fichario, quando ela é a primeira/
   // última da fileira e por isso encosta na borda lateral do card).
   final bool cantoSuperiorEsquerdoReto;
   final bool cantoSuperiorDireitoReto;
@@ -44,10 +47,6 @@ class HeaderCard extends StatelessWidget {
   // Repassado ao CustomCard externo: margem extra lateral/inferior que
   // revela a cor de fundo por trás (faixa do pill cinza no fichário).
   final double margemFichario;
-  // Repassado ao CustomCard externo: exibe a assinatura no canto inferior
-  // direito. Quem usa HeaderCard decide (ex: numa tela com vários cards
-  // lado a lado, só o mais à direita/abaixo deve passar true).
-  final bool mostrarAssinatura;
 
   const HeaderCard({
     super.key,
@@ -58,7 +57,7 @@ class HeaderCard extends StatelessWidget {
     this.showBackButton = true,
     this.onBack,
     this.mostrarCabecalho = true,
-    this.color = const Color(0xFFF3F1EF),
+    this.color,
     this.maxWidth = 730,
     this.height,
     this.apenasCardFilho = false,
@@ -67,7 +66,6 @@ class HeaderCard extends StatelessWidget {
     this.cantoSuperiorDireitoReto = false,
     this.esticarLargura = false,
     this.margemFichario = 0,
-    this.mostrarAssinatura = false,
   });
 
   @override
@@ -89,13 +87,12 @@ class HeaderCard extends StatelessWidget {
     if (apenasCardFilho) return cardFilho;
 
     return CustomCard(
-      color: color,
+      color: color ?? AppCores.de(context).cardExterno,
       maxWidth: maxWidth,
       cantoSuperiorEsquerdoReto: cantoSuperiorEsquerdoReto,
       cantoSuperiorDireitoReto: cantoSuperiorDireitoReto,
       esticarLargura: esticarLargura,
       margemFichario: margemFichario,
-      mostrarAssinatura: mostrarAssinatura,
       children: [
         if (mostrarCabecalho)
           HeaderPaginas(

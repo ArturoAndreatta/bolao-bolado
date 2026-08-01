@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/formatters/money_input_format.dart';
 import 'package:bolao_bolado/components/shared/custom_field_decoration.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 
@@ -71,6 +72,7 @@ class CustomField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth!),
       child: TextFormField(
@@ -81,7 +83,7 @@ class CustomField extends StatelessWidget {
         keyboardType: keyboardType,
         textInputAction: textInputAction,
         autovalidateMode: AutovalidateMode.onUserInteraction,
-        style: const TextStyle(color: Color(0xFF1F2937), fontSize: 18),
+        style: TextStyle(color: cores.texto, fontSize: 18),
         obscureText: obscure!,
         enableInteractiveSelection: true,
         onTap: onTap,
@@ -91,6 +93,7 @@ class CustomField extends StatelessWidget {
             : null,
         validator: (isRequired! || validator != null) ? _validate : null,
         decoration: CustomFieldDecoration.build(
+          context,
           hint: hint,
           icon: icon,
           prefix: prefix,
@@ -125,8 +128,9 @@ class CustomDropdownField<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Theme(
-      data: Theme.of(context).copyWith(canvasColor: const Color(0xFFF3F4F6)),
+      data: Theme.of(context).copyWith(canvasColor: cores.campo),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth ?? 300),
         child: DropdownButtonFormField2(
@@ -140,8 +144,12 @@ class CustomDropdownField<T> extends StatelessWidget {
             icon: Icon(Icons.keyboard_arrow_down_rounded),
             iconSize: 26,
           ),
-          style: const TextStyle(color: Color(0xFF1F2937), fontSize: 18),
-          decoration: CustomFieldDecoration.build(hint: hint, icon: icon),
+          style: TextStyle(color: cores.texto, fontSize: 18),
+          decoration: CustomFieldDecoration.build(
+            context,
+            hint: hint,
+            icon: icon,
+          ),
           // Altura default do botão (40px) corta a parte de baixo do texto
           // do item selecionado quando o InputDecoration tem labelText
           // flutuante (o rótulo some pro topo e o valor precisa da altura
@@ -153,7 +161,7 @@ class CustomDropdownField<T> extends StatelessWidget {
           ),
           dropdownStyleData: DropdownStyleData(
             decoration: BoxDecoration(
-              color: const Color(0xFFF9FAFB),
+              color: cores.card,
               borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
               boxShadow: const [
                 BoxShadow(

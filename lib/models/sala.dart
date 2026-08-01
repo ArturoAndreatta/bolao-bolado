@@ -23,8 +23,14 @@ class Sala {
     required this.chavePix,
   });
 
+  /// Monta uma [Sala] a partir de um documento do Firestore.
+  ///
+  /// Documento inexistente (ou sem dados) vira uma sala de campos vazios em
+  /// vez de estourar: o cast direto `doc.data() as Map` lançava
+  /// `TypeError` num `null`, o que derrubava a lista inteira de salas por
+  /// causa de um único doc apagado entre a query e a leitura.
   factory Sala.fromDoc(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = (doc.data() as Map<String, dynamic>?) ?? const {};
     return Sala(
       id: doc.id,
       nome: data['nome'] ?? '',

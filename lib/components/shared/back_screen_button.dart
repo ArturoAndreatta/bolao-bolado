@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/router/app_router.dart';
 import 'package:flutter/material.dart';
@@ -19,12 +20,13 @@ class BackScreenButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     final button = MouseRegion(
       cursor: SystemMouseCursors.click,
       child: Material(
-        color: const Color(0xFFF9FAFB),
+        color: cores.campo,
         elevation: 1.5,
         shadowColor: Colors.black12,
         borderRadius: AppRadii.circularCircle,
@@ -39,19 +41,15 @@ class BackScreenButton extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.arrow_back,
-                  size: 18,
-                  color: Color(0xFF1F2937),
-                ),
+                Icon(Icons.arrow_back, size: 18, color: cores.texto),
                 if (!isMobile) ...[
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Voltar',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1F2937),
+                      color: cores.texto,
                     ),
                   ),
                 ],

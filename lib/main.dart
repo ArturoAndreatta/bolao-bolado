@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:bolao_bolado/bolao_bolado.dart';
+import 'package:bolao_bolado/core/app_tema.dart';
+import 'package:bolao_bolado/core/tema_controller.dart';
+import 'package:bolao_bolado/core/ultima_rota_admin.dart';
 import 'package:bolao_bolado/pages/splash_screen.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -66,10 +69,18 @@ class _AppInitState extends State<_AppInit> {
   }
 
   Future<void> _inicializar() async {
-    // Firebase precisa estar inicializado antes de qualquer chamada de autenticação
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // Firebase e as duas preferências locais não dependem um do outro: em
+    // série, cada leitura somaria um passo antes do primeiro frame só para
+    // descobrir um valor local. A do tema precisa acontecer ANTES do app
+    // pintar, senão a tela aparece clara e pisca para o escuro no frame
+    // seguinte; a de última rota precisa estar pronta antes da primeira
+    // decisão do redirect do router (ver app_router.dart), senão a primeira
+    // navegação de quem loga cairia sempre no destino padrão.
+    await (
+      Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+      carregarTemaSalvo(),
+      carregarUltimaRotaAdmin(),
+    ).wait;
 
     _configurarFirestore();
 
@@ -115,12 +126,21 @@ class _AppInitState extends State<_AppInit> {
 
   @override
   Widget build(BuildContext context) {
-    // Exibe a splash enquanto Firebase/login anônimo não terminam de inicializar
+    // Exibe a splash enquanto Firebase/login anônimo não terminam de
+    // inicializar. Ela também precisa respeitar o tema salvo: sem isso, quem
+    // usa o app no escuro leva um flash branco a cada abertura — justamente
+    // o que o dark mode existe para evitar.
     if (!_pronto) {
-      return const MaterialApp(
-        title: 'Bolão Bolado',
-        debugShowCheckedModeBanner: false,
-        home: SplashScreen(),
+      return ValueListenableBuilder<ThemeMode>(
+        valueListenable: temaModoGlobal,
+        builder: (context, modo, _) => MaterialApp(
+          title: 'Bolão Bolado',
+          theme: AppTema.claro(),
+          darkTheme: AppTema.escuro(),
+          themeMode: modo,
+          debugShowCheckedModeBanner: false,
+          home: const SplashScreen(),
+        ),
       );
     }
     return const BolaoBolado();

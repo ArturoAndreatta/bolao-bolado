@@ -9,6 +9,7 @@ import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_controller.dart';
 import 'package:bolao_bolado/router/app_router.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -105,8 +106,7 @@ class _CadastrarSalaFormState extends State<CadastrarSalaForm> {
       return DefaultLayout(
         drawer: AppDrawer(),
         child: CustomCard(
-          color: const Color(0xFFF3F1EF),
-          mostrarAssinatura: true,
+          color: AppCores.de(context).cardExterno,
           children: [
             const HeaderPaginas(
               text: 'Editar Sala',
@@ -198,8 +198,7 @@ class _CadastrarSalaFormState extends State<CadastrarSalaForm> {
       child: Stack(
         children: [
           CustomCard(
-            color: const Color(0xFFF3F1EF),
-            mostrarAssinatura: true,
+            color: AppCores.de(context).cardExterno,
             children: [
               HeaderPaginas(
                 text: _c.editando ? 'Editar Sala' : 'Criar Sala',

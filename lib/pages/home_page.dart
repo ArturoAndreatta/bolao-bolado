@@ -6,6 +6,7 @@ import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/branding/logo.dart';
 import 'package:bolao_bolado/components/shared/constants/phrases.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:flutter/material.dart';
@@ -83,7 +84,6 @@ class _HomePageState extends State<HomePage> with RouteAware {
       child: Stack(
         children: [
           CustomCard(
-            mostrarAssinatura: true,
             children: [
               Logo(),
               SizedBox(height: 20),
@@ -114,7 +114,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     fontSize: 25,
                     fontWeight: FontWeight.w500,
                     fontStyle: FontStyle.italic,
-                    color: Color(0xFF6B7280),
+                    color: AppCores.de(context).textoSuave,
                   ),
                 ),
               ),

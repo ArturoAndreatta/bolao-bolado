@@ -5,6 +5,7 @@ import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
+import 'package:bolao_bolado/components/shared/snackbar_deslizante.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/core/responsive.dart';
@@ -78,16 +79,29 @@ class AdminCardStats extends StatelessWidget {
   final List<Map<String, dynamic>> bets;
   final bool carregandoStats;
   final int totalPendentes;
+  final double precoCota;
+  // O bento grid (módulos de tamanhos diferentes preenchendo uma altura
+  // fixa via Expanded) só funciona no layout desktop, onde o _CardSecao
+  // reserva uma altura exata pro conteúdo. No fichário mobile a folha fica
+  // dentro de um SingleChildScrollView (altura infinita) — Expanded nesse
+  // contexto lança RenderFlex e o Flutter web engole a exceção, deixando a
+  // aba inteira em branco. Por isso o mobile usa este modo simples: um tile
+  // por linha, empilhado, encolhendo pro próprio conteúdo (como era antes
+  // do bento grid existir).
+  final bool bentoGrid;
 
   const AdminCardStats({
     super.key,
     required this.bets,
     required this.carregandoStats,
     required this.totalPendentes,
+    required this.precoCota,
+    this.bentoGrid = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     if (carregandoStats) {
       return const Padding(
         padding: EdgeInsets.all(16),
@@ -107,61 +121,331 @@ class AdminCardStats extends StatelessWidget {
       0,
       (soma, item) => soma + ((item['cotas'] as num?)?.toInt() ?? 0),
     );
-    final verificados = bets.where((b) => b['verificado'] == true).length;
+    final apostasVerificadas = bets.where((b) => b['verificado'] == true);
+    final verificados = apostasVerificadas.length;
+    final totalVerificado = apostasVerificadas.fold<double>(
+      0,
+      (soma, item) => soma + ((item['valor'] as num?)?.toDouble() ?? 0),
+    );
 
-    // Um tile por linha: cada card ocupa a largura toda em vez de disputar
-    // espaço lado a lado, ficando legível mesmo em telas estreitas.
+    // "Bento grid": módulos de tamanhos diferentes lado a lado (mesma ideia
+    // do ícone de grade da própria seção "Visão geral"), não uma pilha de
+    // retângulos iguais. Linha de cima é o bloco principal — prêmio (2/3 da
+    // largura, o número que mais importa) ao lado das pendências (1/3, alto
+    // e colorido por estado — a única informação aqui que pede ação do
+    // admin). Linha de baixo divide o resto em 4 módulos menores e iguais.
+    // As duas linhas usam Expanded (não LayoutBuilder+Wrap): a altura do
+    // card já é sempre finita (sem scroll interno), e Row/Column com
+    // Expanded direto é mais simples que calcular largura na mão.
     const espacamento = 12.0;
+    final erroPendentes = totalPendentes == -1;
+    // Sempre modo "verificado" (valor arrecadado + progresso), tenha ou não
+    // pendência — antes o módulo virava vermelho e trocava o valor pela
+    // CONTAGEM de pendentes assim que havia 1 sequer, escondendo o dado que
+    // o admin queria ver (quanto já foi confirmado). Pendência agora é só
+    // um badge pequeno no canto (ver AdminCardStats._ModuloPendencias),
+    // sem tomar o lugar do número principal.
+    final corVerificado = erroPendentes ? cores.textoSuave : cores.verde;
+    final iconeVerificado = erroPendentes
+        ? Icons.error_outline
+        : Icons.task_alt;
+    final valorVerificado = erroPendentes
+        ? '—'
+        : Formatters.moeda.format(totalVerificado);
+    final fracaoVerificado = bets.isEmpty ? null : verificados / bets.length;
+
+    if (!bentoGrid) {
+      // Mobile: um tile por linha, empilhado — mesmo padrão de antes do
+      // bento grid, sem Expanded/altura forçada.
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminStatDestaque(
+              icon: Icons.emoji_events_outlined,
+              label: 'Prêmio total',
+              value: Formatters.moeda.format(totalPremios),
+              color: cores.dourado,
+              sublabel: '${Formatters.moeda.format(precoCota)} por cota',
+            ),
+            const SizedBox(height: espacamento),
+            _ModuloPendencias(
+              cor: corVerificado,
+              icon: iconeVerificado,
+              valor: valorVerificado,
+              label: 'Verificado',
+              fracaoVerificado: fracaoVerificado,
+              totalPendentes: erroPendentes ? null : totalPendentes,
+            ),
+            const SizedBox(height: espacamento),
+            AdminStatTile(
+              icon: Icons.groups_outlined,
+              label: 'Participantes',
+              value: '${bets.length}',
+              color: cores.azul,
+            ),
+            const SizedBox(height: espacamento),
+            AdminStatTile(
+              icon: Icons.payments_outlined,
+              label: 'Total arrecadado',
+              value: Formatters.moeda.format(totalApostado),
+              color: cores.verde,
+            ),
+            const SizedBox(height: espacamento),
+            AdminStatTile(
+              icon: Icons.confirmation_number_outlined,
+              label: 'Cotas vendidas',
+              value: '$totalCotas',
+              color: cores.dourado,
+            ),
+            const SizedBox(height: espacamento),
+            AdminStatTile(
+              icon: Icons.verified_outlined,
+              label: 'Verificadas',
+              value: '$verificados de ${bets.length}',
+              color: cores.verdeAgua,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AdminStatTile(
-            icon: Icons.groups_outlined,
-            label: 'Participantes',
-            value: '${bets.length}',
-            color: AdminCores.azul,
+          Expanded(
+            flex: 5,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: AdminStatDestaque(
+                    icon: Icons.emoji_events_outlined,
+                    label: 'Prêmio total',
+                    value: Formatters.moeda.format(totalPremios),
+                    color: cores.dourado,
+                    preencherAltura: true,
+                    sublabel: '${Formatters.moeda.format(precoCota)} por cota',
+                  ),
+                ),
+                const SizedBox(width: espacamento),
+                Expanded(
+                  child: _ModuloPendencias(
+                    cor: corVerificado,
+                    icon: iconeVerificado,
+                    valor: valorVerificado,
+                    label: 'Verificado',
+                    // Progresso de verificação preenche o espaço vertical
+                    // que sobrava no módulo com uma informação nova de
+                    // verdade (não repete os números de cima): quanto da
+                    // fila já foi conferida, sem precisar abrir a aba
+                    // Participantes pra ter essa ideia.
+                    fracaoVerificado: fracaoVerificado,
+                    totalPendentes: erroPendentes ? null : totalPendentes,
+                    preencherAltura: true,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: espacamento),
-          AdminStatTile(
-            icon: Icons.payments_outlined,
-            label: 'Total arrecadado',
-            value: Formatters.moeda.format(totalApostado),
-            color: AdminCores.verde,
+          Expanded(
+            flex: 4,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: AdminStatTile(
+                          icon: Icons.groups_outlined,
+                          label: 'Participantes',
+                          value: '${bets.length}',
+                          color: cores.azul,
+                          preencherAltura: true,
+                        ),
+                      ),
+                      const SizedBox(height: espacamento),
+                      Expanded(
+                        child: AdminStatTile(
+                          icon: Icons.confirmation_number_outlined,
+                          label: 'Cotas',
+                          value: '$totalCotas',
+                          color: cores.dourado,
+                          preencherAltura: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: espacamento),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: AdminStatTile(
+                          icon: Icons.payments_outlined,
+                          label: 'Total arrecadado',
+                          value: Formatters.moeda.format(totalApostado),
+                          color: cores.verde,
+                          preencherAltura: true,
+                        ),
+                      ),
+                      const SizedBox(height: espacamento),
+                      Expanded(
+                        child: AdminStatTile(
+                          icon: Icons.verified_outlined,
+                          label: 'Verificadas',
+                          value: '$verificados de ${bets.length}',
+                          color: cores.verdeAgua,
+                          preencherAltura: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: espacamento),
-          AdminStatTile(
-            icon: Icons.emoji_events_outlined,
-            label: 'Prêmio total',
-            value: Formatters.moeda.format(totalPremios),
-            color: AdminCores.azul,
+        ],
+      ),
+    );
+  }
+}
+
+/// Módulo alto de "verificado" do bento grid da Visão geral — ao lado do
+/// destaque de prêmio, mesma altura. Sempre mostra o valor arrecadado das
+/// apostas verificadas (cor/ícone fixos, sem alternar pra vermelho): antes
+/// o módulo virava "N Pendente(s)" assim que havia 1 pendência sequer,
+/// escondendo o número que o admin queria ver. Pendência agora é só um
+/// badge pequeno no canto superior direito — visível, mas sem tomar o
+/// lugar do dado principal.
+class _ModuloPendencias extends StatelessWidget {
+  final Color cor;
+  final IconData icon;
+  final String valor;
+  final String label;
+  // Fração de apostas já verificadas (0 a 1) — null quando não há nenhuma
+  // aposta ainda (não faz sentido mostrar 0% de nada). Preenche o espaço
+  // vertical que sobrava no módulo com um dado novo (progresso da fila),
+  // em vez de repetir os números que já aparecem nos tiles de baixo.
+  final double? fracaoVerificado;
+  // Null quando erro ao carregar (não desenha badge nenhum); 0 também não
+  // desenha (nada pendente pra avisar); só aparece quando > 0.
+  final int? totalPendentes;
+  // Ver AdminStatTile.preencherAltura — mesma ideia: só true no bento grid
+  // desktop, onde este módulo vive dentro de um Expanded com altura finita.
+  // No mobile o Column ancestral não tem Expanded (fica num
+  // SingleChildScrollView, altura infinita) — Column com mainAxisSize.max
+  // nesse contexto lança RenderFlex, então lá o widget encolhe pro próprio
+  // conteúdo (mainAxisSize.min) em vez de tentar preencher.
+  final bool preencherAltura;
+
+  const _ModuloPendencias({
+    required this.cor,
+    required this.icon,
+    required this.valor,
+    required this.label,
+    this.fracaoVerificado,
+    this.totalPendentes,
+    this.preencherAltura = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    final temPendencia = (totalPendentes ?? 0) > 0;
+    return Container(
+      width: double.infinity,
+      height: preencherAltura ? double.infinity : null,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: cor.withValues(alpha: 0.1),
+        borderRadius: AppRadii.circularLg,
+        border: Border.all(color: cor.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: preencherAltura ? MainAxisSize.max : MainAxisSize.min,
+        // stretch (não o center padrão): sem isso o Align do badge abaixo
+        // encolhe pra própria largura mínima e "topRight" não tem espaço
+        // sobrando pra empurrar o badge de verdade — os textos internos já
+        // usam TextAlign.center, então esticar a Column não muda como eles
+        // aparecem.
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (temPendencia)
+            Align(
+              alignment: Alignment.topRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: cores.vermelho,
+                  borderRadius: AppRadii.circularPill,
+                ),
+                child: Text(
+                  totalPendentes == 1
+                      ? '1 pendente'
+                      : '$totalPendentes pendentes',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          if (temPendencia) const SizedBox(height: 10),
+          Icon(icon, color: cor, size: 52),
+          const SizedBox(height: 14),
+          Text(
+            valor,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 38,
+              fontWeight: FontWeight.w800,
+              color: cor,
+              height: 1.0,
+            ),
           ),
-          const SizedBox(height: espacamento),
-          AdminStatTile(
-            icon: Icons.confirmation_number_outlined,
-            label: 'Cotas vendidas',
-            value: '$totalCotas',
-            color: AdminCores.dourado,
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: cores.texto,
+            ),
           ),
-          const SizedBox(height: espacamento),
-          AdminStatTile(
-            icon: Icons.verified_outlined,
-            label: 'Apostas verificadas',
-            value: '$verificados de ${bets.length}',
-            color: AdminCores.verdeAgua,
-          ),
-          const SizedBox(height: espacamento),
-          AdminStatTile(
-            icon: Icons.pending_actions_outlined,
-            label: totalPendentes == -1
-                ? 'Erro ao carregar'
-                : totalPendentes > 0
-                ? 'Aguardando verificação'
-                : 'Tudo verificado',
-            value: totalPendentes == -1 ? '—' : '$totalPendentes pendentes',
-            color: totalPendentes > 0 ? AdminCores.vermelho : AdminCores.verde,
-          ),
+          if (fracaoVerificado != null) ...[
+            const SizedBox(height: 18),
+            ClipRRect(
+              borderRadius: AppRadii.circularPill,
+              child: LinearProgressIndicator(
+                value: fracaoVerificado!.clamp(0.0, 1.0),
+                minHeight: 8,
+                backgroundColor: cor.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation(cor),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${(fracaoVerificado! * 100).round()}% da fila verificada',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: cores.textoSuave,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -196,6 +480,7 @@ class AdminCardPendentes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -204,13 +489,13 @@ class AdminCardPendentes extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Apostas pendentes',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AdminCores.texto,
+                    color: cores.texto,
                   ),
                 ),
               ),
@@ -234,13 +519,14 @@ class AdminCardPendentes extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(height: altura, child: _corpoPendentes()),
+          SizedBox(height: altura, child: _corpoPendentes(context)),
         ],
       ),
     );
   }
 
-  Widget _corpoPendentes() {
+  Widget _corpoPendentes(BuildContext context) {
+    final cores = AdminCores.de(context);
     if (fakePendentes != null) {
       return _ListaPendentes(
         itens: [
@@ -264,7 +550,7 @@ class AdminCardPendentes extends StatelessWidget {
     if (pendentesSnapshot.hasError) {
       return AdminEstadoVazio(
         icon: Icons.error_outline,
-        cor: AdminCores.vermelho,
+        cor: cores.vermelho,
         mensagem:
             'Erro ao carregar apostas pendentes:\n${pendentesSnapshot.error}',
       );
@@ -283,9 +569,9 @@ class AdminCardPendentes extends StatelessWidget {
       });
 
     if (docs.isEmpty) {
-      return const AdminEstadoVazio(
+      return AdminEstadoVazio(
         icon: Icons.check_circle_outline,
-        cor: AdminCores.verde,
+        cor: cores.verde,
         mensagem: 'Nenhuma aposta pendente de verificação.',
       );
     }
@@ -348,12 +634,13 @@ class _ItemPendente extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AdminCores.fundoCard,
+        color: cores.fundoCard,
         borderRadius: AppRadii.circularSmd,
-        border: Border.all(color: AdminCores.borda),
+        border: Border.all(color: cores.borda),
       ),
       child: Row(
         children: [
@@ -365,19 +652,19 @@ class _ItemPendente extends StatelessWidget {
                 Text(
                   nome,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AdminCores.texto,
+                    color: cores.texto,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   Formatters.moeda.format(valor),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AdminCores.verde,
+                    color: cores.verde,
                   ),
                 ),
               ],
@@ -421,9 +708,16 @@ class AbaParticipantes extends StatefulWidget {
 }
 
 class _AbaParticipantesState extends State<AbaParticipantes> {
+  // Linhas visíveis por página — o card tem altura fixa (padrão de todos os
+  // cards da grade) e não rola mais internamente, então a lista precisa
+  // caber sozinha: 6 linhas + o resto do cabeçalho (busca, filtros, paginação)
+  // é o que fecha dentro dos 560px de _alturaCorpoPadrao.
+  static const _porPagina = 6;
+
   String _busca = '';
   // 0=todos, 1=pendentes, 2=verificados
   int _filtro = 0;
+  int _pagina = 0;
 
   List<Map<String, dynamic>> get _filtrados {
     final termo = _busca.trim().toLowerCase();
@@ -436,8 +730,19 @@ class _AbaParticipantesState extends State<AbaParticipantes> {
     }).toList();
   }
 
+  void _mudarFiltro(int i) => setState(() {
+    _filtro = i;
+    _pagina = 0;
+  });
+
+  void _mudarBusca(String v) => setState(() {
+    _busca = v;
+    _pagina = 0;
+  });
+
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     if (widget.carregando) {
       return const Padding(
         padding: EdgeInsets.all(16),
@@ -446,21 +751,35 @@ class _AbaParticipantesState extends State<AbaParticipantes> {
     }
 
     final filtrados = _filtrados;
+    final totalPaginas = filtrados.isEmpty
+        ? 1
+        : (filtrados.length / _porPagina).ceil();
+    final pagina = _pagina.clamp(0, totalPaginas - 1);
+    final inicio = pagina * _porPagina;
+    final itensPagina = filtrados.skip(inicio).take(_porPagina).toList();
 
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
         children: [
+          // Busca sozinha na primeira linha — é a ação mais comum (achar
+          // alguém específico), então fica em destaque acima de tudo.
+          _CampoBuscaAdmin(onChanged: _mudarBusca),
+          const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: AdminTituloSecao(
-                  texto: '${widget.bets.length} participantes',
-                  icone: Icons.groups_outlined,
-                ),
-              ),
+              _FiltroChips(selecionado: _filtro, onSelecionar: _mudarFiltro),
+              const SizedBox(width: 12),
+              // Divisor vertical separa visualmente "Lançar" dos filtros —
+              // ele não filtra nada, é uma ação, e ficar colado nos chips
+              // dava a entender que era mais uma opção de filtro. Sem
+              // Expanded/Spacer nos chips: antes o Expanded esticava até o
+              // botão e deixava o espaço vazio sobrando DEPOIS do divisor
+              // (mais perto do botão do que dos chips) — aqui o respiro é o
+              // mesmo (12px) dos dois lados do traço.
+              Container(width: 1, height: 28, color: cores.borda),
+              const SizedBox(width: 12),
               PrimaryButton(
                 text: 'Lançar',
                 width: 88,
@@ -469,45 +788,128 @@ class _AbaParticipantesState extends State<AbaParticipantes> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          _CampoBuscaAdmin(onChanged: (v) => setState(() => _busca = v)),
-          const SizedBox(height: 12),
-          _FiltroChips(
-            selecionado: _filtro,
-            onSelecionar: (i) => setState(() => _filtro = i),
-          ),
-          const SizedBox(height: 14),
-          if (filtrados.isEmpty)
-            const AdminEstadoVazio(
-              icon: Icons.sentiment_dissatisfied_outlined,
-              cor: AdminCores.textoSuave,
-              mensagem: 'Nenhum participante encontrado.',
-            )
-          else
-            AdminSecaoCard(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-              child: Column(
-                children: [
-                  for (var i = 0; i < filtrados.length; i++) ...[
-                    if (i > 0)
-                      const Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: AdminCores.borda,
-                      ),
-                    _LinhaParticipante(
-                      aposta: filtrados[i],
-                      onEditar: () => widget.onEditarValor(filtrados[i]),
-                      onRemover: () => widget.onRemover(filtrados[i]),
-                      onAlternarVerificacao: () =>
-                          widget.onAlternarVerificacao(filtrados[i]),
+          const SizedBox(height: 10),
+          Expanded(
+            child: filtrados.isEmpty
+                ? AdminEstadoVazio(
+                    icon: Icons.sentiment_dissatisfied_outlined,
+                    cor: cores.textoSuave,
+                    mensagem: 'Nenhum participante encontrado.',
+                  )
+                : AdminSecaoCard(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 6,
                     ),
-                  ],
-                ],
+                    // SingleChildScrollView como rede de segurança — ver o
+                    // mesmo comentário em AbaRanking: Column sozinho não
+                    // clipa overflow, então se a página não coubesse
+                    // exatamente na altura disponível o conteúdo vazava por
+                    // cima do rodapé (paginação/contagem) em vez de só
+                    // rolar por dentro.
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < itensPagina.length; i++) ...[
+                            if (i > 0)
+                              Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: cores.borda,
+                              ),
+                            _LinhaParticipante(
+                              aposta: itensPagina[i],
+                              onEditar: () =>
+                                  widget.onEditarValor(itensPagina[i]),
+                              onRemover: () => widget.onRemover(itensPagina[i]),
+                              onAlternarVerificacao: () =>
+                                  widget.onAlternarVerificacao(itensPagina[i]),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 10),
+          // Contagem no mesmo eixo da paginação (à direita, no lugar do
+          // Spacer quando não há páginas): antes essa linha vinha sozinha
+          // ACIMA da lista, tirando uma linha inteira de altura útil do
+          // card — e como a altura do card é fixa, a última linha da
+          // página perdia espaço e cortava baixinha, diferente das outras.
+          Row(
+            children: [
+              if (totalPaginas > 1)
+                Expanded(
+                  child: _Paginador(
+                    pagina: pagina,
+                    totalPaginas: totalPaginas,
+                    onAnterior: pagina > 0
+                        ? () => setState(() => _pagina--)
+                        : null,
+                    onProximo: pagina < totalPaginas - 1
+                        ? () => setState(() => _pagina++)
+                        : null,
+                  ),
+                )
+              else
+                const Spacer(),
+              Text(
+                filtrados.length == widget.bets.length
+                    ? '${widget.bets.length} participantes'
+                    : '${filtrados.length} de ${widget.bets.length} participantes',
+                style: TextStyle(fontSize: 12, color: cores.textoSuave),
               ),
-            ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// Setas + "Página X de Y" — navegação da lista de participantes quando o
+/// filtro atual tem mais que uma página. Substitui o scroll interno que o
+/// card tinha antes: com altura fixa em todos os cards da grade, rolar por
+/// dentro empilhava dois scrolls (o da página e o do card) e ficava confuso.
+class _Paginador extends StatelessWidget {
+  final int pagina;
+  final int totalPaginas;
+  final VoidCallback? onAnterior;
+  final VoidCallback? onProximo;
+
+  const _Paginador({
+    required this.pagina,
+    required this.totalPaginas,
+    required this.onAnterior,
+    required this.onProximo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          onPressed: onAnterior,
+          icon: const Icon(Icons.chevron_left),
+          visualDensity: VisualDensity.compact,
+        ),
+        Text(
+          'Página ${pagina + 1} de $totalPaginas',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: cores.textoSuave,
+          ),
+        ),
+        IconButton(
+          onPressed: onProximo,
+          icon: const Icon(Icons.chevron_right),
+          visualDensity: VisualDensity.compact,
+        ),
+      ],
     );
   }
 }
@@ -520,25 +922,37 @@ class _FiltroChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = ['Todos', 'Pendentes', 'Verificados'];
+    final cores = AdminCores.de(context);
+    // Cor de cada chip combina com o que ele filtra: azul neutro pra "todos"
+    // (não é um estado, é ausência de filtro), vermelho pra "pendentes"
+    // (mesma cor de alerta usada no resto do painel pra apostas não
+    // verificadas) e verde pra "verificados" (estado positivo/concluído).
+    final opcoes = [
+      ('Todos', cores.azul),
+      ('Pendentes', cores.vermelho),
+      ('Verificados', cores.verde),
+    ];
     return Wrap(
       spacing: 8,
+      runSpacing: 8,
       children: [
-        for (var i = 0; i < labels.length; i++)
+        for (var i = 0; i < opcoes.length; i++)
           ChoiceChip(
-            label: Text(labels[i]),
+            label: Text(opcoes[i].$1),
             selected: selecionado == i,
             onSelected: (_) => onSelecionar(i),
             showCheckmark: false,
             labelStyle: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: selecionado == i ? Colors.white : AdminCores.textoSuave,
+              color: selecionado == i ? Colors.white : opcoes[i].$2,
             ),
-            selectedColor: AdminCores.azul,
-            backgroundColor: AdminCores.fundoTile,
+            selectedColor: opcoes[i].$2,
+            backgroundColor: opcoes[i].$2.withValues(alpha: 0.1),
             side: BorderSide(
-              color: selecionado == i ? AdminCores.azul : AdminCores.borda,
+              color: selecionado == i
+                  ? opcoes[i].$2
+                  : opcoes[i].$2.withValues(alpha: 0.35),
             ),
             shape: RoundedRectangleBorder(borderRadius: AppRadii.circularPill),
           ),
@@ -562,6 +976,7 @@ class _LinhaParticipante extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     final nome = aposta['nome']?.toString() ?? '—';
     final valor = (aposta['valor'] as num?)?.toDouble() ?? 0;
     final cotas = (aposta['cotas'] as num?)?.toInt() ?? 0;
@@ -570,17 +985,17 @@ class _LinhaParticipante extends StatelessWidget {
     final manual = aposta['criadoPeloAdmin'] == true;
     final corAvatar = aposta['avatarColor'] is int
         ? Color(aposta['avatarColor'] as int)
-        : AdminCores.azul;
+        : cores.azul;
     final emojiAvatar = aposta['avatarEmoji'] is String
         ? aposta['avatarEmoji'] as String
         : kEmojiAvatarPadrao;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       child: Row(
         children: [
           AvatarEmoji(tamanho: 36, cor: corAvatar, emoji: emojiAvatar),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -591,19 +1006,18 @@ class _LinhaParticipante extends StatelessWidget {
                       child: Text(
                         nome,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: AdminCores.texto,
+                          color: cores.texto,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    if (editado)
-                      const _Badge(texto: 'alterada', cor: AdminCores.dourado),
+                    SizedBox(width: 6),
+                    if (editado) _Badge(texto: 'alterada', cor: cores.dourado),
                     if (manual) ...[
                       if (editado) const SizedBox(width: 6),
-                      const _Badge(texto: 'manual', cor: AdminCores.texto),
+                      _Badge(texto: 'manual', cor: cores.texto),
                     ],
                   ],
                 ),
@@ -611,10 +1025,7 @@ class _LinhaParticipante extends StatelessWidget {
                 Text(
                   '${Formatters.moeda.format(valor)}  ·  '
                   '$cotas ${cotas == 1 ? "cota" : "cotas"}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AdminCores.textoSuave,
-                  ),
+                  style: TextStyle(fontSize: 12, color: cores.textoSuave),
                 ),
               ],
             ),
@@ -624,7 +1035,7 @@ class _LinhaParticipante extends StatelessWidget {
             onPressed: onAlternarVerificacao,
             icon: Icon(
               verificado ? Icons.check_circle : Icons.check_circle_outline,
-              color: verificado ? AdminCores.verde : AdminCores.textoSuave,
+              color: verificado ? cores.verde : cores.textoSuave,
               size: 22,
             ),
           ),
@@ -635,8 +1046,8 @@ class _LinhaParticipante extends StatelessWidget {
               if (v == 'editar') onEditar();
               if (v == 'remover') onRemover();
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
+            itemBuilder: (_) => [
+              const PopupMenuItem(
                 value: 'editar',
                 child: Row(
                   children: [
@@ -650,16 +1061,9 @@ class _LinhaParticipante extends StatelessWidget {
                 value: 'remover',
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: AdminCores.vermelho,
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Remover',
-                      style: TextStyle(color: AdminCores.vermelho),
-                    ),
+                    Icon(Icons.delete_outline, size: 18, color: cores.vermelho),
+                    const SizedBox(width: 10),
+                    Text('Remover', style: TextStyle(color: cores.vermelho)),
                   ],
                 ),
               ),
@@ -696,89 +1100,113 @@ class _Badge extends StatelessWidget {
 // Aba: Ranking (top cotas + distribuição + export)
 // =============================================================================
 
-class AbaRanking extends StatelessWidget {
+class AbaRanking extends StatefulWidget {
   final List<Map<String, dynamic>> bets;
   final bool carregando;
-  final VoidCallback onExportar;
 
-  const AbaRanking({
-    super.key,
-    required this.bets,
-    required this.carregando,
-    required this.onExportar,
-  });
+  const AbaRanking({super.key, required this.bets, required this.carregando});
+
+  @override
+  State<AbaRanking> createState() => _AbaRankingState();
+}
+
+class _AbaRankingState extends State<AbaRanking> {
+  // 10 (não 6, como em Participantes): o Ranking não tem busca nem filtros
+  // acima da lista, só o botão de exportar — sobra altura suficiente pro
+  // pedido original de mostrar "os 10 primeiros" de cada vez, mesmo com o
+  // card em altura fixa e sem scroll interno.
+  static const _porPagina = 10;
+
+  int _pagina = 0;
 
   @override
   Widget build(BuildContext context) {
-    if (carregando) {
+    final cores = AdminCores.de(context);
+    if (widget.carregando) {
       return const Padding(
         padding: EdgeInsets.all(16),
         child: SkeletonDashboardStats(),
       );
     }
 
-    final ranking = [...bets]
+    final rankingCompleto = [...widget.bets]
       ..sort((a, b) {
         final ca = (a['cotas'] as num?)?.toInt() ?? 0;
         final cb = (b['cotas'] as num?)?.toInt() ?? 0;
         return cb.compareTo(ca);
       });
-    final maxCotas = ranking.isEmpty
+    final maxCotas = rankingCompleto.isEmpty
         ? 0
-        : (ranking.first['cotas'] as num?)?.toInt() ?? 0;
-    const cores = [AdminCores.dourado, AdminCores.azul, AdminCores.verdeAgua];
+        : (rankingCompleto.first['cotas'] as num?)?.toInt() ?? 0;
+    final coresRanking = [cores.dourado, cores.azul, cores.verdeAgua];
+
+    final totalPaginas = rankingCompleto.isEmpty
+        ? 1
+        : (rankingCompleto.length / _porPagina).ceil();
+    final pagina = _pagina.clamp(0, totalPaginas - 1);
+    final inicio = pagina * _porPagina;
+    final itensPagina = rankingCompleto.skip(inicio).take(_porPagina).toList();
 
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: AdminTituloSecao(
-                  texto: 'Ranking de cotas',
-                  icone: Icons.leaderboard_outlined,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: bets.isEmpty ? null : onExportar,
-                icon: const Icon(Icons.copy_all_outlined, size: 18),
-                label: const Text('Exportar CSV'),
-                style: TextButton.styleFrom(foregroundColor: AdminCores.azul),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (ranking.isEmpty)
-            const AdminEstadoVazio(
-              icon: Icons.leaderboard_outlined,
-              cor: AdminCores.textoSuave,
-              mensagem: 'Nenhuma aposta para ranquear ainda.',
-            )
-          else
-            AdminSecaoCard(
-              child: Column(
-                children: [
-                  for (var i = 0; i < ranking.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 16),
-                    AdminBarraDistribuicao(
-                      rotulo: '${i + 1}. ${ranking[i]['nome'] ?? "—"}',
-                      valor:
-                          '${(ranking[i]['cotas'] as num?)?.toInt() ?? 0} cotas'
-                          '  ·  '
-                          '${Formatters.moeda.format((ranking[i]['premio'] as num?)?.toDouble() ?? 0)}',
-                      fracao: maxCotas == 0
-                          ? 0
-                          : ((ranking[i]['cotas'] as num?)?.toInt() ?? 0) /
-                                maxCotas,
-                      cor: cores[i % cores.length],
+          Expanded(
+            child: rankingCompleto.isEmpty
+                ? AdminEstadoVazio(
+                    icon: Icons.leaderboard_outlined,
+                    cor: cores.textoSuave,
+                    mensagem: 'Nenhuma aposta para ranquear ainda.',
+                  )
+                : AdminSecaoCard(
+                    child: SingleChildScrollView(
+                      // Column comum não clipa o próprio overflow — se a
+                      // página (10 linhas no desktop, menos no mobile,
+                      // conforme a altura real da folha) não couber
+                      // exatamente na altura disponível, o conteúdo vazava
+                      // por cima do rodapé de paginação em vez de só rolar
+                      // por dentro. Isso não deveria acontecer no caminho
+                      // normal (a altura já é dimensionada pra caber), mas é
+                      // a rede de segurança pra não voltar a cortar visual.
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < itensPagina.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 16),
+                            AdminBarraDistribuicao(
+                              rotulo:
+                                  '${inicio + i + 1}. ${itensPagina[i]['nome'] ?? "—"}',
+                              valor:
+                                  '${(itensPagina[i]['cotas'] as num?)?.toInt() ?? 0} cotas'
+                                  '  ·  '
+                                  '${Formatters.moeda.format((itensPagina[i]['premio'] as num?)?.toDouble() ?? 0)}',
+                              fracao: maxCotas == 0
+                                  ? 0
+                                  : ((itensPagina[i]['cotas'] as num?)
+                                                ?.toInt() ??
+                                            0) /
+                                        maxCotas,
+                              cor:
+                                  coresRanking[(inicio + i) %
+                                      coresRanking.length],
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ],
-                ],
-              ),
+                  ),
+          ),
+          if (totalPaginas > 1) ...[
+            const SizedBox(height: 10),
+            _Paginador(
+              pagina: pagina,
+              totalPaginas: totalPaginas,
+              onAnterior: pagina > 0 ? () => setState(() => _pagina--) : null,
+              onProximo: pagina < totalPaginas - 1
+                  ? () => setState(() => _pagina++)
+                  : null,
             ),
+          ],
         ],
       ),
     );
@@ -897,12 +1325,10 @@ class _AbaSalaState extends State<AbaSala> {
       await widget.onSalvo();
       if (!mounted) return;
       setState(() => _salvando = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Dados da sala atualizados'),
-          backgroundColor: AdminCores.verde,
-          behavior: SnackBarBehavior.floating,
-        ),
+      mostrarSnackBarDeslizante(
+        context,
+        corFundo: AdminCores.de(context).verde,
+        conteudo: const Text('Dados da sala atualizados'),
       );
     } catch (e) {
       debugPrint('Erro ao salvar sala: $e');
@@ -929,6 +1355,7 @@ class _AbaSalaState extends State<AbaSala> {
       );
     }
 
+    final cores = AdminCores.de(context);
     final nomeSala = widget.dadosSala['nome']?.toString() ?? 'Sala principal';
 
     return Padding(
@@ -944,9 +1371,9 @@ class _AbaSalaState extends State<AbaSala> {
               icone: Icons.meeting_room_outlined,
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Edite os dados principais da sala sem sair do painel.',
-              style: TextStyle(fontSize: 13, color: AdminCores.textoSuave),
+              style: TextStyle(fontSize: 13, color: cores.textoSuave),
             ),
             const SizedBox(height: 16),
             CustomField(
@@ -1055,6 +1482,7 @@ class AbaConfig extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1075,7 +1503,7 @@ class AbaConfig extends StatelessWidget {
                   texto: 'Moderar mensagens',
                   descricao:
                       'Abre o chat com um botão de apagar em cada mensagem.',
-                  cor: AdminCores.azul,
+                  cor: cores.azul,
                   onTap: salaId == null ? null : onModerarChat,
                 ),
                 const SizedBox(height: 10),
@@ -1083,7 +1511,7 @@ class AbaConfig extends StatelessWidget {
                   icone: Icons.delete_sweep_outlined,
                   texto: 'Apagar Mensagens Chat',
                   descricao: 'Remove todo o histórico de mensagens da sala.',
-                  cor: AdminCores.vermelho,
+                  cor: cores.vermelho,
                   onTap: salaId == null ? null : onApagarMensagens,
                 ),
               ],
@@ -1101,24 +1529,21 @@ class AbaConfig extends StatelessWidget {
               builder: (context, ativo, _) {
                 return SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text(
+                  title: Text(
                     'Forçar skeleton loading',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: AdminCores.texto,
+                      color: cores.texto,
                     ),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Trava o skeleton em Minha Aposta, Participantes e Chat '
                     '(dev)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AdminCores.textoSuave,
-                    ),
+                    style: TextStyle(fontSize: 12, color: cores.textoSuave),
                   ),
                   value: ativo,
-                  activeThumbColor: AdminCores.azul,
+                  activeThumbColor: cores.azul,
                   onChanged: (novo) => forcarSkeletonGlobal.value = novo,
                 );
               },
@@ -1154,11 +1579,11 @@ class AbaConfig extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'O acesso de administrador é controlado pelo campo isAdmin do '
             'usuário no Firestore e só pode ser concedido pelo console/Admin '
             'SDK — não é editável por aqui por segurança.',
-            style: TextStyle(fontSize: 12, color: AdminCores.textoSuave),
+            style: TextStyle(fontSize: 12, color: cores.textoSuave),
           ),
         ],
       ),
@@ -1187,11 +1612,12 @@ class _BotaoAcaoConfig extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     final habilitado = onTap != null;
     final corEfetiva = habilitado ? cor : cor.withValues(alpha: 0.4);
 
     return Material(
-      color: AdminCores.fundoCard,
+      color: cores.fundoCard,
       borderRadius: AppRadii.circularMd,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -1221,10 +1647,7 @@ class _BotaoAcaoConfig extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       descricao,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AdminCores.textoSuave,
-                      ),
+                      style: TextStyle(fontSize: 12, color: cores.textoSuave),
                     ),
                   ],
                 ),
@@ -1250,15 +1673,16 @@ class _LinhaInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     return Row(
       children: [
-        Icon(icone, size: 18, color: AdminCores.textoSuave),
+        Icon(icone, size: 18, color: cores.textoSuave),
         const SizedBox(width: 12),
         SizedBox(
           width: 70,
           child: Text(
             rotulo,
-            style: const TextStyle(fontSize: 13, color: AdminCores.textoSuave),
+            style: TextStyle(fontSize: 13, color: cores.textoSuave),
           ),
         ),
         Expanded(
@@ -1266,10 +1690,10 @@ class _LinhaInfo extends StatelessWidget {
             valor,
             textAlign: TextAlign.right,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AdminCores.texto,
+              color: cores.texto,
             ),
           ),
         ),
@@ -1288,27 +1712,28 @@ class _CampoBuscaAdmin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     return TextField(
       onChanged: onChanged,
-      style: const TextStyle(fontSize: 15, color: AdminCores.texto),
+      style: TextStyle(fontSize: 15, color: cores.texto),
       decoration: InputDecoration(
         isDense: true,
         hintText: 'Buscar por nome...',
         prefixIcon: const Icon(Icons.search, size: 20),
         filled: true,
-        fillColor: AdminCores.fundoTile,
+        fillColor: cores.fundoTile,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
         border: OutlineInputBorder(
           borderRadius: AppRadii.circularMd,
-          borderSide: const BorderSide(color: AdminCores.borda),
+          borderSide: BorderSide(color: cores.borda),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadii.circularMd,
-          borderSide: const BorderSide(color: AdminCores.borda),
+          borderSide: BorderSide(color: cores.borda),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadii.circularMd,
-          borderSide: const BorderSide(color: AdminCores.azul, width: 1.5),
+          borderSide: BorderSide(color: cores.azul, width: 1.5),
         ),
       ),
     );
@@ -1345,7 +1770,7 @@ class AdminDialogFrame extends StatelessWidget {
         : 340.0;
 
     return AlertDialog(
-      backgroundColor: AdminCores.fundoCard,
+      backgroundColor: AdminCores.de(context).fundoCard,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: AppRadii.circularXxl),
       title: Text(
@@ -1389,10 +1814,9 @@ class _BotaoCancelar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     final habilitado = onTap != null;
-    final cor = habilitado
-        ? AdminCores.azul
-        : AdminCores.azul.withValues(alpha: 0.4);
+    final cor = habilitado ? cores.azul : cores.azul.withValues(alpha: 0.4);
     return Container(
       decoration: BoxDecoration(
         borderRadius: AppRadii.circularXl,

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/services/pix/pix_payload.dart';
 import 'package:flutter/material.dart';
@@ -48,15 +49,16 @@ class _PixInfoState extends State<PixInfo> {
   Widget build(BuildContext context) {
     if (widget.chavePix.isEmpty) return const SizedBox.shrink();
 
+    final cores = AppCores.de(context);
     return Container(
       width: double.infinity,
       // Horizontal sem escala: a largura do card é dada pelo pai, então
       // inflar padding lateral só rouba espaço da chave PIX ao lado do QR.
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: _e(8)),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
+        color: cores.campo,
         borderRadius: AppRadii.circularMd,
-        border: Border.all(color: const Color(0xFFDDDDDD), width: 1.5),
+        border: Border.all(color: cores.bordaCampo, width: 1.5),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -79,12 +81,13 @@ class _PixInfoState extends State<PixInfo> {
     // largura do card. Limita-se o QR a ~40% da largura disponível, e as
     // gutters/padding horizontais ficam sem escala pelo mesmo motivo — o
     // ganho de altura vem do QR e dos espaçamentos verticais.
+    final cores = AppCores.de(context);
     final tamanhoQr = math.min(_e(130), larguraDisponivel * 0.4);
     return Container(
       width: double.infinity,
       padding: EdgeInsets.only(left: 0, top: _e(2), right: 16, bottom: _e(2)),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
+        color: cores.campo,
         borderRadius: AppRadii.circularMd,
       ),
       child: Column(
@@ -98,6 +101,7 @@ class _PixInfoState extends State<PixInfo> {
                 _QrComCantosDeMira(
                   tamanho: tamanhoQr,
                   escala: widget.escala,
+                  corMira: cores.pix,
                   data: PixPayload.gerar(
                     chave: widget.chavePix,
                     valor: widget.valor,
@@ -107,7 +111,7 @@ class _PixInfoState extends State<PixInfo> {
                 CustomPaint(
                   size: const Size(1, double.infinity),
                   painter: _LinhaTracejadaPainter(
-                    color: Colors.grey.shade300,
+                    color: cores.borda,
                     vertical: true,
                   ),
                 ),
@@ -124,13 +128,13 @@ class _PixInfoState extends State<PixInfo> {
                             height: _e(22),
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE6F7F1),
+                              color: cores.pixFundo,
                               borderRadius: AppRadii.circularSm,
                             ),
                             child: Icon(
                               Icons.vpn_key_outlined,
                               size: _e(13),
-                              color: const Color(0xFF17A673),
+                              color: cores.pix,
                             ),
                           ),
                           SizedBox(width: _e(8)),
@@ -145,7 +149,7 @@ class _PixInfoState extends State<PixInfo> {
                               style: TextStyle(
                                 fontSize: _e(13),
                                 fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade700,
+                                color: cores.textoSuave,
                               ),
                             ),
                           ),
@@ -161,7 +165,7 @@ class _PixInfoState extends State<PixInfo> {
                           style: TextStyle(
                             fontSize: _e(18),
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1F2937),
+                            color: cores.texto,
                           ),
                         ),
                       ),
@@ -170,12 +174,12 @@ class _PixInfoState extends State<PixInfo> {
                         'Escaneie o QR Code com o app do seu banco ou copie a chave PIX.',
                         style: TextStyle(
                           fontSize: _e(12),
-                          color: Colors.grey.shade600,
+                          color: cores.textoSuave,
                           height: 1.3,
                         ),
                       ),
                       SizedBox(height: _e(12)),
-                      _botaoCopiar(),
+                      _botaoCopiar(context),
                     ],
                   ),
                 ),
@@ -191,6 +195,7 @@ class _PixInfoState extends State<PixInfo> {
   // logo do Pix + selo "Seguro e rápido" no topo, chave PIX em destaque no
   // meio e o botão de copiar embaixo, empilhados verticalmente.
   Widget _buildSemQrCode(BuildContext context) {
+    final cores = AppCores.de(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -205,7 +210,7 @@ class _PixInfoState extends State<PixInfo> {
               style: TextStyle(
                 fontSize: _e(12),
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade700,
+                color: cores.textoSuave,
                 height: 1.1,
               ),
             ),
@@ -216,24 +221,20 @@ class _PixInfoState extends State<PixInfo> {
                 vertical: _e(6),
               ),
               decoration: BoxDecoration(
-                color: const Color(0xFFE6F7F1),
+                color: cores.pixFundo,
                 borderRadius: AppRadii.circularXl,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.check_circle,
-                    size: _e(14),
-                    color: const Color(0xFF17A673),
-                  ),
+                  Icon(Icons.check_circle, size: _e(14), color: cores.pix),
                   SizedBox(width: _e(4)),
                   Text(
                     'Seguro e rápido',
                     style: TextStyle(
                       fontSize: _e(12),
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF17A673),
+                      color: cores.pix,
                     ),
                   ),
                 ],
@@ -246,7 +247,7 @@ class _PixInfoState extends State<PixInfo> {
           width: double.infinity,
           padding: EdgeInsets.symmetric(horizontal: _e(14), vertical: _e(10)),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cores.card,
             borderRadius: AppRadii.circularMd,
           ),
           child: Column(
@@ -259,7 +260,7 @@ class _PixInfoState extends State<PixInfo> {
                   fontSize: _e(11),
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
-                  color: Colors.grey.shade600,
+                  color: cores.textoSuave,
                 ),
               ),
               SizedBox(height: _e(4)),
@@ -272,7 +273,7 @@ class _PixInfoState extends State<PixInfo> {
                   style: TextStyle(
                     fontSize: _e(18),
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1F2937),
+                    color: cores.texto,
                   ),
                 ),
               ),
@@ -280,13 +281,15 @@ class _PixInfoState extends State<PixInfo> {
           ),
         ),
         SizedBox(height: _e(12)),
-        _botaoCopiar(),
+        _botaoCopiar(context),
         SizedBox(height: _e(8)),
       ],
     );
   }
 
-  Widget _botaoCopiar() {
+  Widget _botaoCopiar(BuildContext context) {
+    final cores = AppCores.de(context);
+    final corBotao = _copiado ? cores.verde : cores.azul;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: SizedBox(
@@ -297,18 +300,15 @@ class _PixInfoState extends State<PixInfo> {
           icon: Icon(
             _copiado ? Icons.check : Icons.copy_outlined,
             size: _e(15),
-            color: _copiado ? Colors.green : const Color(0xFF487DE5),
+            color: corBotao,
           ),
           label: Text(
             _copiado ? 'Copiado!' : 'Copiar chave PIX',
             style: TextStyle(fontSize: _e(13)),
           ),
           style: OutlinedButton.styleFrom(
-            foregroundColor: _copiado ? Colors.green : const Color(0xFF487DE5),
-            side: BorderSide(
-              color: _copiado ? Colors.green : const Color(0xFF487DE5),
-              width: 2,
-            ),
+            foregroundColor: corBotao,
+            side: BorderSide(color: corBotao, width: 2),
             shape: RoundedRectangleBorder(borderRadius: AppRadii.circularXl),
             padding: EdgeInsets.symmetric(horizontal: _e(10)),
           ),
@@ -325,13 +325,17 @@ class _QrComCantosDeMira extends StatelessWidget {
   final String data;
   final double escala;
 
+  /// Cor das quatro miras. Vem de fora (não mais uma const interna) porque no
+  /// tema escuro ela precisa do verde clareado da paleta para não sumir.
+  final Color corMira;
+
   const _QrComCantosDeMira({
     required this.tamanho,
     required this.data,
+    required this.corMira,
     this.escala = 1,
   });
 
-  static const _corMira = Color(0xFF4FA98A);
   static const _espacamento = 4.0;
 
   @override
@@ -346,7 +350,23 @@ class _QrComCantosDeMira extends StatelessWidget {
             child: SizedBox(
               width: tamanho,
               height: tamanho,
-              child: QrImageView(data: data),
+              // Fundo branco e módulos pretos SEMPRE, mesmo no tema escuro: o
+              // QR precisa do contraste original para os leitores dos bancos
+              // funcionarem. Invertê-lo (claro sobre escuro) quebra a leitura
+              // em boa parte dos apps, então aqui o card é que abre uma
+              // "janela" branca em volta do código.
+              child: Container(
+                padding: EdgeInsets.all(6 * escala),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: AppRadii.circularSm,
+                ),
+                child: QrImageView(
+                  data: data,
+                  backgroundColor: Colors.white,
+                  padding: EdgeInsets.zero,
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -354,7 +374,7 @@ class _QrComCantosDeMira extends StatelessWidget {
             left: 0,
             child: _Mira(
               corner: _MiraCorner.topLeft,
-              cor: _corMira,
+              cor: corMira,
               escala: escala,
             ),
           ),
@@ -363,7 +383,7 @@ class _QrComCantosDeMira extends StatelessWidget {
             right: 0,
             child: _Mira(
               corner: _MiraCorner.topRight,
-              cor: _corMira,
+              cor: corMira,
               escala: escala,
             ),
           ),
@@ -372,7 +392,7 @@ class _QrComCantosDeMira extends StatelessWidget {
             left: 0,
             child: _Mira(
               corner: _MiraCorner.bottomLeft,
-              cor: _corMira,
+              cor: corMira,
               escala: escala,
             ),
           ),
@@ -381,7 +401,7 @@ class _QrComCantosDeMira extends StatelessWidget {
             right: 0,
             child: _Mira(
               corner: _MiraCorner.bottomRight,
-              cor: _corMira,
+              cor: corMira,
               escala: escala,
             ),
           ),

@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shared/selo_manual.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart'
     show LinhaEntrandoAnimada, detectarLinhaNova;
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
@@ -98,7 +99,7 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
             },
           ),
           if (i < rows.length - 1)
-            Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+            Divider(height: 1, thickness: 1, color: AppCores.de(context).borda),
         ],
       ],
     );
@@ -133,17 +134,35 @@ class LinhaParticipante extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     final emoji = emojiAvatar ?? emojiAvatarPara(nome);
     final cor = corAvatar ?? corAvatarPara(nome);
-    // Prioridade visual: edição pós-verificação > verificado/destacado > normal
-    final corFundo = alterada
-        ? const Color(0xFFFEF3C7)
-        : verificado
-        ? const Color(0xFFDCFCE7)
-        : (destacado ? const Color(0xFFDCFCE7) : Colors.transparent);
+    final temEstado = alterada || verificado || destacado;
+
+    // Prioridade visual: edição pós-verificação > verificado/destacado.
+    //
+    // No claro o estado é o fundo pastel da linha; no escuro esse mesmo
+    // fundo, traduzido para tom escuro, empilhava blocos de cor na lista
+    // toda — lá o fundo fica transparente e o estado vira a barra lateral
+    // (mesma decisão da tabela desktop, ver TabelaApostas.corBarraEstado).
+    final corEstado = alterada ? cores.dourado : cores.verde;
+    final usaBarra = cores.larguraBarraEstado > 0;
+    final corFundo = !temEstado || usaBarra
+        ? Colors.transparent
+        : (alterada ? cores.fundoAmarelo : cores.fundoVerde);
 
     return Container(
       color: corFundo,
+      foregroundDecoration: (usaBarra && temEstado)
+          ? BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: corEstado,
+                  width: cores.larguraBarraEstado,
+                ),
+              ),
+            )
+          : null,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,7 +188,7 @@ class LinhaParticipante extends StatelessWidget {
                           fontWeight: destacado
                               ? FontWeight.w700
                               : FontWeight.w400,
-                          color: const Color(0xFF1F2937),
+                          color: cores.texto,
                         ),
                       ),
                     ),
@@ -186,7 +205,7 @@ class LinhaParticipante extends StatelessWidget {
                     Icon(
                       Icons.emoji_events_outlined,
                       size: 12,
-                      color: Colors.amber.shade700,
+                      color: cores.dourado,
                     ),
                     const SizedBox(width: 3),
                     Flexible(
@@ -197,7 +216,7 @@ class LinhaParticipante extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
-                          color: Colors.amber.shade800,
+                          color: cores.textoAmarelo,
                         ),
                       ),
                     ),
@@ -213,16 +232,16 @@ class LinhaParticipante extends StatelessWidget {
             children: [
               Text(
                 valor,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF2E7D32),
+                  color: cores.textoVerde,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 cotas == 1 ? '1 cota' : '$cotas cotas',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 12, color: cores.textoFraco),
               ),
             ],
           ),
@@ -246,6 +265,7 @@ class RodapeLista extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         // Nessa largura o texto "X participantes" espreme o valor/cotas até
@@ -259,17 +279,17 @@ class RodapeLista extends StatelessWidget {
               child: Text(
                 '${Formatters.moeda.format(valorTotal)} | $cotasTotal Cotas',
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 12, color: cores.textoFraco),
               ),
             ),
             const SizedBox(width: 12),
-            Icon(Icons.people_outline, size: 15, color: Colors.grey.shade500),
+            Icon(Icons.people_outline, size: 15, color: cores.textoFraco),
             const SizedBox(width: 6),
             Text(
               compacto
                   ? '$total'
                   : '$total ${total == 1 ? 'participante' : 'participantes'}',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 12, color: cores.textoFraco),
             ),
           ],
         );

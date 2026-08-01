@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
@@ -17,21 +18,22 @@ class SeloManual extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Tooltip(
       message: 'Aposta lançada manualmente pelo admin',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
         decoration: BoxDecoration(
-          color: const Color(0xFFE5E7EB),
+          color: cores.superficieAlta,
           borderRadius: AppRadii.circularXs,
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: cores.borda),
         ),
         child: Text(
           'M',
           style: TextStyle(
             fontSize: tamanhoFonte,
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF6B7280),
+            color: cores.textoSuave,
             height: 1.2,
           ),
         ),

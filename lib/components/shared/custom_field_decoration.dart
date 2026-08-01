@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
@@ -7,21 +8,26 @@ import 'package:flutter/material.dart';
 class CustomFieldDecoration {
   static const double radius = 14;
 
-  static InputDecoration build({
+  /// Passou a receber [context] junto com o dark mode: preenchimento, bordas
+  /// e cor do rótulo saem da paleta do tema ativo em vez de hex fixos.
+  static InputDecoration build(
+    BuildContext context, {
     required String hint,
     IconData? icon,
     Widget? prefix,
     Widget? suffix,
   }) {
+    final cores = AppCores.de(context);
     final borderRadius = BorderRadius.circular(radius);
 
     return InputDecoration(
       prefix: prefix,
       labelText: hint,
-      floatingLabelStyle: const TextStyle(color: Colors.black),
-      prefixIcon: icon != null ? Icon(icon) : null,
+      labelStyle: TextStyle(color: cores.textoSuave),
+      floatingLabelStyle: TextStyle(color: cores.texto),
+      prefixIcon: icon != null ? Icon(icon, color: cores.textoSuave) : null,
       filled: true,
-      fillColor: const Color(0xFFF3F4F6),
+      fillColor: cores.campo,
       suffixIcon: suffix,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       // Erro vira só borda vermelha, sem texto — mensagem completa some
@@ -34,19 +40,19 @@ class CustomFieldDecoration {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: borderRadius,
-        borderSide: const BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
+        borderSide: BorderSide(color: cores.bordaCampo, width: 1.5),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: borderRadius,
-        borderSide: const BorderSide(color: Color(0xFFCCCCCC), width: 1.5),
+        borderSide: BorderSide(color: cores.bordaCampoFoco, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: borderRadius,
-        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+        borderSide: BorderSide(color: cores.vermelho, width: 1.5),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: borderRadius,
-        borderSide: const BorderSide(color: Colors.red, width: 2.5),
+        borderSide: BorderSide(color: cores.vermelho, width: 2.5),
       ),
     );
   }

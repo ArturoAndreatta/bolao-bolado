@@ -237,6 +237,12 @@ class AvatarColorCache {
   final Map<String, Stream<String>> _emojiStreams = {};
   final Map<String, String> _ultimoEmoji = {};
 
+  /// Assinatura interna de cada uid observado, guardada só para poder ser
+  /// cancelada em [liberar]. Sem isto o listener do `snapshots()` ficava
+  /// inalcançável depois de criado — o cache só crescia.
+  final Map<String, StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>
+  _assinaturas = {};
+
   // Compartilhado por toda a vida do app junto com o próprio cache
   // (singleton), por isso não é fechado.
   // ignore: close_sinks
@@ -278,7 +284,7 @@ class AvatarColorCache {
       // Registrado antes de qualquer outro assinante, então os "últimos
       // valores conhecidos" já estão preenchidos quando alguém consulta
       // corConhecida/emojiConhecido depois do primeiro evento.
-      stream.listen((doc) {
+      _assinaturas[uid] = stream.listen((doc) {
         final dados = doc.data();
         final cor = _corDe(dados);
         final emoji = _emojiDe(dados);
@@ -356,6 +362,34 @@ class AvatarColorCache {
     for (final uid in uids) {
       if (_docs.containsKey(uid)) continue;
       _docStream(uid);
+    }
+  }
+
+  /// Para de observar os uids que não estão em [emUso], fechando os listeners
+  /// do Firestore correspondentes.
+  ///
+  /// O cache nunca soltava nada: cada uid observado (participante da lista,
+  /// autor de mensagem do chat) deixava um `snapshots()` aberto até o app ser
+  /// recarregado. Numa sessão longa com chat movimentado, isso é um listener
+  /// acumulado por pessoa que já passou pela tela, todos recebendo push do
+  /// servidor para sempre.
+  ///
+  /// Os últimos valores conhecidos (cor/emoji) são MANTIDOS de propósito: são
+  /// baratos (dois campos por uid) e permitem redesenhar um avatar já visto
+  /// sem piscar no estado neutro caso ele volte à tela. O que se solta aqui é
+  /// a conexão viva, não a memória.
+  ///
+  /// Ninguém chama isto hoje — a limpeza depende de alguém saber o conjunto
+  /// de uids realmente em uso, e hoje esse conjunto está espalhado entre a
+  /// lista de apostas e o chat. Fica disponível para quando esse ponto único
+  /// existir; enquanto isso, [aquecer] segue sendo a única porta de entrada.
+  void liberar(Set<String> emUso) {
+    final ociosos = _docs.keys.where((uid) => !emUso.contains(uid)).toList();
+    for (final uid in ociosos) {
+      unawaited(_assinaturas.remove(uid)?.cancel());
+      _docs.remove(uid);
+      _streams.remove(uid);
+      _emojiStreams.remove(uid);
     }
   }
 }

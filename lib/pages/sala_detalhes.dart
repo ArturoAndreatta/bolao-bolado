@@ -3,6 +3,7 @@ import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/back_screen_button.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/models/sala.dart';
 import 'package:bolao_bolado/router/app_router.dart';
@@ -41,6 +42,7 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
   }
 
   void _mostrarInfoSala() {
+    final cores = AppCores.de(context);
     final sala = widget.sala;
     final formatoData = sala.dataHora != null
         ? Formatters.dataHora.format(sala.dataHora!)
@@ -49,12 +51,12 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Color(0xFFFEFEFE),
+        backgroundColor: cores.card,
         surfaceTintColor: Colors.transparent,
         elevation: 18,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadii.circularXxl,
-          side: BorderSide(color: Colors.grey.shade200, width: 1),
+          side: BorderSide(color: cores.borda, width: 1),
         ),
         contentPadding: EdgeInsets.fromLTRB(20, 20, 20, 16),
         title: Text(
@@ -68,7 +70,7 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
             if (sala.descricao.isNotEmpty) ...[
               Text(
                 sala.descricao,
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+                style: TextStyle(color: cores.textoSuave, fontSize: 14),
               ),
               SizedBox(height: 12),
             ],
@@ -100,25 +102,26 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
   }
 
   Widget _infoLinha(IconData icon, String label, String valor) {
+    final cores = AppCores.de(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: Colors.grey),
+          Icon(icon, size: 16, color: cores.textoSuave),
           SizedBox(width: 8),
           Text(
             '$label: ',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF1F2937),
+              color: cores.texto,
             ),
           ),
           Expanded(
             child: Text(
               valor,
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(fontSize: 14, color: cores.textoSuave),
             ),
           ),
         ],
@@ -128,6 +131,7 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     final height = MediaQuery.of(context).size.height;
     // Limita a altura da tabela a uma faixa razoável para não estourar em telas muito
     // pequenas nem ficar desproporcional em telas muito grandes.
@@ -143,7 +147,6 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
       child: Stack(
         children: [
           CustomCard(
-            mostrarAssinatura: true,
             children: [
               SizedBox(height: 20),
               Padding(
@@ -162,14 +165,14 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1F2937),
+                          color: cores.texto,
                         ),
                       ),
                     ),
                     IconButton(
                       onPressed: _mostrarInfoSala,
                       icon: Icon(Icons.info_outline),
-                      color: Colors.grey,
+                      color: cores.textoSuave,
                       tooltip: 'Informações da sala',
                     ),
                   ],

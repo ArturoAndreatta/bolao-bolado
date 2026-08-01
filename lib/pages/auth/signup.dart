@@ -5,6 +5,7 @@ import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
@@ -42,8 +43,7 @@ class _SignupState extends State<Signup> {
       child: Stack(
         children: [
           CustomCard(
-            color: const Color(0xFFF3F1EF),
-            mostrarAssinatura: true,
+            color: AppCores.de(context).cardExterno,
             children: [
               HeaderPaginas(
                 text: 'Acesse sua conta',

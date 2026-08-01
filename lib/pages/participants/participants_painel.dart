@@ -1,5 +1,6 @@
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/header_card.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/core/responsive.dart';
@@ -43,11 +44,6 @@ class PainelParticipantes extends StatefulWidget {
   // (Column sem scroll) cresce livremente com a quantidade de apostas,
   // empurrando o card e desalinhando a altura da fileira de abas.
   final double? alturaMobile;
-  // Repassado ao HeaderCard/CustomCard: exibe a assinatura no canto
-  // inferior direito. Quem usa PainelParticipantes decide — hoje é sempre
-  // o card mais à direita/abaixo da tela de Participantes (lado a lado com
-  // MinhaApostaCard no desktop, único card na aba mobile), então recebe true.
-  final bool mostrarAssinatura;
 
   const PainelParticipantes({
     super.key,
@@ -66,7 +62,6 @@ class PainelParticipantes extends StatefulWidget {
     this.esticarLargura = false,
     this.apenasConteudo = false,
     this.alturaMobile,
-    this.mostrarAssinatura = false,
   });
 
   @override
@@ -199,13 +194,14 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
   }
 
   Widget _buildMobile(BuildContext context) {
+    final cores = AppCores.de(context);
     if (_loadingEfetivo) {
       final skeleton = SkeletonParticipantes(mobile: true);
       if (widget.apenasConteudo) {
         return Padding(padding: const EdgeInsets.all(16), child: skeleton);
       }
       return CustomCard(
-        color: const Color(0xFFF3F1EF),
+        color: cores.cardExterno,
         maxWidth: widget.esticarLargura ? double.infinity : 730,
         // esticarLargura força o card a usar largura fluida (width: null) em
         // vez do SizedBox de largura fixa (maxWidth-15 = 715px), que estourava
@@ -238,7 +234,7 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
         ? _EstadoVazioParticipantes(semApostas: widget.rowsData.isEmpty)
         : Container(
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
+              border: Border.all(color: cores.borda, width: 1.5),
               borderRadius: AppRadii.circularSmd,
             ),
             clipBehavior: Clip.antiAlias,
@@ -262,13 +258,9 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
                           currentUid: widget.currentUid,
                         ),
                       ),
-                const Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Color(0xFFE5E7EB),
-                ),
+                Divider(height: 1, thickness: 1, color: cores.borda),
                 Container(
-                  color: const Color(0xFFE9EAEC),
+                  color: cores.superficieAlta,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
@@ -323,7 +315,6 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
       maxWidth: widget.esticarLargura ? double.infinity : 730,
       height: widget.alturaMobile,
       esticarLargura: widget.esticarLargura,
-      mostrarAssinatura: widget.mostrarAssinatura,
       children: conteudo,
     );
   }
@@ -404,6 +395,7 @@ class _EstadoVazioParticipantes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     final mensagem = semApostas
         ? 'Nenhuma aposta ainda.'
         : 'Nenhum participante encontrado.';
@@ -416,14 +408,15 @@ class _EstadoVazioParticipantes extends StatelessWidget {
           Icon(
             Icons.sentiment_dissatisfied_outlined,
             size: 48,
-            color: desktop ? Colors.grey : Colors.grey.shade400,
+            color: cores.textoFraco,
           ),
           const SizedBox(height: 12),
           Text(
             mensagem,
-            style: desktop
-                ? const TextStyle(color: Colors.grey, fontSize: 16)
-                : TextStyle(color: Colors.grey.shade600, fontSize: 15),
+            style: TextStyle(
+              color: cores.textoSuave,
+              fontSize: desktop ? 16 : 15,
+            ),
           ),
         ],
       ),

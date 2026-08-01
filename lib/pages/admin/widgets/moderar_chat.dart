@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shared/custom_confirm_dialog.dart';
+import 'package:bolao_bolado/components/shared/snackbar_deslizante.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/models/mensagem.dart';
@@ -72,22 +73,29 @@ class _DialogModerarChatState extends State<_DialogModerarChat> {
         salaId: widget.salaId,
         mensagemId: msg.id,
       );
+      if (!mounted) return;
+      // Sem desfazer: o histórico do chat é imutável, mensagem apagada não
+      // tem como ser recriada com o mesmo id/timestamp.
+      mostrarSnackBarDeslizante(
+        context,
+        corFundo: AdminCores.de(context).verde,
+        conteudo: Text('Mensagem de ${msg.autorNome} apagada'),
+      );
     } catch (e) {
       debugPrint('Erro ao apagar mensagem: $e');
       if (!mounted) return;
       setState(() => _apagando.remove(msg.id));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erro ao apagar a mensagem. Tente novamente.'),
-          backgroundColor: AdminCores.vermelho,
-          behavior: SnackBarBehavior.floating,
-        ),
+      mostrarSnackBarDeslizante(
+        context,
+        corFundo: AdminCores.de(context).vermelho,
+        conteudo: const Text('Erro ao apagar a mensagem. Tente novamente.'),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     final tela = MediaQuery.sizeOf(context);
     final largura = Responsive.isMobile(context) ? tela.width - 64 : 460.0;
     // Altura fixa com scroll interno: sem isso o diálogo cresce com o
@@ -95,7 +103,7 @@ class _DialogModerarChatState extends State<_DialogModerarChat> {
     final altura = (tela.height * 0.6).clamp(280.0, 520.0);
 
     return AlertDialog(
-      backgroundColor: AdminCores.fundoCard,
+      backgroundColor: cores.fundoCard,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: AppRadii.circularXxl),
       titlePadding: const EdgeInsets.fromLTRB(24, 20, 12, 0),
@@ -111,7 +119,7 @@ class _DialogModerarChatState extends State<_DialogModerarChat> {
           IconButton(
             tooltip: 'Fechar',
             icon: const Icon(Icons.close, size: 20),
-            color: AdminCores.textoSuave,
+            color: cores.textoSuave,
             onPressed: () => context.pop(),
           ),
         ],
@@ -128,16 +136,16 @@ class _DialogModerarChatState extends State<_DialogModerarChat> {
             if (snapshot.hasError) {
               return AdminEstadoVazio(
                 icon: Icons.error_outline,
-                cor: AdminCores.vermelho,
+                cor: cores.vermelho,
                 mensagem: 'Erro ao carregar as mensagens:\n${snapshot.error}',
               );
             }
 
             final mensagens = snapshot.data ?? [];
             if (mensagens.isEmpty) {
-              return const AdminEstadoVazio(
+              return AdminEstadoVazio(
                 icon: Icons.forum_outlined,
-                cor: AdminCores.textoSuave,
+                cor: cores.textoSuave,
                 mensagem: 'Nenhuma mensagem no chat.',
               );
             }
@@ -148,7 +156,7 @@ class _DialogModerarChatState extends State<_DialogModerarChat> {
             return ListView.separated(
               itemCount: mensagens.length,
               separatorBuilder: (_, _) =>
-                  const Divider(height: 1, color: AdminCores.borda),
+                  Divider(height: 1, color: cores.borda),
               itemBuilder: (context, index) {
                 final msg = mensagens[index];
                 return _LinhaMensagem(
@@ -165,7 +173,7 @@ class _DialogModerarChatState extends State<_DialogModerarChat> {
       actions: [
         Text(
           'Apagar é permanente e vale para todos os participantes.',
-          style: const TextStyle(fontSize: 12, color: AdminCores.textoSuave),
+          style: TextStyle(fontSize: 12, color: cores.textoSuave),
         ),
       ],
     );
@@ -185,6 +193,7 @@ class _LinhaMensagem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
     final criadoEm = mensagem.criadoEm;
     // Data + hora (não só a hora como nas bolhas do chat): aqui a lista mistura
     // dias sem separador, então o carimbo precisa se bastar sozinho.
@@ -209,30 +218,27 @@ class _LinhaMensagem extends StatelessWidget {
                       child: Text(
                         mensagem.autorNome,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: AdminCores.texto,
+                          color: cores.texto,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       carimbo,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AdminCores.textoSuave,
-                      ),
+                      style: TextStyle(fontSize: 11, color: cores.textoSuave),
                     ),
                   ],
                 ),
                 const SizedBox(height: 3),
                 Text(
                   mensagem.texto,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     height: 1.3,
-                    color: AdminCores.texto,
+                    color: cores.texto,
                   ),
                 ),
               ],
@@ -255,10 +261,10 @@ class _LinhaMensagem extends StatelessWidget {
                 : IconButton(
                     tooltip: 'Apagar mensagem',
                     onPressed: onApagar,
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.delete_outline,
                       size: 20,
-                      color: AdminCores.vermelho,
+                      color: cores.vermelho,
                     ),
                   ),
           ),
@@ -288,7 +294,7 @@ class _Avatar extends StatelessWidget {
           builder: (context, emojiSnapshot) {
             return AvatarEmoji(
               tamanho: 30,
-              cor: corSnapshot.data ?? AdminCores.borda,
+              cor: corSnapshot.data ?? AdminCores.de(context).borda,
               emoji: emojiSnapshot.data ?? kEmojiAvatarPadrao,
             );
           },

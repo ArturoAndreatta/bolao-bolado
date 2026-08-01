@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/ultima_rota_admin.dart';
 import 'package:bolao_bolado/models/sala.dart';
 import 'package:bolao_bolado/pages/admin/painel_admin.dart';
 import 'package:bolao_bolado/pages/auth/forgot_password.dart';
@@ -66,7 +67,20 @@ final GoRouter appRouter = GoRouter(
       return AppRoutes.home;
     }
     if (isLoggedIn && _guestOnlyRoutes.contains(path)) {
-      return AppRoutes.participants;
+      // Quem visitou o Painel ADM por último volta direto pra ele — ver
+      // ultima_rota_admin.dart. O flag só decide o destino; se o usuário
+      // não for mais admin, a própria tela barra o acesso normalmente
+      // (mensagemAcessoNegado em painel_admin_base.dart).
+      return ultimaRotaFoiPainelAdmin
+          ? AppRoutes.painelAdmin
+          : AppRoutes.participants;
+    }
+    // Fora das rotas guest-only, cada navegação atualiza o flag: só o
+    // Painel ADM marca true, qualquer outra rota (Participantes, Sala,
+    // etc.) marca false. Assim ele reflete sempre a ÚLTIMA tela visitada,
+    // não só a última vez que o Painel ADM foi aberto.
+    if (isLoggedIn) {
+      marcarUltimaRotaAdmin(path == AppRoutes.painelAdmin);
     }
     return null;
   },

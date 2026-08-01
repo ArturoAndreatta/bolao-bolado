@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/components/shell/gradient_decoration.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
@@ -36,8 +37,9 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Container(
-      decoration: GradientDecoration.backgroundGradient(),
+      decoration: GradientDecoration.backgroundGradient(context),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Center(
@@ -56,10 +58,10 @@ class _SplashScreenState extends State<SplashScreen>
                       child: LinearProgressIndicator(
                         value: _progressAnimation.value,
                         minHeight: 6,
-                        backgroundColor: Colors.white.withValues(alpha: 0.3),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Color(0xFF487DE5),
+                        backgroundColor: cores.textoSobreCor.withValues(
+                          alpha: 0.3,
                         ),
+                        valueColor: AlwaysStoppedAnimation<Color>(cores.azul),
                       ),
                     );
                   },

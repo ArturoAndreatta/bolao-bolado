@@ -1,4 +1,5 @@
 import 'package:bolao_bolado/components/shared/skeletons.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:flutter/material.dart';
 
 // Tabela simples de participantes usada em sala_detalhes.dart. Não confundir
@@ -71,6 +72,7 @@ class ParticipantsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return SizedBox(
       height: heightTable,
       child: loading
@@ -79,7 +81,7 @@ class ParticipantsTable extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    color: Colors.grey.shade200,
+                    color: cores.superficieAlta,
                     child: Row(
                       children: [
                         SkeletonBox(width: widthNome, height: 14),
@@ -116,18 +118,15 @@ class ParticipantsTable extends StatelessWidget {
                 child: DataTable(
                   dividerThickness: 0.5,
                   headingRowColor: WidgetStateProperty.all(
-                    Colors.grey.shade200,
+                    cores.superficieAlta,
                   ),
                   border: TableBorder.symmetric(
-                    inside: BorderSide(color: Colors.grey.shade300, width: 0.5),
-                    outside: BorderSide(
-                      color: Colors.grey.shade300,
-                      width: 1.5,
-                    ),
+                    inside: BorderSide(color: cores.borda, width: 0.5),
+                    outside: BorderSide(color: cores.borda, width: 1.5),
                   ),
-                  headingTextStyle: const TextStyle(
+                  headingTextStyle: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF374151),
+                    color: cores.texto,
                   ),
                   columnSpacing: 5,
                   columns: [

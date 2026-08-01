@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -58,20 +59,25 @@ class _CampoBuscaState extends State<CampoBusca> {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEFEFE),
+        // No claro o campo é a superfície mais clara (branco sobre o card
+        // off-white); no escuro isso se inverteria — `card` é o bloco mais
+        // claro dali, e o campo viraria uma laje brilhante sobre a tabela.
+        // No escuro ele usa o tom de campo, que recua em vez de saltar.
+        color: cores.escuro ? cores.campo : cores.card,
         borderRadius: AppRadii.circularSmd,
         border: Border.all(
-          color: _focado ? const Color(0xFF487DE5) : const Color(0xFFE5E7EB),
+          color: _focado ? cores.azul : cores.borda,
           width: _focado ? 1.5 : 1,
         ),
         boxShadow: _focado
             ? [
                 BoxShadow(
-                  color: const Color(0xFF487DE5).withValues(alpha: 0.15),
+                  color: cores.azul.withValues(alpha: 0.15),
                   blurRadius: 6,
                   spreadRadius: 1,
                 ),
@@ -83,7 +89,7 @@ class _CampoBuscaState extends State<CampoBusca> {
           Icon(
             Icons.search,
             size: 18,
-            color: _focado ? const Color(0xFF487DE5) : Colors.grey.shade500,
+            color: _focado ? cores.azul : cores.textoFraco,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -104,10 +110,7 @@ class _CampoBuscaState extends State<CampoBusca> {
                   isCollapsed: true,
                   border: InputBorder.none,
                   hintText: 'Buscar participante...',
-                  hintStyle: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade500,
-                  ),
+                  hintStyle: TextStyle(fontSize: 14, color: cores.textoFraco),
                 ),
                 style: const TextStyle(fontSize: 14),
               ),
@@ -174,6 +177,7 @@ class _BotaoDirecaoOrdenacao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -183,14 +187,14 @@ class _BotaoDirecaoOrdenacao extends StatelessWidget {
           width: 44,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: const Color(0xFFFEFEFE),
+            color: cores.escuro ? cores.campo : cores.card,
             borderRadius: AppRadii.circularSmd,
-            border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+            border: Border.all(color: cores.borda, width: 1),
           ),
           child: Icon(
             ascendente ? Icons.arrow_upward : Icons.arrow_downward,
             size: 18,
-            color: const Color(0xFF487DE5),
+            color: cores.azul,
           ),
         ),
       ),
@@ -212,6 +216,7 @@ class _BotaoCampoOrdenacao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return PopupMenuButton<int>(
       onSelected: onSelected,
       offset: const Offset(0, 48),
@@ -223,27 +228,23 @@ class _BotaoCampoOrdenacao extends StatelessWidget {
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEFEFE),
+          color: cores.escuro ? cores.campo : cores.card,
           borderRadius: AppRadii.circularSmd,
-          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+          border: Border.all(color: cores.borda, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               opcoes[colunaOrdenada] ?? 'Valor',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF487DE5),
+                color: cores.azul,
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(
-              Icons.arrow_drop_down,
-              size: 18,
-              color: Color(0xFF487DE5),
-            ),
+            Icon(Icons.arrow_drop_down, size: 18, color: cores.azul),
           ],
         ),
       ),

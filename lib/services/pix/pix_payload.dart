@@ -41,8 +41,13 @@ class PixPayload {
     return '$id$tamanho$valor';
   }
 
-  // Chaves EMV só aceitam ASCII e têm limite de tamanho por campo; remove
-  // acentos e caracteres fora da faixa para não quebrar o payload.
+  // Campos de texto livre do EMV (nome do recebedor, cidade) só aceitam ASCII
+  // e têm tamanho máximo próprio: remove acentos, descarta o que sobra fora
+  // da faixa e trunca. Um caractere fora do ASCII aqui invalida o payload
+  // inteiro, e o banco recusa o QR code na leitura.
+  //
+  // Não se aplica à chave PIX em si, que entra crua no campo 26 — ela vem do
+  // cadastro da sala e precisa ser transmitida exatamente como foi digitada.
   static String _normalizar(String texto, {required int max}) {
     const comAcento = 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ';
     const semAcento = 'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC';
