@@ -294,6 +294,16 @@ List<Map<String, Object?>> _montarParticipantes(
       'nome': dados['nome']?.toString() ?? '',
       'valor': dados['valor'],
       'data-hora': dados['data-hora'],
+      // Uma escrita com `FieldValue.serverTimestamp()` aparece no cache local
+      // ANTES de o servidor responder, e nesse intervalo `data-hora` vem
+      // `null`. Ordenar por data tratava esse null como época zero, então a
+      // aposta recém-criada nascia na ÚLTIMA linha e só depois pulava para o
+      // topo — o salto que se via ao simular apostas.
+      //
+      // `hasPendingWrites` é exatamente o sinal de "ainda não confirmado pelo
+      // servidor": quem o tem e está sem data é uma escrita de agora, não uma
+      // aposta antiga sem timestamp. Ver `dataHoraOrdenacao`.
+      'pendente': doc.metadata.hasPendingWrites,
       'verificado': dados['verificado'] == true,
       'editadoAposVerificacao': dados['editadoAposVerificacao'] == true,
       // Também aceita o prefixo do ID como sinal: apostas lançadas antes de
@@ -307,6 +317,61 @@ List<Map<String, Object?>> _montarParticipantes(
   }).toList();
 
   return calcularCotasEPremios(participantes, premioSala, precoCota);
+}
+
+/// Posição de ordenação já atribuída a apostas que apareceram pendentes.
+///
+/// Chaveado pelo uid. Uma vez que a linha entrou na tela num lugar, ela
+/// continua valendo aquele número mesmo depois de o servidor confirmar — é o
+/// que impede a segunda mudança de posição. Ver [dataHoraOrdenacao].
+final Map<String, int> _ordemDeChegada = {};
+
+/// Esquece as posições memorizadas de apostas que não estão mais na lista.
+///
+/// Sem isso o mapa cresceria para sempre numa sessão longa, e uma aposta
+/// removida e recriada herdaria a posição antiga em vez da nova.
+void esquecerOrdemDeChegada(Iterable<String> uidsPresentes) {
+  if (_ordemDeChegada.isEmpty) return;
+  final presentes = uidsPresentes.toSet();
+  _ordemDeChegada.removeWhere((uid, _) => !presentes.contains(uid));
+}
+
+/// Valor em milissegundos usado para ORDENAR uma linha por "Última
+/// Alteração".
+///
+/// Resolve o caso da aposta recém-escrita: entre o clique e a confirmação do
+/// servidor, o doc já existe no cache local mas `data-hora`
+/// (`FieldValue.serverTimestamp()`) ainda é `null`. Tratar esse null como 0
+/// jogava a linha para o fim da tabela, e ela pulava para o topo quando o
+/// servidor respondia.
+///
+/// **O valor precisa ser ESTÁVEL, não só plausível.** Devolver
+/// `DateTime.now()` só enquanto pendente resolvia a posição inicial mas
+/// criava um SEGUNDO salto: o "agora" do cliente não é o mesmo instante que
+/// o servidor grava, então na confirmação a linha mudava de lugar de novo —
+/// ela animava a entrada e logo era mandada para outra posição, que é
+/// exatamente o defeito visível ao simular várias apostas seguidas.
+///
+/// Por isso, uma vez que uma aposta apareceu pendente e recebeu um lugar,
+/// ela MANTÉM esse lugar enquanto estiver na lista, mesmo depois de
+/// confirmada. A diferença para o timestamp real é de milissegundos e não
+/// muda a ordem percebida; o que importa é a linha não se mexer duas vezes.
+///
+/// Um `null` SEM escrita pendente continua valendo 0: aí é mesmo uma aposta
+/// antiga sem timestamp, e o lugar dela é o fim da lista.
+int dataHoraOrdenacao(Object? dataHora, {required bool pendente, String? uid}) {
+  // Aposta que já entrou na tela pendente mantém o lugar que recebeu.
+  if (uid != null) {
+    final memorizado = _ordemDeChegada[uid];
+    if (memorizado != null) return memorizado;
+  }
+
+  if (dataHora is Timestamp) return dataHora.millisecondsSinceEpoch;
+  if (!pendente) return 0;
+
+  final agora = DateTime.now().millisecondsSinceEpoch;
+  if (uid != null) _ordemDeChegada[uid] = agora;
+  return agora;
 }
 
 /// Calcula cotas (valor apostado / preço da cota) e prêmio proporcional de

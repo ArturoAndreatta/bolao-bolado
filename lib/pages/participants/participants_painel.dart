@@ -9,7 +9,7 @@ import 'package:bolao_bolado/pages/participants/participants_estatisticas.dart';
 import 'package:bolao_bolado/pages/participants/participants_lista.dart';
 import 'package:bolao_bolado/pages/participants/participants_skeletons.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -124,10 +124,19 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
           vb = (b['premio'] as num?)?.toDouble() ?? 0;
           break;
         case 4:
-          final ta = a['data-hora'];
-          final tb = b['data-hora'];
-          va = ta is Timestamp ? ta.millisecondsSinceEpoch : 0;
-          vb = tb is Timestamp ? tb.millisecondsSinceEpoch : 0;
+          // Escrita ainda não confirmada pelo servidor vale "agora" em vez de
+          // época zero, senão a aposta recém-criada nasce na última linha e
+          // pula para o topo quando o timestamp chega (ver dataHoraOrdenacao).
+          va = dataHoraOrdenacao(
+            a['data-hora'],
+            pendente: a['pendente'] == true,
+            uid: a['uid']?.toString(),
+          );
+          vb = dataHoraOrdenacao(
+            b['data-hora'],
+            pendente: b['pendente'] == true,
+            uid: b['uid']?.toString(),
+          );
           break;
         default:
           return 0;
@@ -136,7 +145,28 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
       final cmp = va is String
           ? va.compareTo(vb)
           : (va as num).compareTo(vb as num);
-      return _ascendente ? cmp : -cmp;
+      if (cmp != 0) return _ascendente ? cmp : -cmp;
+
+      // Empate: desempata pelo uid, que nunca muda.
+      //
+      // `List.sort` do Dart NÃO é estável — com chaves iguais a ordem final
+      // depende da ordem de ENTRADA. E a ordem de entrada muda sozinha: a
+      // consulta do Firestore é ordenada por `data-hora`, e uma aposta
+      // recém-criada entra com `data-hora` null e só ganha o valor real
+      // quando o servidor confirma, o que a reposiciona na lista de origem.
+      //
+      // Sem este desempate, várias apostas de mesmo valor (o simulador gera
+      // muitas) trocavam de lugar entre si a cada emissão do stream. Cada
+      // troca virava uma reordenação para a ColunaReordenavel animar, e o
+      // resultado era a linha nova animando e logo em seguida sendo mandada
+      // para outra posição.
+      //
+      // O desempate é sempre crescente, independente de `_ascendente`: ele
+      // não é um critério de exibição, é só um jeito de a ordem ser sempre a
+      // mesma para os mesmos dados.
+      final uidA = a['uid']?.toString() ?? '';
+      final uidB = b['uid']?.toString() ?? '';
+      return uidA.compareTo(uidB);
     });
   }
 
@@ -162,6 +192,13 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
   }
 
   List<Map<String, dynamic>> _linhasFiltradas() {
+    // Descarta posições memorizadas de apostas que saíram da sala (ver
+    // esquecerOrdemDeChegada). Usa a lista COMPLETA, não a filtrada: filtrar
+    // pela busca não é motivo para uma aposta perder o lugar que já tinha.
+    esquecerOrdemDeChegada(
+      widget.rowsData.map((row) => row['uid']?.toString()).whereType<String>(),
+    );
+
     final termo = _busca.trim().toLowerCase();
     final rows = termo.isEmpty
         ? List<Map<String, dynamic>>.from(widget.rowsData)
@@ -249,6 +286,7 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
                           child: ListaParticipantes(
                             rows: linhasFiltradas,
                             currentUid: widget.currentUid,
+                            rowsCompletas: widget.rowsData,
                           ),
                         ),
                       )
@@ -256,6 +294,7 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
                         child: ListaParticipantes(
                           rows: linhasFiltradas,
                           currentUid: widget.currentUid,
+                          rowsCompletas: widget.rowsData,
                         ),
                       ),
                 Divider(height: 1, thickness: 1, color: cores.borda),
@@ -331,6 +370,7 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
             onCabecalhoTap: _onCabecalhoTap,
             currentUid: widget.currentUid,
             alturaFixa: widget.expandirConteudo,
+            rowsCompletas: widget.rowsData,
             mensagemVazio: linhasFiltradas.isEmpty
                 ? _textoSelecionavel(
                     context: context,

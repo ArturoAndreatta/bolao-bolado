@@ -2,6 +2,7 @@ import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/selo_manual.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
+import 'package:bolao_bolado/pages/participants/participants_reordenacao.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -13,6 +14,21 @@ const double wCotas = 100;
 const double wPremio = 198;
 const double wData = 190;
 const double larguraTotal = wNome + wValor + wCotas + wPremio + wData;
+
+/// Altura de uma linha do corpo da tabela, incluindo o divisor.
+///
+/// É uma constante — e não uma medida — porque o corpo do desktop usa
+/// `ListView.builder` com `itemExtent`: informar a altura é o que permite
+/// montar só as linhas visíveis sem medir as demais. A altura é previsível
+/// porque toda célula tem fonte 13, uma única linha de texto (nome usa
+/// ellipsis, não quebra) e padding vertical 7.
+///
+/// O valor foi MEDIDO, não deduzido: 19 de texto + 7*2 de padding + 1 do
+/// divisor. Há um teste que compara esta constante com a altura realmente
+/// renderizada ([test/pages/participants/altura_linha_tabela_test.dart]) — se
+/// algum padding ou tamanho de fonte mudar aqui, ele quebra em vez de a
+/// tabela desalinhar silenciosamente.
+const double kAlturaLinhaTabela = 34;
 
 // Compara o valor apostado atual de um uid com o último visto e já atualiza
 // o registro em `conhecidos`. Usado para decidir se uma linha deve animar a
@@ -31,6 +47,26 @@ bool detectarLinhaNova(
   return isNova;
 }
 
+/// Descarta de `conhecidos` os uids que não estão mais em `rows`.
+///
+/// Sem isso o mapa só cresce, e — pior — um participante removido e recriado
+/// com o mesmo valor não voltaria a animar, porque seu uid continuaria
+/// registrado com o valor antigo. Aparece na prática com o simulador de
+/// apostas, que remove e recria participantes fake o tempo todo.
+void podarConhecidos(
+  Map<String, Object?> conhecidos,
+  List<Map<String, dynamic>> rows,
+) {
+  if (conhecidos.isEmpty) return;
+  final presentes = rows
+      .map((row) => row['uid']?.toString())
+      .whereType<String>()
+      .toSet();
+  conhecidos.keys.toList().forEach((uid) {
+    if (!presentes.contains(uid)) conhecidos.remove(uid);
+  });
+}
+
 class TabelaApostas extends StatefulWidget {
   final List<Map<String, dynamic>> rows;
   final int colunaOrdenada;
@@ -42,6 +78,14 @@ class TabelaApostas extends StatefulWidget {
   // e rolar internamente; no mobile a tabela cresce com o conteúdo.
   final bool alturaFixa;
 
+  /// Lista COMPLETA de apostas, antes do filtro de busca.
+  ///
+  /// Serve só para podar o registro de linhas já vistas: podar contra [rows]
+  /// (que é a lista filtrada) faria o filtro de busca "esquecer" todo mundo
+  /// que ele esconde, e limpar a busca reanimaria a tabela inteira. Quando
+  /// não informada, cai em [rows] — comportamento certo para quem não filtra.
+  final List<Map<String, dynamic>>? rowsCompletas;
+
   const TabelaApostas({
     super.key,
     required this.rows,
@@ -51,6 +95,7 @@ class TabelaApostas extends StatefulWidget {
     required this.currentUid,
     this.mensagemVazio,
     this.alturaFixa = false,
+    this.rowsCompletas,
   });
 
   // As cores da tabela deixaram de ser `static const` com o dark mode: cada
@@ -104,6 +149,15 @@ class _TabelaApostasState extends State<TabelaApostas> {
   // a cada rebuild quando nada mudou.
   final Map<String, Object?> _valoresConhecidos = {};
 
+  // Em que índice cada linha estava, para calcular quantas posições ela andou
+  // quando a lista reordena. Substitui a medição de posições no corpo do
+  // desktop, que a reciclagem do ListView tornou inviável.
+  final RastreadorDeIndices _rastreador = RastreadorDeIndices();
+
+  // Deslocamento (em índices) de cada linha que trocou de lugar no build
+  // atual. Preenchido por _corpoRolavel e lido por _linha.
+  Map<Object, int> _deslocamentosDeslize = const {};
+
   List<Map<String, dynamic>> get rows => widget.rows;
   int get colunaOrdenada => widget.colunaOrdenada;
   bool get ascendente => widget.ascendente;
@@ -137,11 +191,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
             ),
             Divider(height: 1, thickness: 1, color: corBorda),
             if (alturaFixa)
-              Expanded(
-                child: SingleChildScrollView(
-                  child: _corpoTabela(context, formatoMoeda),
-                ),
-              )
+              Expanded(child: _corpoRolavel(context, formatoMoeda))
             else if (mensagemVazio == null)
               _corpoTabela(context, formatoMoeda),
             if (mensagemVazio == null) ...[
@@ -172,120 +222,193 @@ class _TabelaApostasState extends State<TabelaApostas> {
     );
   }
 
-  Widget _corpoTabela(BuildContext context, NumberFormat formatoMoeda) {
-    final corBorda = TabelaApostas.corBorda(context);
+  /// Corpo rolável da tabela no desktop, reciclando as linhas.
+  ///
+  /// `ListView.builder` monta só o que está visível (~12 linhas), em vez das
+  /// N linhas da sala. Com 500 apostas o `SingleChildScrollView` + `Column`
+  /// anterior mantinha ~2500 células vivas e as reconstruía a cada emissão do
+  /// Firestore — era isso, e não a animação em si, que deixava a entrada de
+  /// uma aposta nova travada numa sala grande.
+  ///
+  /// O deslize de reordenação NÃO usa `ColunaReordenavel` aqui: ela mede as
+  /// posições dos filhos, e numa lista reciclada a maioria das linhas nem
+  /// existe na árvore para ser medida. Em vez disso o deslocamento é
+  /// CALCULADO — `(índice antigo - índice novo) * kAlturaLinhaTabela` — via
+  /// [RastreadorDeIndices]. Além de funcionar com reciclagem, isso resolve o
+  /// "vai e volta": medir no meio de uma animação lê posições transitórias, e
+  /// com apostas chegando em rajada nunca há um instante estável para medir.
+  Widget _corpoRolavel(BuildContext context, NumberFormat formatoMoeda) {
+    podarConhecidos(_valoresConhecidos, widget.rowsCompletas ?? rows);
+
+    // A ordem é registrada no build, ANTES do layout: o deslocamento já sai
+    // pronto no mesmo quadro em que a linha muda de lugar, sem depender de
+    // um callback pós-frame.
+    _deslocamentosDeslize = _rastreador.atualizar([
+      for (var i = 0; i < rows.length; i++)
+        rows[i]['uid']?.toString() ?? 'linha-$i',
+    ]);
+
     return SelectionArea(
+      // A tabela fica dentro de um SingleChildScrollView horizontal (para
+      // janelas estreitas), que oferece largura ILIMITADA ao filho. Um
+      // `Column` aceitava isso; um ListView não — viewport vertical precisa
+      // de largura definida, senão o layout falha com "Vertical viewport was
+      // given unbounded width". Como as colunas têm larguras fixas, a largura
+      // da lista é justamente a soma delas.
+      child: SizedBox(
+        width: larguraTotal,
+        child: ListView.builder(
+          // A altura da linha é uniforme (fonte e padding fixos, nome com
+          // ellipsis em vez de quebra), então informá-la deixa o ListView
+          // calcular a extensão total sem medir linha por linha — o que torna
+          // a barra de rolagem estável e o salto de posição barato.
+          itemExtent: kAlturaLinhaTabela,
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final item = rows[index];
+            final chave = item['uid']?.toString() ?? 'linha-$index';
+            final andou = _deslocamentosDeslize[chave] ?? 0;
+
+            return LinhaDeslizante(
+              // A chave vai aqui para o estado do deslize acompanhar a LINHA,
+              // não a posição: sem isso o ListView reaproveitaria o State de
+              // outra linha ao reciclar.
+              key: ValueKey(chave),
+              deslocamento: andou * kAlturaLinhaTabela,
+              child: _linha(context, formatoMoeda, index, item),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _corpoTabela(BuildContext context, NumberFormat formatoMoeda) {
+    // Antes de reavaliar quem é novo: esquece quem saiu da lista, senão um
+    // participante removido e recriado nunca mais animaria.
+    podarConhecidos(_valoresConhecidos, widget.rowsCompletas ?? rows);
+    return SelectionArea(
+      child: ColunaReordenavel(
+        children: [
+          ...rows.asMap().entries.map(
+            (entry) => _linha(context, formatoMoeda, entry.key, entry.value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Uma linha da tabela. Usada tanto pelo corpo reciclado (desktop) quanto
+  /// pelo corpo que cresce com o conteúdo (mobile).
+  Widget _linha(
+    BuildContext context,
+    NumberFormat formatoMoeda,
+    int index,
+    Map<String, dynamic> item,
+  ) {
+    final corBorda = TabelaApostas.corBorda(context);
+    final isPar = index % 2 == 0;
+    final isUsuarioLogado = item['uid'] == currentUid;
+    final isVerificado = item['verificado'] == true;
+    final isAlterada = item['editadoAposVerificacao'] == true;
+    final isManual = item['criadoPeloAdmin'] == true;
+    final uid = item['uid']?.toString();
+
+    final nome = item['nome']?.toString() ?? '—';
+    final valor = (item['valor'] as num?)?.toDouble() ?? 0;
+    final cotas = (item['cotas'] as num?)?.toInt() ?? 0;
+    final premio = (item['premio'] as num?)?.toDouble() ?? 0;
+    final dataHora = item['data-hora'];
+
+    String dataFormatada = '—';
+    if (dataHora != null && dataHora is Timestamp) {
+      dataFormatada = Formatters.dataHoraAno2.format(dataHora.toDate());
+    }
+
+    final isNova = detectarLinhaNova(_valoresConhecidos, uid, valor);
+
+    // Prioridade visual: edição pós-verificação > verificado > zebra
+    // (par/ímpar). No escuro o estado não pinta o fundo — vira a
+    // barra lateral montada logo abaixo (ver corBarraEstado).
+    final corBarra = TabelaApostas.corBarraEstado(
+      context,
+      verificada: isVerificado,
+      alterada: isAlterada,
+    );
+
+    return LinhaEntrandoAnimada(
+      // Só o uid: a chave identifica QUAL participante é a linha, e
+      // isso não muda. Incluir o `data-hora` fazia a chave mudar
+      // quando o servidor confirmava o timestamp de uma aposta nova
+      // (null → Timestamp), e o Flutter descartava o widget que
+      // estava animando para construir outro — a animação recomeçava
+      // no meio. Linha sem uid cai no índice, que é o melhor
+      // identificador estável disponível nesse caso.
+      key: ValueKey(uid ?? 'linha-$index'),
+      animar: isNova,
+      corBase: TabelaApostas.corLinhaEstado(
+        context,
+        verificada: isVerificado,
+        alterada: isAlterada,
+        isPar: isPar,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ...rows.asMap().entries.map((entry) {
-            final index = entry.key;
-            final item = entry.value;
-            final isPar = index % 2 == 0;
-            final isUsuarioLogado = item['uid'] == currentUid;
-            final isVerificado = item['verificado'] == true;
-            final isAlterada = item['editadoAposVerificacao'] == true;
-            final isManual = item['criadoPeloAdmin'] == true;
-            final uid = item['uid']?.toString();
-
-            final nome = item['nome']?.toString() ?? '—';
-            final valor = (item['valor'] as num?)?.toDouble() ?? 0;
-            final cotas = (item['cotas'] as num?)?.toInt() ?? 0;
-            final premio = (item['premio'] as num?)?.toDouble() ?? 0;
-            final dataHora = item['data-hora'];
-
-            String dataFormatada = '—';
-            if (dataHora != null && dataHora is Timestamp) {
-              dataFormatada = Formatters.dataHoraAno2.format(dataHora.toDate());
-            }
-
-            final tsAtual = dataHora is Timestamp
-                ? dataHora.millisecondsSinceEpoch
-                : null;
-            final isNova = detectarLinhaNova(_valoresConhecidos, uid, valor);
-
-            // Prioridade visual: edição pós-verificação > verificado > zebra
-            // (par/ímpar). No escuro o estado não pinta o fundo — vira a
-            // barra lateral montada logo abaixo (ver corBarraEstado).
-            final corBarra = TabelaApostas.corBarraEstado(
-              context,
-              verificada: isVerificado,
-              alterada: isAlterada,
-            );
-
-            return LinhaEntrandoAnimada(
-              key: ValueKey('$uid-${tsAtual ?? index}'),
-              animar: isNova,
-              corBase: TabelaApostas.corLinhaEstado(
-                context,
-                verificada: isVerificado,
-                alterada: isAlterada,
-                isPar: isPar,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    color: Colors.transparent,
-                    // A barra entra como borda esquerda do próprio Container
-                    // da linha (não como um filho da Row): assim ela ocupa a
-                    // altura real da linha, sem depender de IntrinsicHeight
-                    // nem alterar as larguras fixas das colunas.
-                    foregroundDecoration: corBarra == null
-                        ? null
-                        : BoxDecoration(
-                            border: Border(
-                              left: BorderSide(
-                                color: corBarra,
-                                width: AppCores.de(context).larguraBarraEstado,
-                              ),
-                            ),
-                          ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CelulaLinha(
-                          texto: nome,
-                          width: wNome,
-                          alinhamento: TextAlign.left,
-                          negrito: isUsuarioLogado,
-                          sufixo: isManual
-                              ? const SeloManual(tamanhoFonte: 9)
-                              : null,
-                        ),
-                        CelulaLinha(
-                          texto: formatoMoeda.format(valor),
-                          width: wValor,
-                          alinhamento: TextAlign.right,
-                        ),
-                        CelulaLinha(
-                          texto: cotas.toString(),
-                          width: wCotas,
-                          alinhamento: TextAlign.right,
-                        ),
-                        CelulaLinha(
-                          texto: formatoMoeda.format(premio),
-                          width: wPremio,
-                          alinhamento: TextAlign.right,
-                          destaque: true,
-                        ),
-                        CelulaLinha(
-                          texto: dataFormatada,
-                          width: wData,
-                          alinhamento: TextAlign.right,
-                          subTexto: true,
-                          isLast: true,
-                        ),
-                      ],
+          Container(
+            color: Colors.transparent,
+            // A barra entra como borda esquerda do próprio Container
+            // da linha (não como um filho da Row): assim ela ocupa a
+            // altura real da linha, sem depender de IntrinsicHeight
+            // nem alterar as larguras fixas das colunas.
+            foregroundDecoration: corBarra == null
+                ? null
+                : BoxDecoration(
+                    border: Border(
+                      left: BorderSide(
+                        color: corBarra,
+                        width: AppCores.de(context).larguraBarraEstado,
+                      ),
                     ),
                   ),
-                  if (index < rows.length - 1)
-                    Divider(height: 1, thickness: 1, color: corBorda),
-                ],
-              ),
-            );
-          }),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CelulaLinha(
+                  texto: nome,
+                  width: wNome,
+                  alinhamento: TextAlign.left,
+                  negrito: isUsuarioLogado,
+                  sufixo: isManual ? const SeloManual(tamanhoFonte: 9) : null,
+                ),
+                CelulaLinha(
+                  texto: formatoMoeda.format(valor),
+                  width: wValor,
+                  alinhamento: TextAlign.right,
+                ),
+                CelulaLinha(
+                  texto: cotas.toString(),
+                  width: wCotas,
+                  alinhamento: TextAlign.right,
+                ),
+                CelulaLinha(
+                  texto: formatoMoeda.format(premio),
+                  width: wPremio,
+                  alinhamento: TextAlign.right,
+                  destaque: true,
+                ),
+                CelulaLinha(
+                  texto: dataFormatada,
+                  width: wData,
+                  alinhamento: TextAlign.right,
+                  subTexto: true,
+                  isLast: true,
+                ),
+              ],
+            ),
+          ),
+          if (index < rows.length - 1)
+            Divider(height: 1, thickness: 1, color: corBorda),
         ],
       ),
     );
@@ -293,8 +416,22 @@ class _TabelaApostasState extends State<TabelaApostas> {
 }
 
 /// Anima a entrada de uma linha recém-adicionada (nova aposta chegando via
-/// stream em tempo real): fade-in + leve deslizamento vertical + destaque
-/// temporário de fundo que se dissolve suavemente.
+/// stream em tempo real).
+///
+/// A animação é dividida em dois tempos, com papéis distintos:
+///
+/// 1. **Chegada (0–320ms)** — a linha abre espaço (`heightFactor`) e entra
+///    deslizando da esquerda com um leve exagero de escala horizontal. A
+///    abertura de espaço usa uma curva mais rápida (`easeOutCubic` comprimido
+///    no primeiro terço) que o conteúdo: o empurrão nas linhas de baixo
+///    termina cedo, e o resto da animação acontece com o layout já parado.
+///    A versão anterior estendia o `heightFactor` pelos 550ms inteiros, então
+///    a tabela toda ficava se reacomodando durante toda a transição.
+/// 2. **Confirmação (200–1100ms)** — um brilho horizontal percorre a linha
+///    uma vez e o destaque de fundo recua. É o tempo que comunica "isto é
+///    novo" depois que a linha já está no lugar; separá-lo da chegada é o que
+///    evita o efeito de "dissolver" do modelo antigo, onde o destaque sumia
+///    junto com o movimento e a linha nunca parecia pousar.
 ///
 /// Quando [animar] é falso, o child é exibido direto, sem custo de animação
 /// — assim apenas a linha nova paga o preço da transição, e a tabela toda
@@ -319,20 +456,40 @@ class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 550),
+    duration: const Duration(milliseconds: 1100),
+  );
+
+  // ── Tempo 1: chegada ─────────────────────────────────────────────────────
+  // Abertura do espaço vertical. Termina em 29% (~320ms) para o reflow das
+  // linhas de baixo acabar antes do resto: layout parado a partir daí.
+  late final Animation<double> _espaco = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0, 0.29, curve: Curves.easeOutCubic),
+  );
+
+  // Entrada lateral. easeOutBack dá o leve ultrapassar-e-voltar que faz a
+  // linha "assentar" em vez de simplesmente parar.
+  late final Animation<double> _entrada = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.05, 0.42, curve: Curves.easeOutBack),
   );
 
   late final Animation<double> _fade = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0, 0.7, curve: Curves.easeOut),
+    curve: const Interval(0.05, 0.3, curve: Curves.easeOut),
   );
-  late final Animation<double> _slide = CurvedAnimation(
-    parent: _controller,
-    curve: Curves.easeOutCubic,
-  );
+
+  // ── Tempo 2: confirmação ─────────────────────────────────────────────────
+  // Recuo do destaque de fundo. Só começa depois da linha já estar posta.
   late final Animation<double> _destaque = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.15, 1, curve: Curves.easeOut),
+    curve: const Interval(0.36, 1, curve: Curves.easeInOutCubic),
+  );
+
+  // Varredura do brilho, da esquerda para a direita, uma única vez.
+  late final Animation<double> _brilho = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.18, 0.72, curve: Curves.easeInOut),
   );
 
   @override
@@ -360,28 +517,52 @@ class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
       );
     }
 
+    final corDestaque = AppCores.de(context).linhaNova;
+
     return AnimatedBuilder(
       animation: _controller,
       child: widget.child,
       builder: (context, child) {
+        final entrada = _entrada.value;
+        final brilho = _brilho.value;
+
         return ClipRect(
           child: Align(
             alignment: Alignment.topCenter,
-            heightFactor: _slide.value,
-            child: Opacity(
-              opacity: _fade.value,
-              child: Transform.translate(
-                offset: Offset(0, (1 - _slide.value) * -8),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Color.lerp(
-                      AppCores.de(context).linhaNova,
-                      widget.corBase,
-                      _destaque.value,
+            heightFactor: _espaco.value,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Color.lerp(corDestaque, widget.corBase, _destaque.value),
+              ),
+              // O brilho fica ENTRE o fundo e o conteúdo: passa por baixo do
+              // texto, sem lavá-lo. Pintado por cima, os números da aposta
+              // ficavam ilegíveis justamente no instante em que chamam
+              // atenção.
+              child: Stack(
+                children: [
+                  if (brilho > 0 && brilho < 1)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: CustomPaint(
+                          painter: _PinturaBrilho(
+                            progresso: brilho,
+                            cor: corDestaque,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Opacity(
+                    opacity: _fade.value,
+                    // Translação em X (não em Y): a linha vem da margem, o
+                    // que não conflita com o espaço vertical que ainda está
+                    // abrindo. Deslocar em Y durante o `heightFactor` fazia
+                    // os dois movimentos se cancelarem parcialmente.
+                    child: Transform.translate(
+                      offset: Offset((1 - entrada) * -24, 0),
+                      child: child,
                     ),
                   ),
-                  child: child,
-                ),
+                ],
               ),
             ),
           ),
@@ -389,6 +570,54 @@ class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
       },
     );
   }
+}
+
+/// Faixa de luz que percorre a linha nova uma vez, da esquerda para a direita.
+///
+/// Desenhada com um gradiente de três paradas (transparente → cor →
+/// transparente) cuja posição acompanha [progresso]. O gradiente é criado no
+/// `paint` porque suas paradas mudam a cada frame; o `shouldRepaint` compara
+/// só o progresso, então nenhum outro repintura é disparado.
+class _PinturaBrilho extends CustomPainter {
+  final double progresso;
+  final Color cor;
+
+  _PinturaBrilho({required this.progresso, required this.cor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Vai de -0.3 a 1.3 para a faixa entrar e sair completamente da linha,
+    // em vez de aparecer e sumir dentro dela.
+    final centro = -0.3 + progresso * 1.6;
+    const meiaLargura = 0.22;
+
+    // A opacidade sobe e desce ao longo da passagem: a faixa nasce e morre
+    // fora do campo de visão do olho, sem pop nas bordas.
+    final intensidade = (1 - (progresso - 0.5).abs() * 2).clamp(0.0, 1.0);
+    if (intensidade <= 0) return;
+
+    final gradiente = LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: [
+        cor.withValues(alpha: 0),
+        cor.withValues(alpha: 0.55 * intensidade),
+        cor.withValues(alpha: 0),
+      ],
+      stops: [
+        (centro - meiaLargura).clamp(0.0, 1.0),
+        centro.clamp(0.0, 1.0),
+        (centro + meiaLargura).clamp(0.0, 1.0),
+      ],
+    );
+
+    final rect = Offset.zero & size;
+    canvas.drawRect(rect, Paint()..shader = gradiente.createShader(rect));
+  }
+
+  @override
+  bool shouldRepaint(_PinturaBrilho anterior) =>
+      anterior.progresso != progresso || anterior.cor != cor;
 }
 
 /// Rodapé fixo da tabela com o total de "Valor" e "Cotas", alinhado às
@@ -420,8 +649,7 @@ class RodapeTotalizador extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           CelulaLinha(
-            texto:
-                '${rows.length} ${rows.length == 1 ? 'participante' : 'participantes'}',
+            texto: '',
             width: wNome,
             alinhamento: TextAlign.left,
             paddingVertical: 4,
@@ -451,7 +679,8 @@ class RodapeTotalizador extends StatelessWidget {
             fontSize: 12,
           ),
           CelulaLinha(
-            texto: '',
+            texto:
+                '${rows.length} ${rows.length == 1 ? 'participante' : 'participantes'}',
             width: wData,
             alinhamento: TextAlign.right,
             isLast: true,

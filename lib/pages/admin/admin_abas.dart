@@ -1524,29 +1524,36 @@ class AbaConfig extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           AdminSecaoCard(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: forcarSkeletonGlobal,
-              builder: (context, ativo, _) {
-                return SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Forçar skeleton loading',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: cores.texto,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Trava o skeleton em Minha Aposta, Participantes e Chat '
-                    '(dev)',
-                    style: TextStyle(fontSize: 12, color: cores.textoSuave),
-                  ),
-                  value: ativo,
-                  activeThumbColor: cores.azul,
-                  onChanged: (novo) => forcarSkeletonGlobal.value = novo,
-                );
-              },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ValueListenableBuilder<bool>(
+                  valueListenable: forcarSkeletonGlobal,
+                  builder: (context, ativo, _) {
+                    return SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        'Forçar skeleton loading',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: cores.texto,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Trava o skeleton em Minha Aposta, Participantes e '
+                        'Chat (dev)',
+                        style: TextStyle(fontSize: 12, color: cores.textoSuave),
+                      ),
+                      value: ativo,
+                      activeThumbColor: cores.azul,
+                      onChanged: (novo) => forcarSkeletonGlobal.value = novo,
+                    );
+                  },
+                ),
+                Divider(height: 20, thickness: 1, color: cores.borda),
+                const _RitmoSimulacao(),
+              ],
             ),
           ),
           const SizedBox(height: 20),
@@ -1587,6 +1594,96 @@ class AbaConfig extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Slider do intervalo entre passos do simulador de apostas.
+///
+/// O simulador roda na tela de Participantes, não aqui — o valor vai para
+/// [intervaloSimulacaoMsGlobal] e é lido de lá, então dá para ajustar o ritmo
+/// com a simulação já rodando na outra aba/janela.
+class _RitmoSimulacao extends StatelessWidget {
+  const _RitmoSimulacao();
+
+  /// Rótulo do valor atual. Abaixo de 1s milissegundo é a unidade natural;
+  /// acima, "1,5s" lê melhor que "1500 ms".
+  static String _rotulo(int ms) {
+    if (ms < 1000) return '$ms ms';
+    final segundos = ms / 1000;
+    final texto = segundos.toStringAsFixed(segundos % 1 == 0 ? 0 : 1);
+    return '${texto.replaceAll('.', ',')}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    return ValueListenableBuilder<int>(
+      valueListenable: intervaloSimulacaoMsGlobal,
+      builder: (context, valor, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Ritmo da simulação',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: cores.texto,
+                    ),
+                  ),
+                ),
+                Text(
+                  _rotulo(valor),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: cores.azul,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Tempo entre uma aposta simulada e a próxima (dev). Vale para a '
+              'simulação da tela de Participantes, inclusive já rodando.',
+              style: TextStyle(fontSize: 12, color: cores.textoSuave),
+            ),
+            Slider(
+              value: valor
+                  .clamp(kIntervaloSimulacaoMinMs, kIntervaloSimulacaoMaxMs)
+                  .toDouble(),
+              min: kIntervaloSimulacaoMinMs.toDouble(),
+              max: kIntervaloSimulacaoMaxMs.toDouble(),
+              // Passos de 100ms: com o slider contínuo o valor parava em
+              // números como 837ms, que não dizem nada a mais e deixam o
+              // rótulo difícil de reproduzir depois.
+              divisions:
+                  (kIntervaloSimulacaoMaxMs - kIntervaloSimulacaoMinMs) ~/ 100,
+              label: _rotulo(valor),
+              activeColor: cores.azul,
+              onChanged: (novo) =>
+                  intervaloSimulacaoMsGlobal.value = novo.round(),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_rotulo(kIntervaloSimulacaoMinMs)} (rápido)',
+                  style: TextStyle(fontSize: 11, color: cores.textoSuave),
+                ),
+                Text(
+                  '${_rotulo(kIntervaloSimulacaoMaxMs)} (lento)',
+                  style: TextStyle(fontSize: 11, color: cores.textoSuave),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }

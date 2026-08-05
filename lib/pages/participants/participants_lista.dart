@@ -2,10 +2,10 @@ import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shared/selo_manual.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
+import 'package:bolao_bolado/pages/participants/participants_reordenacao.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart'
-    show LinhaEntrandoAnimada, detectarLinhaNova;
+    show LinhaEntrandoAnimada, detectarLinhaNova, podarConhecidos;
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 const List<Color> coresAvatar = [
@@ -33,10 +33,15 @@ class ListaParticipantes extends StatefulWidget {
   final List<Map<String, dynamic>> rows;
   final String? currentUid;
 
+  /// Lista completa (sem filtro de busca), usada só para podar o registro de
+  /// linhas já vistas. Ver [TabelaApostas.rowsCompletas].
+  final List<Map<String, dynamic>>? rowsCompletas;
+
   const ListaParticipantes({
     super.key,
     required this.rows,
     required this.currentUid,
+    this.rowsCompletas,
   });
 
   @override
@@ -52,18 +57,23 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
   @override
   Widget build(BuildContext context) {
     final rows = widget.rows;
+    // Esquece quem saiu da lista antes de reavaliar quem é novo (ver
+    // podarConhecidos): sem isso um participante removido e recriado com o
+    // mesmo valor nunca voltaria a animar.
+    podarConhecidos(_valoresConhecidos, widget.rowsCompletas ?? rows);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return ColunaReordenavel(
       children: [
-        for (var i = 0; i < rows.length; i++) ...[
+        for (var i = 0; i < rows.length; i++)
           Builder(
+            // A chave precisa ficar AQUI, no filho direto da
+            // ColunaReordenavel: é por ela que a coluna reconhece que esta
+            // linha é a mesma que estava em outra posição.
+            key: ValueKey(
+              rows[i]['uid']?.toString() ?? '$i-${rows[i]['nome']}',
+            ),
             builder: (context) {
               final uid = rows[i]['uid']?.toString();
-              final dataHora = rows[i]['data-hora'];
-              final tsAtual = dataHora is Timestamp
-                  ? dataHora.millisecondsSinceEpoch
-                  : null;
               final valorAtual = rows[i]['valor'];
               final isNova = detectarLinhaNova(
                 _valoresConhecidos,
@@ -72,35 +82,44 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
               );
 
               return LinhaEntrandoAnimada(
-                key: ValueKey(
-                  '${uid ?? '$i-${rows[i]['nome']}'}-${tsAtual ?? i}',
-                ),
                 animar: isNova,
                 corBase: Colors.transparent,
-                child: LinhaParticipante(
-                  nome: rows[i]['nome']?.toString() ?? '—',
-                  valor: Formatters.moeda.format(
-                    (rows[i]['valor'] as num?)?.toDouble() ?? 0,
-                  ),
-                  cotas: (rows[i]['cotas'] as num?)?.toInt() ?? 0,
-                  premio: Formatters.moeda.format(
-                    (rows[i]['premio'] as num?)?.toDouble() ?? 0,
-                  ),
-                  corAvatar: (rows[i]['avatarColor'] as int?) != null
-                      ? Color(rows[i]['avatarColor'] as int)
-                      : null,
-                  emojiAvatar: rows[i]['avatarEmoji']?.toString(),
-                  destacado: rows[i]['uid'] == widget.currentUid,
-                  verificado: rows[i]['verificado'] == true,
-                  alterada: rows[i]['editadoAposVerificacao'] == true,
-                  manual: rows[i]['criadoPeloAdmin'] == true,
+                // O divisor entra DENTRO da linha (não como irmão dela) para
+                // viajar junto quando ela desliza para outra posição. Solto
+                // no Column, ele ficava parado enquanto a linha se movia, e
+                // dava para ver a linha passar por cima do próprio divisor.
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LinhaParticipante(
+                      nome: rows[i]['nome']?.toString() ?? '—',
+                      valor: Formatters.moeda.format(
+                        (rows[i]['valor'] as num?)?.toDouble() ?? 0,
+                      ),
+                      cotas: (rows[i]['cotas'] as num?)?.toInt() ?? 0,
+                      premio: Formatters.moeda.format(
+                        (rows[i]['premio'] as num?)?.toDouble() ?? 0,
+                      ),
+                      corAvatar: (rows[i]['avatarColor'] as int?) != null
+                          ? Color(rows[i]['avatarColor'] as int)
+                          : null,
+                      emojiAvatar: rows[i]['avatarEmoji']?.toString(),
+                      destacado: rows[i]['uid'] == widget.currentUid,
+                      verificado: rows[i]['verificado'] == true,
+                      alterada: rows[i]['editadoAposVerificacao'] == true,
+                      manual: rows[i]['criadoPeloAdmin'] == true,
+                    ),
+                    if (i < rows.length - 1)
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppCores.de(context).borda,
+                      ),
+                  ],
                 ),
               );
             },
           ),
-          if (i < rows.length - 1)
-            Divider(height: 1, thickness: 1, color: AppCores.de(context).borda),
-        ],
       ],
     );
   }
