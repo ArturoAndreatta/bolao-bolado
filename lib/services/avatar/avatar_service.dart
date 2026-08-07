@@ -127,6 +127,10 @@ final List<String> kEmojisAvatar = [
 
 const String kEmojiAvatarPadrao = '🍀';
 
+/// Cinza do avatar de quem ainda não escolheu cor — e do estado de espera,
+/// enquanto o documento do usuário não chegou do Firestore.
+const Color kCorAvatarNeutra = Color(0xFFE5E7EB);
+
 class AvatarService {
   /// Sorteia uma cor aleatória dentre as 16 disponíveis (nunca a cor base do admin)
   /// e retorna seu valor ARGB como inteiro, para persistir no Firestore.
@@ -237,6 +241,8 @@ class AvatarColorCache {
   final Map<String, Stream<String>> _emojiStreams = {};
   final Map<String, String> _ultimoEmoji = {};
 
+  final Map<String, Stream<({Color cor, String emoji})>> _avatarStreams = {};
+
   /// Assinatura interna de cada uid observado, guardada só para poder ser
   /// cancelada em [liberar]. Sem isto o listener do `snapshots()` ficava
   /// inalcançável depois de criado — o cache só crescia.
@@ -303,7 +309,7 @@ class AvatarColorCache {
 
     if (dados?['isAdmin'] == true) return kCorBaseAdmin;
 
-    return const Color(0xFFE5E7EB);
+    return kCorAvatarNeutra;
   }
 
   static String _emojiDe(Map<String, dynamic>? dados) {
@@ -339,6 +345,29 @@ class AvatarColorCache {
   /// Último emoji conhecido em memória (sem novas leituras).
   String? emojiConhecido(String uid) => _ultimoEmoji[uid];
 
+  /// Cor e emoji juntos, em tempo real — o que um avatar precisa para ser
+  /// desenhado.
+  ///
+  /// É esta a porta usada por `AvatarDoParticipante`, que resolve o avatar de
+  /// UMA linha no momento em que ela aparece. Assinar esta stream começa a
+  /// observar o uid: quem não está na tela não custa listener nenhum. Antes
+  /// existia um `aquecer(uids)` que abria todos de uma vez, e numa sala de
+  /// 300 apostas isso eram 300 listeners disputando a conexão no primeiro
+  /// carregamento.
+  ///
+  /// Memoizada como as demais views: o StreamBuilder de cada linha é montado
+  /// dentro do build(), e devolver um objeto novo a cada rebuild faria ele
+  /// cancelar e reassinar, piscando o avatar de volta ao estado neutro.
+  Stream<({Color cor, String emoji})> avatarStream(String uid) {
+    return _avatarStreams.putIfAbsent(
+      uid,
+      () => _docStream(uid).map((doc) {
+        final dados = doc.data();
+        return (cor: _corDe(dados), emoji: _emojiDe(dados));
+      }),
+    );
+  }
+
   /// Cor e emoji já em memória, sem nenhuma espera. `null` enquanto o uid
   /// ainda não foi observado — quem chama desenha o avatar neutro e recompõe
   /// quando [mudancas] avisar.
@@ -347,22 +376,6 @@ class AvatarColorCache {
     final emoji = _ultimoEmoji[uid];
     if (cor == null || emoji == null) return null;
     return (cor: cor, emoji: emoji);
-  }
-
-  /// Começa a observar os [uids] que ainda não estão em memória, sem esperar
-  /// o resultado.
-  ///
-  /// A lista de apostas chamava isso de forma bloqueante: montar a lista
-  /// esperava uma leitura de `usuarios/{uid}` por participante terminar
-  /// ANTES de qualquer linha aparecer. Medido numa sala de 11 apostas, essa
-  /// espera era ~960ms dos ~1500ms até a tela pintar — dois terços do tempo
-  /// gastos em algo puramente cosmético. Agora a lista aparece na hora e os
-  /// avatares entram depois.
-  void aquecer(Iterable<String> uids) {
-    for (final uid in uids) {
-      if (_docs.containsKey(uid)) continue;
-      _docStream(uid);
-    }
   }
 
   /// Para de observar os uids que não estão em [emUso], fechando os listeners
@@ -379,10 +392,13 @@ class AvatarColorCache {
   /// sem piscar no estado neutro caso ele volte à tela. O que se solta aqui é
   /// a conexão viva, não a memória.
   ///
-  /// Ninguém chama isto hoje — a limpeza depende de alguém saber o conjunto
-  /// de uids realmente em uso, e hoje esse conjunto está espalhado entre a
-  /// lista de apostas e o chat. Fica disponível para quando esse ponto único
-  /// existir; enquanto isso, [aquecer] segue sendo a única porta de entrada.
+  /// Ninguém chama isto hoje, e o motivo mudou de natureza: agora que cada
+  /// avatar é observado pela linha VISÍVEL que o desenha (ver
+  /// `AvatarDoParticipante`), o conjunto de uids observados já acompanha a
+  /// tela em vez de crescer com o tamanho da sala. O que ainda falta é soltar
+  /// o listener quando a linha sai de cena — hoje ele fica aberto até o app
+  /// recarregar. Numa sessão muito longa rolando salas grandes isso volta a
+  /// acumular, e é aqui que a limpeza deve entrar.
   void liberar(Set<String> emUso) {
     final ociosos = _docs.keys.where((uid) => !emUso.contains(uid)).toList();
     for (final uid in ociosos) {
@@ -390,6 +406,7 @@ class AvatarColorCache {
       _docs.remove(uid);
       _streams.remove(uid);
       _emojiStreams.remove(uid);
+      _avatarStreams.remove(uid);
     }
   }
 }

@@ -100,6 +100,7 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
                       premio: Formatters.moeda.format(
                         (rows[i]['premio'] as num?)?.toDouble() ?? 0,
                       ),
+                      uid: uid,
                       corAvatar: (rows[i]['avatarColor'] as int?) != null
                           ? Color(rows[i]['avatarColor'] as int)
                           : null,
@@ -130,6 +131,12 @@ class LinhaParticipante extends StatelessWidget {
   final String valor;
   final int cotas;
   final String premio;
+
+  /// Uid do participante, usado para resolver o avatar sob demanda. Nulo em
+  /// aposta manual lançada pelo admin, que não tem usuário por trás — aí o
+  /// avatar cai no derivado do nome.
+  final String? uid;
+
   final Color? corAvatar;
   final String? emojiAvatar;
   final bool destacado;
@@ -143,6 +150,7 @@ class LinhaParticipante extends StatelessWidget {
     required this.valor,
     required this.cotas,
     required this.premio,
+    this.uid,
     this.corAvatar,
     this.emojiAvatar,
     required this.destacado,
@@ -186,7 +194,16 @@ class LinhaParticipante extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AvatarEmoji(tamanho: 32, cor: cor, emoji: emoji),
+          // O avatar se resolve sozinho a partir do uid, em vez de depender
+          // de um pré-carregamento de todos os participantes da sala. As
+          // cores derivadas do nome ficam como fallback: valem para aposta
+          // manual (sem uid) e enquanto o documento não chega.
+          AvatarDoParticipante(
+            uid: uid,
+            tamanho: 32,
+            corFallback: cor,
+            emojiFallback: emoji,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

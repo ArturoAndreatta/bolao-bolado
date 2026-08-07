@@ -227,16 +227,16 @@ void main() {
     });
   });
 
-  group('ehLotofacil', () {
+  group('isLotofacil', () {
     test('reconhece "lotofacil" e o value antigo "loto"', () {
-      expect(ehLotofacil('lotofacil'), isTrue);
-      expect(ehLotofacil('loto'), isTrue);
+      expect(isLotofacil('lotofacil'), isTrue);
+      expect(isLotofacil('loto'), isTrue);
     });
 
     test('não reconhece Mega-Sena nem valores nulos/desconhecidos', () {
-      expect(ehLotofacil('mega'), isFalse);
-      expect(ehLotofacil(null), isFalse);
-      expect(ehLotofacil('outros'), isFalse);
+      expect(isLotofacil('mega'), isFalse);
+      expect(isLotofacil(null), isFalse);
+      expect(isLotofacil('outros'), isFalse);
     });
   });
 }

@@ -518,6 +518,50 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// Apaga TODAS as apostas da sala, com confirmação. Zera o bolão: ninguém
+  /// fica no rateio e os totais do painel voltam a zero. Não tem desfazer,
+  /// por isso a confirmação repete o que acontece com o dinheiro.
+  Future<void> confirmarApagarTodasApostas() async {
+    if (salaId == null) return;
+
+    final confirmar = await CustomConfirmDialog.show(
+      context,
+      titulo: 'Apagar todas as apostas?',
+      mensagem:
+          'Todas as apostas desta sala serão apagadas permanentemente, '
+          'incluindo as já verificadas. A sala fica sem nenhum participante '
+          'e o rateio de cotas e prêmios volta a zero. Esta ação não pode '
+          'ser desfeita.',
+      textoConfirmar: 'Apagar tudo',
+      destrutivo: true,
+    );
+
+    if (!confirmar) return;
+
+    try {
+      final apagadas = await removerTodasApostas(salaId: salaId!);
+      unawaited(_carregarStats());
+      if (!mounted) return;
+      mostrarSnackBarDeslizante(
+        context,
+        corFundo: AdminCores.de(context).verde,
+        conteudo: Text(
+          apagadas == 0
+              ? 'A sala já estava sem apostas.'
+              : '$apagadas ${apagadas == 1 ? "aposta apagada" : "apostas apagadas"}',
+        ),
+      );
+    } catch (e) {
+      debugPrint('Erro ao apagar todas as apostas: $e');
+      if (mounted) {
+        CustomShowDialog.show(
+          context,
+          'Erro ao apagar as apostas. Tente novamente.',
+        );
+      }
+    }
+  }
+
   Future<void> recarregarStats() => _carregarStats();
 
   // ---------------------------------------------------------------------------
@@ -591,6 +635,7 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
           salaId: salaId,
           onModerarChat: abrirModeracaoChat,
           onApagarMensagens: confirmarApagarMensagensChat,
+          onApagarApostas: confirmarApagarTodasApostas,
         );
     }
   }

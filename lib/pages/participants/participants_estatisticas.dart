@@ -51,7 +51,7 @@ class _PainelEstatisticasState extends State<PainelEstatisticas> {
       0,
       (soma, item) => soma + ((item['cotas'] as num?)?.toInt() ?? 0),
     );
-    final probabilidadeJogo = ehLotofacil(sorteio)
+    final probabilidadeJogo = isLotofacil(sorteio)
         ? probabilidadeLotofacil
         : probabilidadeMega;
 

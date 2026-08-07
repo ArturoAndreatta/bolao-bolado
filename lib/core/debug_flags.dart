@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/pages/participants/participants_estilo_entrada.dart';
 import 'package:flutter/foundation.dart';
 
 /// Flags de debug/dev acionáveis em runtime pelo painel de admin.
@@ -35,3 +36,13 @@ const int kIntervaloSimulacaoMinMs = 100;
 /// Teto do intervalo (10s por passo) — mais lento que isso a tela parece
 /// travada em vez de simulando.
 const int kIntervaloSimulacaoMaxMs = 10000;
+
+/// Estilo da animação de entrada de uma aposta nova na tabela.
+///
+/// Mesmo arranjo do ritmo da simulação: o controle está no Painel ADM e a
+/// animação acontece na tela de Participantes, então um notifier global é o
+/// que permite trocar o estilo com a outra tela já aberta e ver o efeito na
+/// aposta seguinte.
+final ValueNotifier<EstiloEntrada> estiloEntradaGlobal = ValueNotifier(
+  EstiloEntrada.batida,
+);

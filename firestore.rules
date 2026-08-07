@@ -15,7 +15,7 @@ service cloud.firestore {
 
     // Lê o doc do usuário e retorna se ele é admin. Só chamar quando já se
     // sabe que request.auth != null (senão o path fica inválido).
-    function ehAdmin() {
+    function temPermissaoAdmin() {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
 
@@ -52,7 +52,7 @@ service cloud.firestore {
                      && request.resource.data.get('principal', false) == false;
 
       // Atualização: apenas admin (edição de sala pelo painel admin).
-      allow update: if naoAnonimo() && ehAdmin();
+      allow update: if naoAnonimo() && temPermissaoAdmin();
 
       allow delete: if false; // ajuste futuro: apenas o criador da sala
 
@@ -130,9 +130,9 @@ service cloud.firestore {
         // poupa o get() extra da sala nas escritas do admin, que são as mais
         // frequentes durante a conferência das apostas.
         allow create, update: if naoAnonimo()
-                               && ehAdmin()
+                               && temPermissaoAdmin()
                                && request.resource.data.valor is string;
-        allow delete: if naoAnonimo() && ehAdmin();
+        allow delete: if naoAnonimo() && temPermissaoAdmin();
       }
 
       // ── Mensagens do chat ───────────────────────────────────────────────
@@ -155,7 +155,7 @@ service cloud.firestore {
         // Apagar é permitido só ao admin (moderação do chat pelo painel).
         // O autor não pode apagar a própria mensagem — do contrário daria
         // pra falar algo no chat e apagar antes de alguém cobrar.
-        allow delete: if naoAnonimo() && ehAdmin();
+        allow delete: if naoAnonimo() && temPermissaoAdmin();
       }
     }
 

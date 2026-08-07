@@ -14,14 +14,14 @@ const double kPrecoCotaLotofacil = 3.5;
 /// gravado como `'loto'` no Firestore e continuariam calculando cota errada
 /// se não fossem reconhecidas aqui.
 double precoCotaPara(String? sorteio) {
-  return ehLotofacil(sorteio) ? kPrecoCotaLotofacil : kPrecoCotaMega;
+  return isLotofacil(sorteio) ? kPrecoCotaLotofacil : kPrecoCotaMega;
 }
 
 /// Fonte única de verdade para reconhecer uma sala de Lotofácil a partir do
 /// campo `sorteio`. Usada tanto pelo preço de cota quanto pelas estatísticas
 /// de probabilidade, para as duas nunca divergirem. Aceita `'loto'` (value
 /// antigo do dropdown) além de `'lotofacil'`.
-bool ehLotofacil(String? sorteio) {
+bool isLotofacil(String? sorteio) {
   return sorteio == 'lotofacil' || sorteio == 'loto';
 }
 

@@ -1,7 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/selo_manual.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
+import 'package:bolao_bolado/core/debug_flags.dart';
+import 'package:bolao_bolado/pages/participants/participants_estilo_entrada.dart';
 import 'package:bolao_bolado/pages/participants/participants_reordenacao.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -258,10 +262,15 @@ class _TabelaApostasState extends State<TabelaApostas> {
       child: SizedBox(
         width: larguraTotal,
         child: ListView.builder(
-          // A altura da linha é uniforme (fonte e padding fixos, nome com
-          // ellipsis em vez de quebra), então informá-la deixa o ListView
-          // calcular a extensão total sem medir linha por linha — o que torna
-          // a barra de rolagem estável e o salto de posição barato.
+          // A extensão fixa é o que dá a GRADE em que o deslize de
+          // reordenação se apoia: sem ela, a altura de cada linha varia
+          // enquanto outra entra, e o deslocamento calculado
+          // (`índices * kAlturaLinhaTabela`) deixa de bater com o layout real
+          // — a linha em movimento oscila durante uma rajada de apostas.
+          //
+          // Por isso a animação de ENTRADA não abre espaço no ListView: ela
+          // revela o conteúdo DENTRO do item, que já nasce com a altura final.
+          // Ver `_reservaAlturaFixa` em LinhaEntrandoAnimada.
           itemExtent: kAlturaLinhaTabela,
           itemCount: rows.length,
           itemBuilder: (context, index) {
@@ -275,7 +284,13 @@ class _TabelaApostasState extends State<TabelaApostas> {
               // outra linha ao reciclar.
               key: ValueKey(chave),
               deslocamento: andou * kAlturaLinhaTabela,
-              child: _linha(context, formatoMoeda, index, item),
+              child: _linha(
+                context,
+                formatoMoeda,
+                index,
+                item,
+                emGradeFixa: true,
+              ),
             );
           },
         ),
@@ -304,8 +319,11 @@ class _TabelaApostasState extends State<TabelaApostas> {
     BuildContext context,
     NumberFormat formatoMoeda,
     int index,
-    Map<String, dynamic> item,
-  ) {
+    Map<String, dynamic> item, {
+    // Verdadeiro no corpo reciclado, onde o ListView já reservou a altura da
+    // linha (itemExtent) e a chegada precisa ser encenada por dentro.
+    bool emGradeFixa = false,
+  }) {
     final corBorda = TabelaApostas.corBorda(context);
     final isPar = index % 2 == 0;
     final isUsuarioLogado = item['uid'] == currentUid;
@@ -346,6 +364,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
       // identificador estável disponível nesse caso.
       key: ValueKey(uid ?? 'linha-$index'),
       animar: isNova,
+      reservaAlturaFixa: emGradeFixa,
       corBase: TabelaApostas.corLinhaEstado(
         context,
         verificada: isVerificado,
@@ -421,17 +440,19 @@ class _TabelaApostasState extends State<TabelaApostas> {
 /// A animação é dividida em dois tempos, com papéis distintos:
 ///
 /// 1. **Chegada (0–320ms)** — a linha abre espaço (`heightFactor`) e entra
-///    deslizando da esquerda com um leve exagero de escala horizontal. A
-///    abertura de espaço usa uma curva mais rápida (`easeOutCubic` comprimido
-///    no primeiro terço) que o conteúdo: o empurrão nas linhas de baixo
-///    termina cedo, e o resto da animação acontece com o layout já parado.
-///    A versão anterior estendia o `heightFactor` pelos 550ms inteiros, então
-///    a tabela toda ficava se reacomodando durante toda a transição.
-/// 2. **Confirmação (200–1100ms)** — um brilho horizontal percorre a linha
+///    deslizando da esquerda. A abertura de espaço termina antes do deslize
+///    (~500ms contra ~900ms): o empurrão nas linhas de baixo acaba cedo, e o
+///    resto do movimento acontece com o layout já parado. A versão original
+///    estendia o `heightFactor` pela animação inteira, e a tabela toda ficava
+///    se reacomodando durante toda a transição.
+/// 2. **Confirmação (330–1500ms)** — um brilho horizontal percorre a linha
 ///    uma vez e o destaque de fundo recua. É o tempo que comunica "isto é
 ///    novo" depois que a linha já está no lugar; separá-lo da chegada é o que
 ///    evita o efeito de "dissolver" do modelo antigo, onde o destaque sumia
 ///    junto com o movimento e a linha nunca parecia pousar.
+///
+/// Os tempos foram alongados de 1100ms para 1500ms: a chegada lia como
+/// estalo, principalmente com várias apostas entrando em sequência.
 ///
 /// Quando [animar] é falso, o child é exibido direto, sem custo de animação
 /// — assim apenas a linha nova paga o preço da transição, e a tabela toda
@@ -441,11 +462,27 @@ class LinhaEntrandoAnimada extends StatefulWidget {
   final bool animar;
   final Color corBase;
 
+  /// A linha vive numa grade de altura fixa (o `itemExtent` do ListView do
+  /// desktop)?
+  ///
+  /// Faz diferença em COMO a chegada é encenada. Fora da grade a linha abre
+  /// espaço de fato, empurrando as de baixo (`heightFactor` de 0 a 1). Dentro
+  /// da grade isso não funciona: o ListView já reservou a altura inteira, e
+  /// insistir no heightFactor faria a linha nascer ocupando tudo — a chegada
+  /// simplesmente sumia, sobrando só o fade.
+  ///
+  /// Na grade, então, o espaço é reservado e o CONTEÚDO é que se revela
+  /// dentro dele, deslizando de baixo para cima atrás de um recorte. O efeito
+  /// lido é o mesmo (a linha se forma), mas sem mexer no layout — que é
+  /// justamente o que o deslize de reordenação precisa que fique parado.
+  final bool reservaAlturaFixa;
+
   const LinhaEntrandoAnimada({
     super.key,
     required this.child,
     required this.animar,
     required this.corBase,
+    this.reservaAlturaFixa = false,
   });
 
   @override
@@ -454,42 +491,61 @@ class LinhaEntrandoAnimada extends StatefulWidget {
 
 class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
     with SingleTickerProviderStateMixin {
+  /// Estilo capturado no INÍCIO da animação, não lido a cada quadro.
+  ///
+  /// Trocar o estilo no Painel ADM com uma aposta a meio caminho mudaria
+  /// duração e curva no ar, e a linha daria um salto. Congelando aqui, a
+  /// troca vale a partir da próxima aposta — que é como o controle se
+  /// comporta na prática (o admin muda e observa a seguinte).
+  late final EstiloEntrada _estilo = estiloEntradaGlobal.value;
+
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1100),
+    duration: _estilo.duracao,
   );
 
   // ── Tempo 1: chegada ─────────────────────────────────────────────────────
-  // Abertura do espaço vertical. Termina em 29% (~320ms) para o reflow das
-  // linhas de baixo acabar antes do resto: layout parado a partir daí.
+  // Abertura do espaço vertical: 0 a 45% do controller (~520ms).
+  //
+  // O que importa aqui não é só a duração, é a FATIA do controller que o
+  // movimento ocupa. Numa versão anterior o espaço abria em 33% de 1500ms:
+  // a linha parava de se mexer aos ~500ms e sobrava mais de um segundo só de
+  // brilho e destaque num layout parado — o que lê como "a animação sumiu",
+  // porque a parte que o olho acompanha já tinha acabado.
   late final Animation<double> _espaco = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0, 0.29, curve: Curves.easeOutCubic),
+    curve: const Interval(0, 0.45, curve: Curves.easeOutCubic),
   );
 
-  // Entrada lateral. easeOutBack dá o leve ultrapassar-e-voltar que faz a
-  // linha "assentar" em vez de simplesmente parar.
+  // O movimento da chegada, terminando em 78% da animação. A curva vem do
+  // estilo escolhido — é ela que diferencia um deslize suave (easeOutCubic)
+  // de um com repique no fim (easeOutBack).
+  //
+  // Evite curvas que concentram tudo no começo, tipo easeOutQuint: o percurso
+  // acaba nos primeiros quadros e, apesar de durar ~900ms no papel, o olho só
+  // vê um borrão inicial seguido de tela parada.
   late final Animation<double> _entrada = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.05, 0.42, curve: Curves.easeOutBack),
+    curve: Interval(0.04, 0.78, curve: _estilo.curva),
   );
 
   late final Animation<double> _fade = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.05, 0.3, curve: Curves.easeOut),
+    curve: const Interval(0.04, 0.45, curve: Curves.easeOut),
   );
 
   // ── Tempo 2: confirmação ─────────────────────────────────────────────────
-  // Recuo do destaque de fundo. Só começa depois da linha já estar posta.
+  // Recuo do destaque de fundo, sobrepondo o fim da chegada em vez de esperar
+  // ela terminar: encadeados, os dois tempos somavam uma espera longa demais.
   late final Animation<double> _destaque = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.36, 1, curve: Curves.easeInOutCubic),
+    curve: const Interval(0.35, 1, curve: Curves.easeInOutCubic),
   );
 
   // Varredura do brilho, da esquerda para a direita, uma única vez.
   late final Animation<double> _brilho = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.18, 0.72, curve: Curves.easeInOut),
+    curve: const Interval(0.18, 0.8, curve: Curves.easeInOut),
   );
 
   @override
@@ -508,9 +564,40 @@ class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
     super.dispose();
   }
 
+  /// O efeito deste estilo é feito de pontos/traços finos, que precisam ficar
+  /// NA FRENTE do conteúdo para serem vistos?
+  ///
+  /// Efeitos de luz (gradientes cobrindo a linha inteira) ficam atrás, senão
+  /// lavam o texto. Partículas e anéis cobrem pouca área e sumiriam por trás
+  /// dele.
+  bool get _efeitoPorCima => switch (_estilo.efeito) {
+    EfeitoEntrada.fatiasGlitch => true,
+    EfeitoEntrada.brilhoVarrendo || EfeitoEntrada.ondaIncandescente => false,
+  };
+
+  Widget _pintura(double progresso, Color cor) => IgnorePointer(
+    child: CustomPaint(
+      painter: _PinturaEfeito(
+        efeito: _estilo.efeito,
+        progresso: progresso,
+        cor: cor,
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
-    if (!widget.animar) {
+    // `animar` decide se a animação COMEÇA, não se ela continua: uma vez
+    // iniciada, roda até o fim.
+    //
+    // Sem essa distinção a animação era cortada na aba que ESTÁ simulando.
+    // Ali cada aposta chega duas vezes — o cache local pinta na hora e a
+    // confirmação do servidor emite de novo — e no segundo build
+    // `detectarLinhaNova` já conhece o valor, devolvendo `animar: false`.
+    // O widget então trocava para o conteúdo estático, e o deslize morria
+    // aos ~30ms de 1150ms. (Na aba que só observa isso não acontecia: lá
+    // chega uma emissão só, já confirmada.)
+    if (!widget.animar && !_controller.isAnimating) {
       return DecoratedBox(
         decoration: BoxDecoration(color: widget.corBase),
         child: widget.child,
@@ -526,10 +613,21 @@ class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
         final entrada = _entrada.value;
         final brilho = _brilho.value;
 
+        // Na grade de altura fixa o espaço já está reservado, então o recorte
+        // fica parado no tamanho final. Fora da grade (lista mobile), o
+        // próprio recorte cresce e empurra as linhas de baixo.
+        //
+        // Dentro da grade NÃO há movimento vertical nenhum: a chegada é só
+        // lateral. Uma versão anterior fazia o conteúdo subir de baixo para
+        // compensar o heightFactor que a grade anula, mas essa subida (34px)
+        // competia com o deslize lateral (36px) acontecendo ao mesmo tempo —
+        // o olho lia a vertical e a entrada pela margem sumia.
+        final revelar = _espaco.value;
+
         return ClipRect(
           child: Align(
             alignment: Alignment.topCenter,
-            heightFactor: _espaco.value,
+            heightFactor: widget.reservaAlturaFixa ? 1 : revelar,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: Color.lerp(corDestaque, widget.corBase, _destaque.value),
@@ -540,28 +638,26 @@ class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
               // atenção.
               child: Stack(
                 children: [
-                  if (brilho > 0 && brilho < 1)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: CustomPaint(
-                          painter: _PinturaBrilho(
-                            progresso: brilho,
-                            cor: corDestaque,
-                          ),
-                        ),
-                      ),
-                    ),
-                  Opacity(
-                    opacity: _fade.value,
-                    // Translação em X (não em Y): a linha vem da margem, o
-                    // que não conflita com o espaço vertical que ainda está
-                    // abrindo. Deslocar em Y durante o `heightFactor` fazia
-                    // os dois movimentos se cancelarem parcialmente.
-                    child: Transform.translate(
-                      offset: Offset((1 - entrada) * -24, 0),
-                      child: child,
-                    ),
+                  // Efeitos de LUZ ficam atrás do conteúdo: passam por baixo
+                  // do texto sem lavá-lo. Pintados por cima, os números da
+                  // aposta ficariam ilegíveis justamente no instante em que
+                  // chamam atenção.
+                  if (!_efeitoPorCima && brilho > 0 && brilho < 1)
+                    Positioned.fill(child: _pintura(brilho, corDestaque)),
+
+                  aplicarEstiloEntrada(
+                    estilo: _estilo,
+                    child: child!,
+                    entrada: entrada,
+                    opacidade: _fade.value,
                   ),
+
+                  // Já os efeitos de PARTÍCULA ficam na frente: são pontos e
+                  // traços finos, que atrás do texto simplesmente não seriam
+                  // vistos. Não chegam a atrapalhar a leitura porque cobrem
+                  // pouca área e somem antes do fim.
+                  if (_efeitoPorCima && brilho > 0 && brilho < 1)
+                    Positioned.fill(child: _pintura(brilho, corDestaque)),
                 ],
               ),
             ),
@@ -572,20 +668,193 @@ class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
   }
 }
 
-/// Faixa de luz que percorre a linha nova uma vez, da esquerda para a direita.
+/// Aplica a um [child] as transformações de um [EstiloEntrada], no ponto
+/// [entrada] da animação (0 = recém-chegando, 1 = assentado).
 ///
-/// Desenhada com um gradiente de três paradas (transparente → cor →
-/// transparente) cuja posição acompanha [progresso]. O gradiente é criado no
-/// `paint` porque suas paradas mudam a cada frame; o `shouldRepaint` compara
-/// só o progresso, então nenhum outro repintura é disparado.
-class _PinturaBrilho extends CustomPainter {
+/// Fica fora do State para poder ser exercitado isoladamente e para deixar
+/// claro que a encenação inteira sai da definição do estilo — nenhum estilo
+/// tem código próprio espalhado pela animação.
+Widget aplicarEstiloEntrada({
+  required EstiloEntrada estilo,
+  required Widget child,
+  required double entrada,
+  required double opacidade,
+}) {
+  final restante = 1 - entrada;
+  var conteudo = child;
+
+  // Dissolução: o conteúdo não faz fade uniforme, ele aparece atrás de uma
+  // frente que avança. Nítido onde ela já passou, invisível à frente dela.
+  //
+  // A frente vai até 1.25, não até 1.0, e a faixa de transição (~25% da
+  // largura) acompanha: é o que faz a máscara SAIR pela direita em vez de
+  // parar nela. Com o limite em 1.0, os últimos 25% da linha ficavam presos
+  // num gradiente até transparente para sempre — a coluna "Última Alteração"
+  // terminava a animação opaca, sem nunca voltar ao normal.
+  //
+  // A partir de `entrada` ~0.8 a máscara já é inteiramente opaca, então o
+  // ShaderMask sai da árvore: manter um filtro por linha só para pintar
+  // branco sobre branco é custo à toa.
+  if (estilo.dissolver) {
+    final frente = entrada * 1.25;
+    if (frente < 1.24) {
+      conteudo = ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (rect) => LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: const [Colors.white, Colors.white, Colors.transparent],
+          stops: [0, (frente - 0.25).clamp(0.0, 1.0), frente.clamp(0.0, 1.0)],
+        ).createShader(rect),
+        child: conteudo,
+      );
+    }
+  } else {
+    conteudo = Opacity(opacity: opacidade, child: conteudo);
+  }
+
+  // Glitch: a linha é picada em faixas horizontais que se deslocam para
+  // lados opostos e voltam a se alinhar.
+  //
+  // Cada faixa é o conteúdo inteiro recortado numa janela diferente
+  // (`ClipRect` + `Align` com heightFactor), então o texto continua sendo o
+  // texto — não é uma textura de ruído por cima. O deslocamento usa um seno
+  // com fase por faixa: é determinístico (mesmo quadro, mesmo resultado) mas
+  // não parece periódico ao olho.
+  if (estilo.efeito == EfeitoEntrada.fatiasGlitch && restante > 0.02) {
+    const fatias = 7;
+    // A instabilidade cai rápido: a linha se estabiliza antes do fim, e o
+    // resto da animação é o brilho terminando de assentar.
+    final caos = math.pow(restante, 1.6).toDouble();
+
+    conteudo = Stack(
+      children: [
+        for (var i = 0; i < fatias; i++)
+          Transform.translate(
+            offset: Offset(math.sin(entrada * 22 + i * 2.4) * 26 * caos, 0),
+            child: ClipRect(
+              clipper: _RecorteFatia(indice: i, total: fatias),
+              child: conteudo,
+            ),
+          ),
+      ],
+    );
+  }
+
+  // O deslocamento vem por último para não ser afetado pelos recortes acima.
+  // O ClipRect do pai recorta o que sai da linha, então o deslocamento
+  // parece vir de fora da tabela.
+  if (estilo.deslocamentoX != 0) {
+    conteudo = Transform.translate(
+      offset: Offset(restante * estilo.deslocamentoX, 0),
+      child: conteudo,
+    );
+  }
+
+  return conteudo;
+}
+
+/// Recorta uma faixa horizontal do conteúdo — a i-ésima de [total].
+///
+/// Usado pelo glitch: cada faixa é o conteúdo inteiro visto por uma janela
+/// diferente, e deslocá-las em X separadamente é o que produz o
+/// desalinhamento sem destruir o texto.
+class _RecorteFatia extends CustomClipper<Rect> {
+  final int indice;
+  final int total;
+
+  const _RecorteFatia({required this.indice, required this.total});
+
+  @override
+  Rect getClip(Size size) {
+    final altura = size.height / total;
+    return Rect.fromLTWH(0, indice * altura, size.width, altura);
+  }
+
+  @override
+  bool shouldReclip(_RecorteFatia anterior) =>
+      anterior.indice != indice || anterior.total != total;
+}
+
+/// Efeito pintado sobre a linha durante a entrada.
+///
+/// Todos os modos compartilham o mesmo `CustomPainter` porque todos são
+/// desenhos em função do progresso. O `shouldRepaint` compara só o progresso
+/// e a cor, então nada mais dispara repintura.
+class _PinturaEfeito extends CustomPainter {
+  final EfeitoEntrada efeito;
   final double progresso;
   final Color cor;
 
-  _PinturaBrilho({required this.progresso, required this.cor});
+  _PinturaEfeito({
+    required this.efeito,
+    required this.progresso,
+    required this.cor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    switch (efeito) {
+      case EfeitoEntrada.brilhoVarrendo:
+        _varredura(canvas, rect);
+      case EfeitoEntrada.ondaIncandescente:
+        _incandescencia(canvas, rect);
+      case EfeitoEntrada.fatiasGlitch:
+        _ruidoGlitch(canvas, rect);
+    }
+  }
+
+  /// Onda de calor: uma frente intensa percorre a linha deixando rastro
+  /// incandescente atrás, que esfria da cor quente até sumir.
+  void _incandescencia(Canvas canvas, Rect rect) {
+    final crista = (progresso * 1.35).clamp(0.0, 1.0);
+    // O resfriamento é mais lento que a passagem: o rastro ainda brilha
+    // depois que a frente já chegou ao fim.
+    final calor = (1 - (progresso - 0.45) / 0.55).clamp(0.0, 1.0);
+    if (calor <= 0) return;
+
+    // Mistura da cor de destaque com branco-quente na crista: é o que faz
+    // parecer metal aquecido em vez de um brilho colorido qualquer.
+    final quente = Color.lerp(cor, const Color(0xFFFFF3C4), 0.75)!;
+
+    _pintarGradiente(canvas, rect, [
+      (cor.withValues(alpha: 0.1 * calor), 0),
+      (quente.withValues(alpha: 0.55 * calor), (crista - 0.2).clamp(0.0, 1.0)),
+      (quente.withValues(alpha: 0.95 * calor), crista),
+      (cor.withValues(alpha: 0), (crista + 0.06).clamp(0.0, 1.0)),
+    ]);
+  }
+
+  /// Faixas de ruído do glitch: blocos horizontais de cor sobre a linha,
+  /// piscando em posições pseudo-aleatórias.
+  ///
+  /// Complementa o deslocamento das fatias (feito com widgets): sozinho, o
+  /// desalinhamento parece um bug de layout; com as faixas de cor, lê como
+  /// sinal com interferência.
+  void _ruidoGlitch(Canvas canvas, Rect rect) {
+    final caos = math.pow(1 - progresso, 1.4).toDouble();
+    if (caos <= 0.02) return;
+
+    // Semente derivada do progresso em passos discretos: o padrão troca a
+    // cada ~8% da animação, o que dá o "chiado" sem tremer a cada quadro.
+    final passo = (progresso * 12).floor();
+    final aleatorio = math.Random(passo);
+    final tinta = Paint();
+
+    for (var i = 0; i < 4; i++) {
+      final y = aleatorio.nextDouble() * rect.height;
+      final altura = 1 + aleatorio.nextDouble() * 3;
+      final largura = rect.width * (0.15 + aleatorio.nextDouble() * 0.5);
+      final x = aleatorio.nextDouble() * (rect.width - largura);
+
+      tinta.color = cor.withValues(alpha: (0.55 * caos).clamp(0.0, 1.0));
+      canvas.drawRect(Rect.fromLTWH(x, y, largura, altura), tinta);
+    }
+  }
+
+  /// Faixa de luz atravessando a linha uma vez, da esquerda para a direita.
+  void _varredura(Canvas canvas, Rect rect) {
     // Vai de -0.3 a 1.3 para a faixa entrar e sair completamente da linha,
     // em vez de aparecer e sumir dentro dela.
     final centro = -0.3 + progresso * 1.6;
@@ -596,28 +865,32 @@ class _PinturaBrilho extends CustomPainter {
     final intensidade = (1 - (progresso - 0.5).abs() * 2).clamp(0.0, 1.0);
     if (intensidade <= 0) return;
 
+    _pintarGradiente(canvas, rect, [
+      (cor.withValues(alpha: 0), (centro - meiaLargura).clamp(0.0, 1.0)),
+      (cor.withValues(alpha: 0.55 * intensidade), centro.clamp(0.0, 1.0)),
+      (cor.withValues(alpha: 0), (centro + meiaLargura).clamp(0.0, 1.0)),
+    ]);
+  }
+
+  void _pintarGradiente(
+    Canvas canvas,
+    Rect rect,
+    List<(Color, double)> paradas,
+  ) {
     final gradiente = LinearGradient(
       begin: Alignment.centerLeft,
       end: Alignment.centerRight,
-      colors: [
-        cor.withValues(alpha: 0),
-        cor.withValues(alpha: 0.55 * intensidade),
-        cor.withValues(alpha: 0),
-      ],
-      stops: [
-        (centro - meiaLargura).clamp(0.0, 1.0),
-        centro.clamp(0.0, 1.0),
-        (centro + meiaLargura).clamp(0.0, 1.0),
-      ],
+      colors: [for (final p in paradas) p.$1],
+      stops: [for (final p in paradas) p.$2],
     );
-
-    final rect = Offset.zero & size;
     canvas.drawRect(rect, Paint()..shader = gradiente.createShader(rect));
   }
 
   @override
-  bool shouldRepaint(_PinturaBrilho anterior) =>
-      anterior.progresso != progresso || anterior.cor != cor;
+  bool shouldRepaint(_PinturaEfeito anterior) =>
+      anterior.progresso != progresso ||
+      anterior.cor != cor ||
+      anterior.efeito != efeito;
 }
 
 /// Rodapé fixo da tabela com o total de "Valor" e "Cotas", alinhado às

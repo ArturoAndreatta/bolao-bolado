@@ -16,20 +16,32 @@ import 'package:flutter/rendering.dart';
 class RastreadorDeIndices {
   final Map<Object, int> _indices = {};
 
-  /// Registra a ordem atual e devolve, para cada chave que MUDOU de posição,
-  /// quantos índices ela andou (positivo = subiu na lista).
+  /// Registra a ordem atual e devolve, para cada chave que trocou de posição
+  /// RELATIVA, quantos índices ela andou (positivo = subiu na lista).
   ///
   /// Linha nova (sem índice anterior) não entra no resultado: quem cuida da
   /// chegada dela é a animação de entrada, não o deslize.
+  ///
+  /// **Ser empurrado não é reordenar.** Quando uma aposta entra no topo — o
+  /// caso normal ao ordenar por "última alteração" — todas as outras descem
+  /// uma posição de uma vez. Nenhuma trocou de lugar com nenhuma: a lista só
+  /// andou junto. Animar isso punha a tela inteira em movimento no mesmo
+  /// quadro em que a linha nova entrava (medido: 9 de 13 linhas deslizando ao
+  /// mesmo tempo), e o resultado era uma confusão que encobria a animação de
+  /// entrada.
+  ///
+  /// Por isso o empurrão comum é descontado: se TODAS as linhas antigas
+  /// andaram o mesmo tanto na mesma direção, esse tanto é deslocamento de
+  /// lista, não de linha. O que sobra depois do desconto é a reordenação de
+  /// verdade — a aposta que passou na frente da outra.
   Map<Object, int> atualizar(List<Object> chavesEmOrdem) {
-    final deslocamentos = <Object, int>{};
+    final brutos = <Object, int>{};
+    final tamanhoAnterior = _indices.length;
 
     for (var i = 0; i < chavesEmOrdem.length; i++) {
       final chave = chavesEmOrdem[i];
       final anterior = _indices[chave];
-      if (anterior != null && anterior != i) {
-        deslocamentos[chave] = anterior - i;
-      }
+      if (anterior != null) brutos[chave] = anterior - i;
     }
 
     _indices
@@ -38,6 +50,53 @@ class RastreadorDeIndices {
         chavesEmOrdem.asMap().entries.map((e) => MapEntry(e.value, e.key)),
       );
 
+    if (brutos.isEmpty) return const {};
+
+    // O desconto do empurrão vale só quando a lista CRESCEU. Aí o movimento
+    // coletivo é consequência de alguém entrar, e a chegada dessa linha já é
+    // a animação da vez.
+    //
+    // Encolhendo é o oposto: as linhas de baixo sobem para fechar o vazio
+    // deixado pela aposta removida, e esse fechamento é justamente o que
+    // precisa ser visto. Sem esta distinção, remover uma aposta virava um
+    // salto seco.
+    final cresceu = chavesEmOrdem.length > tamanhoAnterior;
+    if (!cresceu) {
+      return Map.fromEntries(brutos.entries.where((e) => e.value != 0));
+    }
+
+    // O empurrão comum é o deslocamento que a MAIORIA sofreu. Usar a maioria
+    // (e não o mínimo) é o que faz uma linha isolada trocando de lugar
+    // continuar deslizando enquanto o resto da lista só desceu.
+    final frequencia = <int, int>{};
+    for (final valor in brutos.values) {
+      frequencia[valor] = (frequencia[valor] ?? 0) + 1;
+    }
+    var comum = 0;
+    var maiorFrequencia = 0;
+    frequencia.forEach((valor, vezes) {
+      if (vezes > maiorFrequencia) {
+        maiorFrequencia = vezes;
+        comum = valor;
+      }
+    });
+
+    // Só desconta se o empurrão for mesmo coletivo (mais da metade das
+    // linhas). Numa reordenação de verdade os deslocamentos são variados e
+    // nenhum domina.
+    if (comum == 0 || maiorFrequencia * 2 <= brutos.length) {
+      return Map.fromEntries(brutos.entries.where((e) => e.value != 0));
+    }
+
+    // O desconto vale só para quem andou EXATAMENTE o empurrão comum: essas
+    // foram carregadas pela lista e ficam paradas. Quem andou diferente
+    // trocou de posição de verdade e mantém o deslocamento bruto — descontar
+    // dela encurtaria um deslize que precisa acontecer inteiro.
+    final deslocamentos = <Object, int>{};
+    brutos.forEach((chave, bruto) {
+      if (bruto == comum) return;
+      if (bruto != 0) deslocamentos[chave] = bruto;
+    });
     return deslocamentos;
   }
 
@@ -66,7 +125,7 @@ class LinhaDeslizante extends StatefulWidget {
     super.key,
     required this.child,
     required this.deslocamento,
-    this.duracao = const Duration(milliseconds: 420),
+    this.duracao = const Duration(milliseconds: 550),
     this.curva = Curves.easeOutCubic,
   });
 
@@ -171,7 +230,7 @@ class ColunaReordenavel extends StatefulWidget {
   const ColunaReordenavel({
     super.key,
     required this.children,
-    this.duracao = const Duration(milliseconds: 420),
+    this.duracao = const Duration(milliseconds: 550),
     this.curva = Curves.easeOutCubic,
     this.animar = true,
   });

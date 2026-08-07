@@ -174,6 +174,7 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
                       salaId: salaId,
                       onModerarChat: abrirModeracaoChat,
                       onApagarMensagens: confirmarApagarMensagensChat,
+                      onApagarApostas: confirmarApagarTodasApostas,
                     ),
                   ),
                 ),

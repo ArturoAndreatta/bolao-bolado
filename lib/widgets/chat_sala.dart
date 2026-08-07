@@ -7,7 +7,6 @@ import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/models/mensagem.dart';
 import 'package:bolao_bolado/pages/participants/participants_skeletons.dart';
 import 'package:bolao_bolado/services/chat/chat_service.dart';
-import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -676,29 +675,13 @@ class _BolhaMensagem extends StatelessWidget {
     );
   }
 
-  Widget _avatar() {
-    final cache = AvatarColorCache.instance;
-    return StreamBuilder<Color>(
-      initialData: cache.corConhecida(mensagem.autorUid),
-      stream: cache.corStream(mensagem.autorUid),
-      builder: (context, corSnapshot) {
-        return StreamBuilder<String>(
-          initialData: cache.emojiConhecido(mensagem.autorUid),
-          stream: cache.emojiStream(mensagem.autorUid),
-          builder: (context, emojiSnapshot) {
-            return _avatarCirculo(
-              corSnapshot.data ?? AppCores.de(context).borda,
-              emojiSnapshot.data ?? kEmojiAvatarPadrao,
-            );
-          },
-        );
-      },
-    );
-  }
-
   // 28px de diâmetro, exatamente o espaço que as continuações do bloco
   // reservam com o SizedBox em build() para manter o alinhamento.
-  Widget _avatarCirculo(Color cor, String emoji) {
-    return AvatarEmoji(tamanho: 28, cor: cor, emoji: emoji);
+  //
+  // Um StreamBuilder só: cor e emoji saem do mesmo documento e agora têm uma
+  // stream combinada, então o par de builders aninhados (que reconstruía a
+  // bolha duas vezes por atualização de avatar) deixou de ser necessário.
+  Widget _avatar() {
+    return AvatarDoParticipante(uid: mensagem.autorUid, tamanho: 28);
   }
 }

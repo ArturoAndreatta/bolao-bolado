@@ -8,6 +8,7 @@ import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/components/shared/snackbar_deslizante.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
+import 'package:bolao_bolado/pages/participants/participants_estilo_entrada.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/pages/admin/widgets/admin_widgets.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
@@ -994,7 +995,12 @@ class _LinhaParticipante extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       child: Row(
         children: [
-          AvatarEmoji(tamanho: 36, cor: corAvatar, emoji: emojiAvatar),
+          AvatarDoParticipante(
+            uid: aposta['uid']?.toString(),
+            tamanho: 36,
+            corFallback: corAvatar,
+            emojiFallback: emojiAvatar,
+          ),
           SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1466,11 +1472,12 @@ class _AbaSalaState extends State<AbaSala> {
 class AbaConfig extends StatelessWidget {
   final User? adminUser;
 
-  /// Nulo enquanto a sala principal ainda não foi descoberta — as ações de
-  /// chat ficam desabilitadas até lá, já que ambas precisam do id da sala.
+  /// Nulo enquanto a sala principal ainda não foi descoberta — as ações
+  /// ficam desabilitadas até lá, já que todas precisam do id da sala.
   final String? salaId;
   final VoidCallback onModerarChat;
   final VoidCallback onApagarMensagens;
+  final VoidCallback onApagarApostas;
 
   const AbaConfig({
     super.key,
@@ -1478,6 +1485,7 @@ class AbaConfig extends StatelessWidget {
     required this.salaId,
     required this.onModerarChat,
     required this.onApagarMensagens,
+    required this.onApagarApostas,
   });
 
   @override
@@ -1489,6 +1497,23 @@ class AbaConfig extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          const AdminTituloSecao(
+            texto: 'Apostas da sala',
+            icone: Icons.receipt_long_outlined,
+          ),
+          const SizedBox(height: 12),
+          AdminSecaoCard(
+            child: _BotaoAcaoConfig(
+              icone: Icons.delete_forever_outlined,
+              texto: 'Apagar Todas as Apostas',
+              descricao:
+                  'Zera a sala: remove todas as apostas, inclusive as já '
+                  'verificadas.',
+              cor: cores.vermelho,
+              onTap: salaId == null ? null : onApagarApostas,
+            ),
+          ),
+          const SizedBox(height: 20),
           const AdminTituloSecao(
             texto: 'Chat da sala',
             icone: Icons.forum_outlined,
@@ -1553,6 +1578,8 @@ class AbaConfig extends StatelessWidget {
                 ),
                 Divider(height: 20, thickness: 1, color: cores.borda),
                 const _RitmoSimulacao(),
+                Divider(height: 20, thickness: 1, color: cores.borda),
+                const _EstiloEntradaAposta(),
               ],
             ),
           ),
@@ -1680,6 +1707,102 @@ class _RitmoSimulacao extends StatelessWidget {
                   style: TextStyle(fontSize: 11, color: cores.textoSuave),
                 ),
               ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Seletor do estilo da animação de entrada de uma aposta nova.
+///
+/// Mesmo arranjo do [_RitmoSimulacao]: o valor vai para [estiloEntradaGlobal]
+/// e a tabela lê de lá, então dá para trocar o estilo com a tela de
+/// Participantes já aberta em outra aba. O estilo novo vale a partir da
+/// próxima aposta — uma linha a meio caminho não muda de animação no ar.
+class _EstiloEntradaAposta extends StatelessWidget {
+  const _EstiloEntradaAposta();
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    return ValueListenableBuilder<EstiloEntrada>(
+      valueListenable: estiloEntradaGlobal,
+      builder: (context, atual, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Animação de entrada',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: cores.texto,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Como uma aposta nova entra na tabela de Participantes (dev). '
+              'Vale a partir da próxima aposta.',
+              style: TextStyle(fontSize: 12, color: cores.textoSuave),
+            ),
+            const SizedBox(height: 8),
+            RadioGroup<EstiloEntrada>(
+              groupValue: atual,
+              onChanged: (novo) {
+                if (novo != null) estiloEntradaGlobal.value = novo;
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final estilo in EstiloEntrada.values)
+                    InkWell(
+                      onTap: () => estiloEntradaGlobal.value = estilo,
+                      borderRadius: AppRadii.circularSmd,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Radio<EstiloEntrada>(
+                              value: estilo,
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    estilo.rotulo,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: estilo == atual
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                      color: cores.texto,
+                                    ),
+                                  ),
+                                  Text(
+                                    estilo.descricao,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: cores.textoSuave,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         );

@@ -416,7 +416,7 @@ class _PillNavegacao extends StatelessWidget {
                 aba: abas[i],
                 cor: corPara(i, abas[i]),
                 ativo: abas[i].indice == abaAtiva,
-                ehPrimeira: i == 0,
+                primeira: i == 0,
                 onTap: () => onSelecionar(abas[i].indice),
               ),
           ],
@@ -430,14 +430,14 @@ class _ItemNavegacao extends StatelessWidget {
   final AbaFichario aba;
   final Color cor;
   final bool ativo;
-  final bool ehPrimeira;
+  final bool primeira;
   final VoidCallback onTap;
 
   const _ItemNavegacao({
     required this.aba,
     required this.cor,
     required this.ativo,
-    required this.ehPrimeira,
+    required this.primeira,
     required this.onTap,
   });
 
@@ -463,7 +463,7 @@ class _ItemNavegacao extends StatelessWidget {
           // primeira etiqueta não começa exatamente na borda da capa, fica
           // um pouco recuada pra dentro — reforça a leitura de "aba" em vez
           // de um bloco colado na quina.
-          margin: EdgeInsets.only(left: ehPrimeira ? 16 : 0, right: 0),
+          margin: EdgeInsets.only(left: primeira ? 16 : 0, right: 0),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             // Item ativo vira um bloco cheio na cor da seção — a mesma cor

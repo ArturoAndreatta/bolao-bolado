@@ -20,6 +20,11 @@ void main() {
       final d = r.atualizar(['c', 'a', 'b']);
 
       expect(d['c'], 2, reason: 'c subiu 2 lugares');
+
+      // Aqui a lista não cresceu — é reordenação pura, sem ninguém entrando.
+      // Então o movimento de 'a' e 'b' é real e vale animar: elas cederam o
+      // lugar para 'c'. O desconto do empurrão só entra quando a lista cresce
+      // (ver o teste de inserção no topo).
       expect(d['a'], -1, reason: 'a desceu 1');
       expect(d['b'], -1, reason: 'b desceu 1');
     });
@@ -32,9 +37,12 @@ void main() {
         final d = r.atualizar(['nova', 'a', 'b']);
 
         expect(d.containsKey('nova'), isFalse);
-        // As antigas desceram uma posição de verdade, então essas deslizam.
-        expect(d['a'], -1);
-        expect(d['b'], -1);
+
+        // E ninguém mais desliza: 'a' e 'b' desceram juntas, empurradas pela
+        // inserção. É o caso mais comum ao ordenar por "última alteração",
+        // onde toda aposta nova entra no topo — animar o empurrão punha a
+        // tela inteira em movimento junto com a entrada.
+        expect(d, isEmpty, reason: 'empurrão coletivo não é reordenação');
       },
     );
 
@@ -47,21 +55,38 @@ void main() {
       expect(d['c'], 1);
     });
 
-    test('rajada de entradas: cada passo mede contra o passo anterior', () {
-      // Este é o caso que quebrava a versão que MEDIA posições: apostas
-      // chegando antes de a animação anterior terminar. Como o índice não é
-      // uma grandeza transitória, cada reordenação é exata mesmo em rajada.
+    test('rajada de entradas no topo não põe a lista toda em movimento', () {
+      // O caso da tela ordenada por "última alteração": cada aposta nova
+      // entra na primeira linha e empurra todas as outras. Animar esse
+      // empurrão fazia 9 de 13 linhas visíveis deslizarem ao mesmo tempo que
+      // a linha nova entrava, e a confusão encobria a animação de entrada.
       final r = RastreadorDeIndices()..atualizar(['a', 'b', 'c']);
 
-      final d1 = r.atualizar(['n1', 'a', 'b', 'c']);
-      expect(d1['a'], -1);
+      expect(
+        r.atualizar(['n1', 'a', 'b', 'c']),
+        isEmpty,
+        reason: 'só empurrão: ninguém trocou de lugar',
+      );
+      expect(r.atualizar(['n2', 'n1', 'a', 'b', 'c']), isEmpty);
 
-      final d2 = r.atualizar(['n2', 'n1', 'a', 'b', 'c']);
-      expect(d2['a'], -1, reason: 'a desceu mais uma, não duas');
-      expect(d2['n1'], -1, reason: 'n1 agora tem lugar anterior e desceu 1');
+      // Mas uma troca REAL no meio da rajada continua deslizando: aqui a
+      // lista não cresceu e 'c' passou na frente de 'a' e 'b'.
+      final d = r.atualizar(['n2', 'n1', 'c', 'a', 'b']);
+      expect(d['c'], 2, reason: 'c subiu do índice 4 para o 2');
+    });
 
-      final d3 = r.atualizar(['n2', 'n1', 'c', 'a', 'b']);
-      expect(d3['c'], 2, reason: 'c subiu do índice 4 para o 2');
+    test('entrada no MEIO ainda desliza quem ela ultrapassa', () {
+      // Crescer não anula tudo: se a aposta nova entra no meio, quem está
+      // acima dela não se mexe e quem está abaixo desce. Como o empurrão não
+      // é da lista inteira, ele não é descontado.
+      final r = RastreadorDeIndices()..atualizar(['a', 'b', 'c', 'd']);
+
+      final d = r.atualizar(['a', 'b', 'nova', 'c', 'd']);
+
+      expect(d.containsKey('a'), isFalse, reason: 'a ficou no lugar');
+      expect(d.containsKey('b'), isFalse, reason: 'b ficou no lugar');
+      expect(d['c'], -1, reason: 'c desceu para dar espaço');
+      expect(d['d'], -1);
     });
 
     test('esquece tudo ao limpar', () {

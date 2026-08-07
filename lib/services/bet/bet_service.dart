@@ -196,7 +196,8 @@ Stream<List<Map<String, Object?>>> _apostasDaSalaPrincipal() async* {
     participantesStream,
     // Avatares entram como uma terceira fonte de eventos: a lista é montada
     // na hora com os avatares já conhecidos e remontada quando os que
-    // faltavam chegam (ver AvatarColorCache.aquecer).
+    // faltavam chegam (ver AvatarColorCache.mudancas). Quem observa cada uid
+    // é o AvatarDoParticipante da linha visível.
     AvatarColorCache.instance.mudancas,
   )) {
     if (evento.$1 != null) {
@@ -268,10 +269,11 @@ _combinarStreams(
 
 /// Monta a lista de apostas **sem esperar rede**.
 ///
-/// Os avatares entram só se já estiverem em memória; os que faltam são
-/// pedidos em background por [AvatarColorCache.aquecer] e chegam numa
-/// emissão seguinte desta mesma stream (o aviso vem por
-/// `AvatarColorCache.mudancas`, combinado em [_apostasDaSalaPrincipal]).
+/// Os avatares entram só se já estiverem em memória. Nenhuma leitura é
+/// disparada aqui: quem observa um uid é o `AvatarDoParticipante` da linha
+/// visível, e o que ele descobre chega numa emissão seguinte desta mesma
+/// stream (o aviso vem por `AvatarColorCache.mudancas`, combinado em
+/// [_apostasDaSalaPrincipal]).
 ///
 /// Antes esta função era `async` e esperava uma leitura de `usuarios/{uid}`
 /// por participante antes de devolver qualquer linha: numa sala de 11
@@ -283,11 +285,20 @@ List<Map<String, Object?>> _montarParticipantes(
   double precoCota,
 ) {
   final cache = AvatarColorCache.instance;
-  cache.aquecer(docs.map((doc) => doc.id));
 
   final participantes = docs.map((doc) {
     final dados = doc.data();
     final uid = doc.id; // doc ID É o uid do usuário logado
+    // Só o que já está em memória: nenhuma leitura é disparada aqui.
+    //
+    // Antes esta função chamava `cache.aquecer` com TODOS os uids, e como o
+    // cache abre um `snapshots()` por uid, uma sala de 300 apostas abria 300
+    // listeners do Firestore de uma vez no F5 — todos concorrendo com o chat
+    // e o card "Minha Aposta" pela mesma conexão, que por isso demoravam a
+    // carregar. Quem observa um uid agora é o `AvatarDoParticipante` da linha
+    // que está VISÍVEL, então o custo acompanha a tela e não o tamanho da
+    // sala. Estes campos seguem preenchidos para quem já é conhecido, o que
+    // evita o avatar piscar no estado neutro ao rolar de volta.
     final avatar = cache.avatarConhecido(uid);
     return {
       'uid': uid,
@@ -552,6 +563,41 @@ Future<void> removerAposta({
       .collection('Participantes')
       .doc(uid)
       .delete();
+}
+
+/// Teto de operações por WriteBatch do Firestore é 500; 400 deixa folga.
+const int _loteExclusaoApostas = 400;
+
+/// Remove TODAS as apostas da sala e devolve quantas foram apagadas.
+///
+/// Ação destrutiva e sem desfazer: a sala volta a zero participante, e o
+/// rateio de cotas/prêmios é recalculado do zero. Só o painel admin chama.
+///
+/// Apaga em páginas de [_loteExclusaoApostas] em vez de num `get()` único:
+/// o batch do Firestore tem teto de 500 operações, então uma sala grande
+/// estouraria o commit. O loop pára quando a página vem incompleta — sinal
+/// de que era a última.
+Future<int> removerTodasApostas({required String salaId}) async {
+  final colecao = FirebaseFirestore.instance
+      .collection('Salas')
+      .doc(salaId)
+      .collection('Participantes');
+
+  var apagadas = 0;
+  while (true) {
+    final pagina = await colecao.limit(_loteExclusaoApostas).get();
+    if (pagina.docs.isEmpty) break;
+
+    final lote = FirebaseFirestore.instance.batch();
+    for (final doc in pagina.docs) {
+      lote.delete(doc.reference);
+    }
+    await lote.commit();
+    apagadas += pagina.docs.length;
+
+    if (pagina.docs.length < _loteExclusaoApostas) break;
+  }
+  return apagadas;
 }
 
 /// Alterna o estado de verificação de uma aposta (verificado ⇄ pendente).
