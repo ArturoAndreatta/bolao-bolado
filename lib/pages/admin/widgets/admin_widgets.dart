@@ -37,6 +37,9 @@ class AdminCores {
   final Color fundoSecao;
   final Color borda;
 
+  /// `true` quando o tema ativo é escuro — usado por [barraDeSecao].
+  final bool escuro;
+
   const AdminCores._({
     required this.texto,
     required this.textoSuave,
@@ -51,6 +54,7 @@ class AdminCores {
     required this.fundoTile,
     required this.fundoSecao,
     required this.borda,
+    required this.escuro,
   });
 
   factory AdminCores.de(BuildContext context) {
@@ -69,8 +73,35 @@ class AdminCores {
       fundoTile: c.campo,
       fundoSecao: c.cardExterno,
       borda: c.borda,
+      escuro: c.escuro,
     );
   }
+
+  /// Versão de [cor] para pintar a BARRA de cabeçalho de uma seção — a faixa
+  /// colorida com o título em branco por cima.
+  ///
+  /// Nos temas escuros as cores de marca são claras: elas precisam ser, para
+  /// funcionarem como texto/ícone sobre o card escuro. Só que a mesma cor é
+  /// usada cheia como fundo de barra, e aí branco por cima dela chegava a
+  /// 1.5:1 — o título sumia dentro da própria faixa.
+  ///
+  /// Não dá para resolver mexendo na cor de marca: nenhum tom consegue estar
+  /// 4.5:1 ACIMA do card e 4.5:1 ABAIXO do branco ao mesmo tempo (o melhor
+  /// compromisso empata os dois em ~2.9:1, reprovado dos dois lados). Então a
+  /// barra usa uma versão escurecida da mesma cor, e a cor de marca continua
+  /// intacta onde é texto.
+  ///
+  /// A mistura a 50% com um quase-preto azulado mantém o matiz reconhecível
+  /// (a barra continua "a verde", "a azul") e devolve branco a ~5:1.
+  ///
+  /// No tema claro nada muda: lá as cores de marca já são escuras o bastante
+  /// para carregar branco, e escurecê-las mais deixaria o painel pesado.
+  Color barraDeSecao(Color cor) =>
+      escuro ? Color.alphaBlend(cor.withValues(alpha: 0.5), _baseBarra) : cor;
+
+  /// Quase-preto azulado usado para escurecer as barras de seção. Não é preto
+  /// puro: preto puro suja o matiz e a barra vira cinza-colorido.
+  static const Color _baseBarra = Color(0xFF0E1219);
 }
 
 /// Título de uma seção interna de uma aba (ex: "Ações rápidas",

@@ -378,6 +378,26 @@ class AvatarColorCache {
     return (cor: cor, emoji: emoji);
   }
 
+  /// Registra localmente a cor/emoji de um uid ANTES do Firestore confirmar
+  /// a escrita — para quem acabou de sortear e gravar esses valores em
+  /// `usuarios/{uid}` não precisar esperar o round-trip do `snapshots()`
+  /// para a linha nova deixar de mostrar o avatar neutro.
+  ///
+  /// Não abre listener nenhum: se `_docStream(uid)` ainda não existe, o
+  /// primeiro `snapshots()` (aberto quando a linha entra na tela) vai chegar
+  /// depois e simplesmente confirmar o mesmo valor — como `mudou` dá `false`
+  /// nesse caso, não gera segunda notificação nem segunda piscada.
+  void anteciparAvatar(
+    String uid, {
+    required Color cor,
+    required String emoji,
+  }) {
+    final mudou = _ultimoValor[uid] != cor || _ultimoEmoji[uid] != emoji;
+    _ultimoValor[uid] = cor;
+    _ultimoEmoji[uid] = emoji;
+    if (mudou) _notificarMudanca();
+  }
+
   /// Para de observar os uids que não estão em [emUso], fechando os listeners
   /// do Firestore correspondentes.
   ///

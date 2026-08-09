@@ -124,6 +124,7 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
   // Config só existe como dialog no desktop (engrenagem no header) — no
   // mobile continua como aba do fichário (ver _layoutMobile).
   void _abrirConfiguracoes(BuildContext context) {
+    final cores = AdminCores.de(context);
     showDialog(
       context: context,
       builder: (dialogContext) => Dialog(
@@ -133,7 +134,7 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
           constraints: const BoxConstraints(maxWidth: 560, maxHeight: 700),
           child: Container(
             decoration: BoxDecoration(
-              color: AdminCores.de(context).fundoCard,
+              color: cores.fundoCard,
               borderRadius: AppRadii.circularXl,
             ),
             clipBehavior: Clip.antiAlias,
@@ -142,7 +143,8 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  color: AdminCores.de(context).coral,
+                  // Escurecida no escuro para o branco continuar legível.
+                  color: cores.barraDeSecao(cores.coral),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,
                     vertical: 14,
@@ -389,7 +391,9 @@ class _CardSecaoState extends State<_CardSecao> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            color: widget.cor,
+            // Escurecida no tema escuro para o título branco continuar
+            // legível — ver [AdminCores.barraDeSecao].
+            color: cores.barraDeSecao(widget.cor),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Row(
               children: [

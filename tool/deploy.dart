@@ -50,7 +50,7 @@ Future<void> main(List<String> args) async {
     final build = Directory('build/web');
     if (build.existsSync()) {
       stdout.writeln('\n▶ Limpando build/web');
-      build.deleteSync(recursive: true);
+      await _apagarComRetentativa(build);
     }
   }
 
@@ -80,6 +80,23 @@ Future<void> main(List<String> args) async {
 
   await _rodar('firebase', ['deploy', ...extrasFirebase], 'Deploy');
   stdout.writeln('\n✓ Publicado.');
+}
+
+/// Apaga [dir] recursivamente, tentando de novo se o Windows devolver
+/// "arquivo já está sendo usado por outro processo" (comum logo após rodar
+/// os testes — o antivírus/indexador do Windows abre e solta um handle na
+/// pasta recém-tocada, e o `deleteSync` não espera isso passar sozinho).
+Future<void> _apagarComRetentativa(Directory dir) async {
+  const tentativas = 5;
+  for (var i = 1; i <= tentativas; i++) {
+    try {
+      dir.deleteSync(recursive: true);
+      return;
+    } on FileSystemException {
+      if (i == tentativas) rethrow;
+      await Future<void>.delayed(Duration(milliseconds: 300 * i));
+    }
+  }
 }
 
 /// Roda um comando mostrando a saída ao vivo e aborta tudo se ele falhar.

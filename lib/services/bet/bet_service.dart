@@ -536,6 +536,7 @@ Future<void> atualizarDadosSala({
 Future<void> editarValorAposta({
   required String salaId,
   required String uid,
+  required String nome,
   required String valor,
   required bool estavaVerificado,
 }) async {
@@ -545,6 +546,7 @@ Future<void> editarValorAposta({
       .collection('Participantes')
       .doc(uid)
       .update({
+        'nome': nome,
         'valor': valor,
         if (estavaVerificado) 'editadoAposVerificacao': true,
       });

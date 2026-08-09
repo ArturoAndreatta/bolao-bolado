@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/components/shared/combos.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
@@ -140,12 +141,25 @@ class BarraBuscaOrdenacao extends StatelessWidget {
     required this.onOrdenarPor,
   });
 
-  // Índices correspondem às colunas de TabelaApostas (mesma convenção de
-  // ordenação); ordem do mapa é a ordem de exibição no menu, não os índices.
-  static const Map<int, String> _opcoes = {0: 'Nome', 1: 'Valor', 4: 'Data'};
+  // Valores correspondem às colunas de TabelaApostas (mesma convenção de
+  // ordenação); a ordem da lista é a de exibição no menu, não os índices.
+  //
+  // Sem cor: ordenação não é estado, e a casca tingida do ComboFiltro leria
+  // como filtro ativo onde não há filtro nenhum.
+  static const List<OpcaoCombo<int>> _opcoes = [
+    OpcaoCombo(0, 'Nome'),
+    OpcaoCombo(1, 'Valor'),
+    OpcaoCombo(4, 'Data'),
+  ];
 
   @override
   Widget build(BuildContext context) {
+    // A tabela do desktop ordena por colunas que não estão no menu (cotas,
+    // status). Ao cair pro mobile com uma dessas ativa, o combo mostra Valor
+    // em vez da primeira opção da lista — é o padrão de ordenação da tela.
+    final selecionado = _opcoes.any((o) => o.valor == colunaOrdenada)
+        ? colunaOrdenada
+        : 1;
     return Row(
       children: [
         Expanded(
@@ -158,10 +172,14 @@ class BarraBuscaOrdenacao extends StatelessWidget {
           onTap: () => onOrdenarPor(colunaOrdenada),
         ),
         const SizedBox(width: 8),
-        _BotaoCampoOrdenacao(
-          colunaOrdenada: colunaOrdenada,
+        // Altura casada com o campo de busca e o botão de direção ao lado;
+        // encolhido ao conteúdo para sobrar largura pra busca.
+        ComboFiltro<int>(
+          selecionado: selecionado,
           opcoes: _opcoes,
-          onSelected: onOrdenarPor,
+          onSelecionar: onOrdenarPor,
+          altura: 44,
+          expandido: false,
         ),
       ],
     );
@@ -196,56 +214,6 @@ class _BotaoDirecaoOrdenacao extends StatelessWidget {
             size: 18,
             color: cores.azul,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// Botão que escolhe qual campo será usado na ordenação (Valor, Nome, etc).
-class _BotaoCampoOrdenacao extends StatelessWidget {
-  final int colunaOrdenada;
-  final Map<int, String> opcoes;
-  final void Function(int) onSelected;
-
-  const _BotaoCampoOrdenacao({
-    required this.colunaOrdenada,
-    required this.opcoes,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cores = AppCores.de(context);
-    return PopupMenuButton<int>(
-      onSelected: onSelected,
-      offset: const Offset(0, 48),
-      shape: RoundedRectangleBorder(borderRadius: AppRadii.circularSmd),
-      itemBuilder: (context) => opcoes.entries
-          .map((e) => PopupMenuItem<int>(value: e.key, child: Text(e.value)))
-          .toList(),
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: cores.escuro ? cores.campo : cores.card,
-          borderRadius: AppRadii.circularSmd,
-          border: Border.all(color: cores.borda, width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              opcoes[colunaOrdenada] ?? 'Valor',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: cores.azul,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 18, color: cores.azul),
-          ],
         ),
       ),
     );

@@ -1,8 +1,8 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/formatters/money_input_format.dart';
 import 'package:bolao_bolado/components/shared/custom_field_decoration.dart';
+import 'package:bolao_bolado/components/shared/seletor_data_hora.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
-import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 
 class CustomField extends StatelessWidget {
@@ -104,86 +104,8 @@ class CustomField extends StatelessWidget {
   }
 }
 
-class CustomDropdownField<T> extends StatelessWidget {
-  final String hint;
-  final IconData? icon;
-  final T? value;
-  final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?> onChanged;
-  final double? maxWidth;
-  final String? Function(T?)? validator;
-  final bool enabled;
-
-  const CustomDropdownField({
-    super.key,
-    required this.hint,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-    this.icon,
-    this.maxWidth,
-    this.validator,
-    this.enabled = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cores = AppCores.de(context);
-    return Theme(
-      data: Theme.of(context).copyWith(canvasColor: cores.campo),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth ?? 300),
-        child: DropdownButtonFormField2(
-          value: value,
-          items: items,
-          onChanged: enabled ? onChanged : null,
-          validator: validator,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          isExpanded: true,
-          iconStyleData: const IconStyleData(
-            icon: Icon(Icons.keyboard_arrow_down_rounded),
-            iconSize: 26,
-          ),
-          style: TextStyle(color: cores.texto, fontSize: 18),
-          decoration: CustomFieldDecoration.build(
-            context,
-            hint: hint,
-            icon: icon,
-          ),
-          // Altura default do botão (40px) corta a parte de baixo do texto
-          // do item selecionado quando o InputDecoration tem labelText
-          // flutuante (o rótulo some pro topo e o valor precisa da altura
-          // toda) — sem isso, textos com descendentes (ex: "ç", "ã") ficam
-          // visualmente cortados em vez de dar ellipsis.
-          buttonStyleData: const ButtonStyleData(
-            height: 56,
-            padding: EdgeInsets.symmetric(horizontal: 4),
-          ),
-          dropdownStyleData: DropdownStyleData(
-            decoration: BoxDecoration(
-              color: cores.card,
-              borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 12,
-                  offset: Offset(0, 6),
-                ),
-              ],
-            ),
-          ),
-          menuItemStyleData: const MenuItemStyleData(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            height: 48,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Campo de data: encapsula showDatePicker + formatação (dd/MM/yyyy via
-// intl), evitando reimplementar o picker e o padLeft manual em cada tela.
+// Campo de data: encapsula o calendário de [abrirSeletorData] + formatação
+// (dd/MM/yyyy via intl), evitando repetir o seletor e o padLeft em cada tela.
 class CustomDateField extends StatelessWidget {
   final String hint;
   final IconData? icon;
@@ -210,17 +132,17 @@ class CustomDateField extends StatelessWidget {
     this.textInputAction,
   });
 
-  Future<void> _abrirPicker(BuildContext context) async {
+  Future<void> _abrirSeletor(BuildContext context) async {
     FocusScope.of(context).unfocus();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate ?? DateTime.now(),
-      firstDate: firstDate ?? DateTime(2020),
-      lastDate: lastDate ?? DateTime(2030),
+    final escolhida = await abrirSeletorData(
+      context,
+      inicial: initialDate,
+      minima: firstDate ?? DateTime(2020),
+      maxima: lastDate ?? DateTime(2030),
     );
-    if (picked == null) return;
-    controller.text = Formatters.data.format(picked);
-    onPicked?.call(picked);
+    if (escolhida == null) return;
+    controller.text = Formatters.data.format(escolhida);
+    onPicked?.call(escolhida);
   }
 
   @override
@@ -233,13 +155,13 @@ class CustomDateField extends StatelessWidget {
       isRequired: isRequired,
       maxWidth: maxWidth,
       textInputAction: textInputAction,
-      onTap: () => _abrirPicker(context),
+      onTap: () => _abrirSeletor(context),
     );
   }
 }
 
-// Campo de hora: encapsula showTimePicker + formatação (HH:mm via intl),
-// evitando reimplementar o picker e o padLeft manual em cada tela.
+// Campo de hora: encapsula o relógio de [abrirSeletorHora] + formatação
+// (HH:mm), evitando repetir o seletor e o padLeft em cada tela.
 class CustomTimeField extends StatelessWidget {
   final String hint;
   final IconData? icon;
@@ -266,15 +188,13 @@ class CustomTimeField extends StatelessWidget {
       '${time.hour.toString().padLeft(2, '0')}:'
       '${time.minute.toString().padLeft(2, '0')}';
 
-  Future<void> _abrirPicker(BuildContext context) async {
+  Future<void> _abrirSeletor(BuildContext context) async {
     FocusScope.of(context).unfocus();
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initialTime ?? TimeOfDay.now(),
-    );
-    if (picked == null) return;
-    controller.text = format(picked);
-    onPicked?.call(picked);
+    final escolhida = await abrirSeletorHora(context, inicial: initialTime);
+    if (escolhida == null) return;
+    final hora = TimeOfDay.fromDateTime(escolhida);
+    controller.text = format(hora);
+    onPicked?.call(hora);
   }
 
   @override
@@ -287,7 +207,7 @@ class CustomTimeField extends StatelessWidget {
       isRequired: isRequired,
       maxWidth: maxWidth,
       textInputAction: textInputAction,
-      onTap: () => _abrirPicker(context),
+      onTap: () => _abrirSeletor(context),
     );
   }
 }

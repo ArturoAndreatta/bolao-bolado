@@ -347,80 +347,248 @@ class AppCores extends ThemeExtension<AppCores> {
     escuro: false,
   );
 
-  /// Tema escuro.
+  /// Tema escuro PADRÃO — o que o botão "Escuro" do drawer aplica.
   ///
-  /// **A metáfora é mesa de jogo: feltro verde-escuro e metal dourado.** Ela
-  /// não é decoração arbitrária — é a identidade que o tema claro já tem. O
-  /// gradiente claro vai de `#FFE082` (ouro, 43°) a `#7CC8B5` (feltro, 165°),
-  /// e o escuro é a versão profunda dos MESMOS matizes. Por isso os dois temas
-  /// se reconhecem como o mesmo app, e por isso a paleta combina com um
-  /// produto de bolão/aposta em vez de parecer um dashboard genérico.
+  /// **A regra é: este é o tema claro com a luz apagada.** Não é uma paleta
+  /// nova, não é um dark mode genérico de dashboard — é o MESMO app, com os
+  /// mesmos matizes, visto em ambiente escuro. Duas tentativas anteriores
+  /// falharam justamente por esquecer isso:
   ///
-  /// As superfícies são feltro (163°) com saturação 13–20%: cor suficiente
-  /// para ter caráter, baixa o bastante para não competir com o conteúdo.
-  /// Duas tentativas anteriores erraram os extremos disso — azul-ardósia a
-  /// 25% brigava com o gradiente (~175° de distância, complementares), e o
-  /// carvão neutro a 6% era correto porém sem personalidade nenhuma. Feltro
-  /// resolve os dois: **tem cor, e a cor é a do próprio gradiente**, então
-  /// não existe conflito de matiz possível.
+  /// - A primeira trocou os matizes da marca por cinza-azulado neutro (220°) e
+  ///   pintou o gradiente de fundo de azul-noite. O resultado parecia outro
+  ///   produto: o tema claro é ouro e verde-água, e no escuro não sobrava
+  ///   nada disso — a tela lia como preto morto.
+  /// - A segunda foi na direção oposta (feltro verde em tudo) e saturou
+  ///   demais. Virou o tema [cassino].
   ///
-  /// Não é o tema claro invertido: as superfícies nunca chegam a preto
-  /// absoluto, o que evita o "buraco preto" que fundos #000 criam em telas
-  /// OLED quando o conteúdo é denso como aqui.
+  /// O que esta paleta preserva do claro, item por item:
   ///
-  /// As superfícies sobem de tom conforme se aproximam do usuário
-  /// (fundo < card externo < card < campo), que é como o Material 3 comunica
-  /// elevação no escuro — sombra sozinha quase não aparece sobre fundo
-  /// escuro, então a hierarquia precisa vir da luminosidade.
+  /// 1. **Os matizes.** As superfícies usam 210° (o mesmo giro frio do
+  ///    `#1F2937` que é o texto do tema claro), o gradiente mantém 43° e 163°
+  ///    exatos do `#FFE082`→`#7CC8B5`, e cada cor de marca guarda o matiz da
+  ///    sua correspondente clara. O que muda é luminosidade e saturação, nunca
+  ///    o matiz.
+  /// 2. **O gradiente da marca continua visível.** Ouro→verde-água ainda
+  ///    percorre a tela; ele é a única assinatura visual que o app tem, e
+  ///    apagá-lo foi o erro mais visível da tentativa anterior. A saturação
+  ///    aqui (~30%) é o teto antes de virar marrom-esverdeado nessa faixa
+  ///    escura.
+  /// 3. **Hierarquia clara → escura preservada.** No claro o card é o mais
+  ///    CLARO da tela e o fundo é colorido; aqui o card continua sendo o mais
+  ///    claro dos blocos e o fundo continua sendo o colorido, só que abaixo
+  ///    dele.
   ///
-  /// As cores de marca foram clareadas em relação ao claro: o azul #487DE5 e
-  /// o verde #2E7D32 originais têm contraste insuficiente sobre fundo escuro
-  /// (o verde escuro chega a ~2:1, ilegível). Os tons daqui ficam acima de
-  /// 4.5:1 sobre [card], mantendo o mesmo matiz da identidade visual.
+  /// E o que a legibilidade exige, medido e não estimado:
+  ///
+  /// - [texto] ~13:1 sobre [card], [textoSuave] ~8:1, [textoFraco] ~6:1 — os
+  ///   dois últimos carregam cota, prêmio e horário na tabela, então "passar
+  ///   raspando" no AA ali produz uma tela cansativa. Nenhuma cor de marca
+  ///   fica abaixo de 6:1 sobre [card].
+  /// - A escala de superfícies foi montada em **L\* (lightness perceptual do
+  ///   CIELab)**, não em razão WCAG: perto do preto a razão satura — dois tons
+  ///   claramente distintos na tela dão 1.05:1, número que sugere
+  ///   "idênticos". Em L\* a escala é gradiente 18 → fichário 19 → card
+  ///   externo 20 → card 25 → linha ímpar 29 → campo 31 → superfície alta 38.
+  ///   Use L\* para superfícies e razão WCAG para texto e borda; cada métrica
+  ///   vale numa faixa.
+  /// - [borda] fica ~1.9:1 contra [card]. É ela que desenha a grade da tabela
+  ///   e o recorte dos cards, já que sombra praticamente não aparece no
+  ///   escuro.
+  ///
+  /// As superfícies nunca chegam a preto absoluto: fundo #000 com conteúdo
+  /// denso como este vira "buraco preto" em tela OLED, e cada card passa a
+  /// parecer uma janela recortada no vazio.
   static const AppCores escuroTema = AppCores(
     // ── Superfícies ────────────────────────────────────────────────────────
-    // Feltro: matiz 163°, o MESMO do `#7CC8B5` do gradiente claro, em versões
-    // profundas. A saturação cai conforme a superfície sobe (20% no fundo →
-    // 13% na mais alta): quanto mais perto do usuário, mais neutra, senão as
-    // camadas de cima acumulam cor e a tela satura.
+    // Matiz 216°, saturação ~20%: azul-ardósia quente o bastante para
+    // conversar com o ouro do gradiente. O card é o mais claro dos blocos
+    // grandes de propósito — é o "papel" onde o conteúdo mora, e no escuro
+    // quem sobe de luminosidade é quem se aproxima do usuário.
     //
-    // O matiz único em toda a escala é o que faz o conflito com o
-    // [gradienteFundo] ser impossível por construção — superfície e fundo são
-    // literalmente a mesma cor em luminosidades diferentes.
+    // Esta escala inteira é MAIS CLARA que a primeira versão (card L\* 20 →
+    // 25). Ela subiu junto com o gradiente: clarear só o fundo teria
+    // encostado ele no card e afundado o conteúdo. Distância entre fundo e
+    // card é o que não pode encolher — os dois se movem em par.
+    card: Color(0xFF333C4D),
+    cardExterno: Color(0xFF28303E),
+    campo: Color(0xFF3F4A5E),
+    superficieAlta: Color(0xFF4E5A70),
+    ficharioFundo: Color(0xFF262F3C),
+    // ── Texto ──────────────────────────────────────────────────────────────
+    // Branco levemente frio, nunca #FFF puro: branco absoluto sobre fundo
+    // escuro produz halo (o texto "vaza" para fora das hastes) em telas LCD.
+    texto: Color(0xFFF5F8FC),
+    // ~7:1 sobre [card]. Rótulos, subtítulos e cabeçalhos de coluna.
+    textoSuave: Color(0xFFC9D2DE),
+    // Apesar do nome, carrega dado real (cotas, horários da lista) — o nível
+    // que as versões anteriores deixavam apagado demais. Calibrado contra
+    // [campo], que é a superfície mais clara onde ele aparece: sobre o card
+    // sobra folga, sobre o campo fica no alvo.
+    textoFraco: Color(0xFFB7BFCC),
+    textoSobreCor: Color(0xFFFFFFFF),
+    // Âmbar-laranja (28°), com texto quase-preto quente por cima (9.3:1).
+    //
+    // A escolha é por ELIMINAÇÃO, e o critério é: **nenhum tema pode repetir a
+    // `acaoPrimaria` de outro**, senão dois temas diferentes acabam com o
+    // mesmo botão. Ocupado hoje: 43° (cassino), 78° (papel), 186°
+    // (meiaNoite), 210° (bilhete), 220° (claro), 314° (cyber). Dentro da
+    // própria paleta ainda estão tomados 144°/164° (verde do dinheiro e pix,
+    // que num app de pagamento não podem se confundir com o botão), 258°
+    // (roxo) e 9°/352° (coral e vermelho de erro).
+    //
+    // 28° é o que sobra com folga em todos os lados: 15° do ouro do cassino
+    // (perto, mas laranja e ouro não se confundem lado a lado), 19° do coral
+    // e mais de 100° de qualquer cor fria da base.
+    //
+    // Também não pode ser o [azul]: nas luminosidades em que um azul se
+    // destaca do card, branco por cima reprova (2.5:1), e nas que carregam
+    // branco ele afunda no fundo (2.9:1 vs card). O âmbar escapa disso porque
+    // é claro o bastante para carregar texto ESCURO com folga.
+    //
+    // Sendo a única cor quente sobre uma base inteiramente fria (204°→233°),
+    // ele é o ponto mais visível da tela — que é exatamente o papel de um
+    // botão que confirma dinheiro.
+    acaoPrimaria: Color(0xFFF6A35A),
+    textoSobreAcao: Color(0xFF1C0D02),
+    // Bordas propositalmente acima do "quase invisível": são elas que
+    // desenham a grade da tabela e o recorte dos cards.
+    borda: Color(0xFF5C6980),
+    bordaCampo: Color(0xFF6E7C96),
+    bordaCampoFoco: Color(0xFF95A3BB),
+    // ── Marca ──────────────────────────────────────────────────────────────
+    // Cada uma guarda o MATIZ da sua correspondente no tema claro, clareada
+    // até ≥6:1 sobre [card]. O verde é o mais claro do conjunto porque é a cor
+    // do dinheiro — a coluna de prêmio é o dado mais consultado da tela.
+    azul: Color(0xFFA2C0F8),
+    verdeAgua: Color(0xFF77D9BE),
+    dourado: Color(0xFFF2D07C),
+    roxo: Color(0xFFC7B6EE),
+    coral: Color(0xFFF3AEA2),
+    verde: Color(0xFF8CE3AF),
+    vermelho: Color(0xFFF5ACAC),
+    // ── Blocos de estado ───────────────────────────────────────────────────
+    // Fundo tingido + borda na cor: no escuro um retângulo chapado do tom
+    // cheio lê como erro de renderização, mas um fundo tênue DEMAIS (foi o
+    // caso na versão anterior, a 7% de mistura) some junto com o card e o
+    // bloco deixa de existir. O ponto de equilíbrio está aqui: o fundo é
+    // reconhecivelmente colorido e a borda fecha o recorte.
+    fundoVerde: Color(0xFF2C503F),
+    bordaVerde: Color(0xFF529078),
+    textoVerde: Color(0xFF9BEDBE),
+    fundoAmarelo: Color(0xFF50442B),
+    bordaAmarelo: Color(0xFF917C47),
+    textoAmarelo: Color(0xFFF3D999),
+    fundoAzul: Color(0xFF2B476E),
+    bordaAzul: Color(0xFF5780B4),
+    textoAzul: Color(0xFFB6D0FB),
+    fundoVermelho: Color(0xFF603A3C),
+    bordaVermelho: Color(0xFFA36164),
+    fundoRoxo: Color(0xFF4A3E75),
+    bordaRoxo: Color(0xFF7E6AB8),
+    textoRoxo: Color(0xFFD6C6F7),
+    // ── Zebra da tabela ────────────────────────────────────────────────────
+    // Diferença pequena mas perceptível entre par e ímpar: serve para o olho
+    // seguir a linha na horizontal numa tabela de 5 colunas. Mais que isso
+    // viraria listra e competiria com a barra de estado.
+    linhaPar: Color(0xFF333C4D),
+    linhaImpar: Color(0xFF3A4456),
+    // Flash momentâneo de aposta nova, na cor de acento do tema — segue a
+    // [acaoPrimaria] para o realce ler como "o app agiu", e não como uma
+    // sexta cor solta na tabela.
+    linhaNova: Color(0xFF7E5530),
+    // A barra de estado substitui o fundo colorido da linha (ver o doc do
+    // campo): 3px na borda esquerda, na cor do estado.
+    larguraBarraEstado: 3,
+    bolhaOutro: Color(0xFF434E63),
+    bolhaOutroTexto: Color(0xFFF5F8FC),
+    skeletonBase: Color(0xFF3F4A5E),
+    skeletonBrilho: Color(0xFF52607A),
+    // Drawer mais escuro que qualquer superfície de conteúdo: é o que o
+    // mantém lendo como painel por trás da página, e não como mais um card.
+    drawerFundo: Color(0xFF161B24),
+    drawerBorda: Color(0xFF39445A),
+    drawerTexto: Color(0xFFD3DBE6),
+    sombra: Color(0xFF000000),
+    // ── Gradiente de fundo ─────────────────────────────────────────────────
+    // Ardósia → anil: o EIXO FRIO da própria base deste tema, não os matizes
+    // ouro/verde-água da marca.
+    //
+    // Este é o único ponto em que o escuro padrão se afasta do tema claro, e
+    // é de propósito. A versão anterior usava 43°→163° — exatamente os
+    // matizes do [cassino], só que um pouco mais claros —, então os dois
+    // temas tinham praticamente o MESMO fundo: alternar entre "Escuro" e
+    // "Cassino" trocava os cards e deixava a moldura idêntica, o que apagava
+    // a diferença entre eles. Como o Cassino existe para ser a versão
+    // ouro-e-feltro do app, o ouro ficou com ele.
+    //
+    // O 205° do início fica na vizinhança do matiz das superfícies (o [card]
+    // está em 219°), então a moldura lê como continuação do tema em vez de
+    // peça colada por cima. O 232° do fim é o desvio que torna a diagonal
+    // perceptível: ~27° de giro bastam para o olho ver movimento sem
+    // introduzir uma cor estranha à paleta.
+    //
+    // **A saturação (32%) é o que separa este fundo do [meiaNoite]**, que
+    // ocupa faixa de matiz parecida (248°→215°). Lá ela é 55–67% e a tela
+    // inteira é azul vibrante, porque o tema é sobre isso; aqui o fundo é
+    // discreto de propósito — o escuro padrão não deve ter opinião, e a única
+    // cor forte da tela é o dourado do CTA.
+    //
+    // L\* ~18: a diagonal precisa ser VISTA. Uma versão anterior ficou em
+    // L\* 8–11 "para o card flutuar" e o resultado foi um fundo que lia como
+    // preto chapado. A profundidade veio de subir o card junto, não de
+    // afundar o fundo.
+    //
+    // Continua mais escuro que o [card] — é o que faz o card FLUTUAR, já que
+    // no escuro a profundidade vem da luminosidade e não da sombra. Ao mexer
+    // aqui, mexa junto no [card]: os dois se movem em par, e a distância
+    // entre eles é o que não pode encolher.
+    gradienteFundo: [Color(0xFF1D2E39), Color(0xFF242846)],
+    // Tela inteira, não só o miolo — ver [paradasGradiente].
+    paradasGradiente: [0.0, 1.0],
+    pix: Color(0xFF5FE2C0),
+    pixFundo: Color(0xFF265046),
+    escuro: true,
+  );
+
+  /// Tema único **Cassino** — feltro de mesa de jogo e metal dourado.
+  ///
+  /// Era o tema escuro padrão do app; virou tema único quando o escuro passou
+  /// a ser a base neutra ([escuroTema]). O motivo da mudança de papel: a
+  /// metáfora é forte e combina com o produto, mas um dark mode padrão não
+  /// deve ter opinião — todo mundo que só quer "a tela escura" recebia junto
+  /// uma decisão estética. Como tema OPCIONAL ele fica melhor: quem escolhe
+  /// "Cassino" está pedindo exatamente essa personalidade.
+  ///
+  /// A metáfora não é decoração arbitrária: o gradiente do tema claro vai de
+  /// `#FFE082` (ouro, 43°) a `#7CC8B5` (feltro, 165°), e aqui está a versão
+  /// profunda dos MESMOS matizes.
+  ///
+  /// Toda a escala de superfícies usa o matiz 163° com saturação caindo de
+  /// 20% (fundo) a 13% (mais alta) — quanto mais perto do usuário, mais
+  /// neutra, senão as camadas de cima acumulam cor e a tela satura. O matiz
+  /// único em toda a escala é o que torna o conflito com o [gradienteFundo]
+  /// impossível por construção: superfície e fundo são literalmente a mesma
+  /// cor em luminosidades diferentes.
+  static const AppCores cassino = AppCores(
     card: Color(0xFF222F2C),
     cardExterno: Color(0xFF192421),
     campo: Color(0xFF2D3C37),
     superficieAlta: Color(0xFF374843),
     ficharioFundo: Color(0xFF101916),
-    // ── Texto ──────────────────────────────────────────────────────────────
-    // Branco levemente frio em vez de #FFF puro: reduz o "brilho" agressivo
-    // de branco absoluto sobre fundo escuro.
     // Texto puxado levemente para o verde do feltro em vez de branco frio:
     // texto neutro sobre superfície colorida lê como "colado por cima".
     texto: Color(0xFFEBF0ED),
     textoSuave: Color(0xFFA0B1AA),
-    // Claro o bastante para passar AA (≥4.5) sobre [card] e [campo]: apesar do
-    // nome, ele carrega informação real (cotas, timestamps na lista), não só
-    // decoração. Clarear mais o aproximaria de [textoSuave] e apagaria a
-    // distinção entre os dois níveis.
     textoFraco: Color(0xFF95A7A0),
     textoSobreCor: Color(0xFFFFFFFF),
-    // Escuro: ouro. Texto quase-preto quente sobre ele (10.5:1) — ver o doc
-    // de [acaoPrimaria] para o porquê da troca.
     acaoPrimaria: Color(0xFFE5C061),
     textoSobreAcao: Color(0xFF1A1408),
     borda: Color(0xFF3B4E49),
     bordaCampo: Color(0xFF495F59),
     bordaCampoFoco: Color(0xFF5C7A72),
-    // ── Marca ──────────────────────────────────────────────────────────────
-    // Mesmos matizes do claro, clareados para contraste sobre fundo escuro
-    // (o #2E7D32 original fica em ~2:1 sobre o card, ilegível). Todas passam
-    // AA (≥4.5:1) sobre [card].
-    //
     // O [dourado] é a cor de acento do tema: sobre feltro ele lê como METAL,
-    // e é o que dá o ar de riqueza que a paleta neutra anterior não tinha.
-    // Por isso sua saturação (72%) é mais alta que a das outras — ouro
-    // apagado vira apenas bege.
+    // e é o que dá o ar de riqueza. Por isso sua saturação (72%) é mais alta
+    // que a das outras — ouro apagado vira apenas bege.
     azul: Color(0xFF749CE7),
     verdeAgua: Color(0xFF5CC1A5),
     dourado: Color(0xFFE5C061),
@@ -428,10 +596,6 @@ class AppCores extends ThemeExtension<AppCores> {
     coral: Color(0xFFE27E6F),
     verde: Color(0xFF64CE90),
     vermelho: Color(0xFFEA7B7B),
-    // ── Blocos de estado ───────────────────────────────────────────────────
-    // Usados em CARDS e diálogos (não nas linhas da tabela — ver
-    // [larguraBarraEstado]). São a cor apenas insinuada sobre a superfície:
-    // no escuro, um bloco chapado do tom cheio lê como erro de renderização.
     fundoVerde: Color(0xFF22352A),
     bordaVerde: Color(0xFF345542),
     textoVerde: Color(0xFF69D395),
@@ -446,57 +610,322 @@ class AppCores extends ThemeExtension<AppCores> {
     fundoRoxo: Color(0xFF2B2438),
     bordaRoxo: Color(0xFF45375C),
     textoRoxo: Color(0xFFAD90DF),
-    // ── Zebra da tabela ────────────────────────────────────────────────────
-    // Diferença mínima entre par e ímpar (4 pontos de luminosidade): serve
-    // só para o olho seguir a linha na horizontal. No escuro, a mesma
-    // diferença do tema claro viraria listras berrantes.
     linhaPar: Color(0xFF222F2C),
     linhaImpar: Color(0xFF273531),
-    // Flash momentâneo de aposta nova. Sobre feltro o realce é DOURADO, não
-    // azul: é a cor de acento do tema, e um brilho de ouro passando na linha
-    // diz "entrou dinheiro" melhor que um azul de sistema.
     linhaNova: Color(0xFF4E452C),
-    // A barra de estado substitui o fundo colorido da linha (ver o doc do
-    // campo): 3px na borda esquerda, na cor do estado.
     larguraBarraEstado: 3,
     bolhaOutro: Color(0xFF32433E),
     bolhaOutroTexto: Color(0xFFEBF0ED),
     skeletonBase: Color(0xFF2E3E39),
     skeletonBrilho: Color(0xFF3C4E49),
-    // Drawer já era escuro no tema claro; aqui desce mais um passo para
-    // continuar se distinguindo do conteúdo, que agora também é escuro.
     drawerFundo: Color(0xFF0C1311),
     drawerBorda: Color(0xFF293834),
     drawerTexto: Color(0xFFC3D2CB),
     sombra: Color(0xFF000000),
-    // ── Gradiente de fundo ─────────────────────────────────────────────────
-    // A moldura da página é o único lugar onde o dourado→verde-água da marca
-    // ainda aparece no escuro, então estes dois tons carregam sozinhos a
-    // identidade visual do app no tema escuro.
-    //
-    // São os MATIZES EXATOS do gradiente claro — 43° do `#FFE082` e 163° do
-    // `#7CC8B5` — em versão profunda. Manter o matiz é o que faz o fundo ainda
-    // "ser" o gradiente do app.
-    //
-    // A saturação (~43%) é MAIS ALTA que a de qualquer superfície, e é daí que
-    // vem o ar de riqueza. Não há risco de brigar com os cards porque o matiz
-    // é o mesmo — é a vantagem de usar feltro na escala inteira.
-    //
-    // **Mais ESCURO que o card, de propósito** (contraste ~1.12). É o que faz
-    // o card flutuar sobre a mesa em vez de se fundir nela: no escuro a sombra
-    // quase não aparece, então a profundidade tem que vir da luminosidade.
-    //
-    // Estes dois valores são o equilíbrio de uma tensão real: clarear o fundo
-    // para a diagonal ouro→feltro ficar mais óbvia faz o card AFUNDAR (as
-    // luminosidades se encontram), e escurecer para destacar o card apaga a
-    // diagonal e a tela vira quase preta. Ao mexer aqui, mexa junto no [card]
-    // — os dois se movem em par.
+    // Saturação (~43%) MAIS ALTA que a de qualquer superfície — é daí que vem
+    // o ar de riqueza. Sem risco de brigar com os cards porque o matiz é o
+    // mesmo. Mais escuro que o [card] de propósito (contraste ~1.12), para o
+    // card flutuar sobre a mesa.
     gradienteFundo: [Color(0xFF2A2311), Color(0xFF0F2720)],
-    // Tela inteira, não só o miolo — ver [paradasGradiente].
     paradasGradiente: [0.0, 1.0],
     pix: Color(0xFF41C8A2),
     pixFundo: Color(0xFF1D302A),
     escuro: true,
+  );
+
+  /// Tema único **Meia-noite** — azul-marinho profundo com neon ciano.
+  ///
+  /// A referência é app de aposta esportiva moderno: base fria muito escura
+  /// (matiz 225°, saturação 30–38% — bem mais colorida que a do
+  /// [escuroTema]) e um ciano elétrico como ação primária. É o tema para quem
+  /// quer o escuro VIBRANTE em vez do discreto.
+  ///
+  /// O ciano #35D6E8 sobre o card dá ~9:1 e carrega texto quase-preto com
+  /// folga — é o que permite usá-lo como CTA sem o problema que o azul de
+  /// marca tinha no escuro (branco sobre ele dava 2.74:1).
+  ///
+  /// O violeta entra só como segunda cor de acento (seções, roxo do painel):
+  /// ciano e violeta a ~60° de distância no círculo é o par que dá o ar
+  /// "neon" sem virar arco-íris.
+  static const AppCores meiaNoite = AppCores(
+    // Escala subida em bloco (card L* 13 -> 21): na primeira versão o card
+    // ficava a 2.8 pontos de L* do gradiente e praticamente não se destacava
+    // do fundo. Como sempre, fundo e card se movem em par — ver o doc de
+    // [escuroTema].
+    card: Color(0xFF203159),
+    cardExterno: Color(0xFF182749),
+    campo: Color(0xFF2A3F6C),
+    superficieAlta: Color(0xFF374D7B),
+    ficharioFundo: Color(0xFF111E3F),
+    texto: Color(0xFFEDF2FB),
+    textoSuave: Color(0xFFBAC6DE),
+    textoFraco: Color(0xFFA5B2CB),
+    textoSobreCor: Color(0xFFFFFFFF),
+    // Ciano elétrico com texto quase-preto por cima: é a assinatura do tema.
+    acaoPrimaria: Color(0xFF35D6E8),
+    textoSobreAcao: Color(0xFF04161A),
+    borda: Color(0xFF324670),
+    bordaCampo: Color(0xFF3F5483),
+    bordaCampoFoco: Color(0xFF546CA3),
+    azul: Color(0xFF69B9F6),
+    verdeAgua: Color(0xFF3FD6C0),
+    dourado: Color(0xFFF2C75C),
+    roxo: Color(0xFFBCA5F7),
+    coral: Color(0xFFF29B94),
+    verde: Color(0xFF4ED8A0),
+    vermelho: Color(0xFFF398A4),
+    fundoVerde: Color(0xFF19423E),
+    bordaVerde: Color(0xFF2A6E64),
+    textoVerde: Color(0xFF5CE0AB),
+    fundoAmarelo: Color(0xFF3F3C24),
+    bordaAmarelo: Color(0xFF6D6337),
+    textoAmarelo: Color(0xFFEFC96D),
+    fundoAzul: Color(0xFF1E3B68),
+    bordaAzul: Color(0xFF3664A3),
+    textoAzul: Color(0xFF78C1F7),
+    fundoVermelho: Color(0xFF533142),
+    bordaVermelho: Color(0xFF8D5166),
+    fundoRoxo: Color(0xFF393371),
+    bordaRoxo: Color(0xFF6356B2),
+    textoRoxo: Color(0xFFB69AF7),
+    linhaPar: Color(0xFF203159),
+    linhaImpar: Color(0xFF263861),
+    // Ciano no flash de linha nova: é a cor de acento do tema.
+    linhaNova: Color(0xFF2A5F75),
+    larguraBarraEstado: 3,
+    bolhaOutro: Color(0xFF2F446D),
+    bolhaOutroTexto: Color(0xFFEDF2FB),
+    skeletonBase: Color(0xFF2A3F6C),
+    skeletonBrilho: Color(0xFF384F80),
+    drawerFundo: Color(0xFF0B152C),
+    drawerBorda: Color(0xFF243560),
+    drawerTexto: Color(0xFFBFCDE6),
+    sombra: Color(0xFF000000),
+    // Violeta → azul-marinho: a diagonal do tema. Mais escura que o card,
+    // pela mesma razão do [escuroTema] (profundidade vem da luminosidade).
+    gradienteFundo: [Color(0xFF1F1750), Color(0xFF0A1B33)],
+    paradasGradiente: [0.0, 1.0],
+    pix: Color(0xFF3FD6C0),
+    pixFundo: Color(0xFF19403C),
+    escuro: true,
+  );
+
+  /// Tema único **Cyber** — quase preto com magenta e ciano.
+  ///
+  /// O mais chamativo do conjunto: base neutra escuríssima (matiz 260° a
+  /// saturação baixa, quase carvão arroxeado) para os dois neons — magenta
+  /// #F45FD0 e ciano #4FE3E3 — terem onde brilhar. Sobre base clara ou
+  /// colorida esses tons vibram e cansam; é a base quase preta que os
+  /// segura.
+  ///
+  /// O magenta é a ação primária e o ciano a cor de dado/valor. Manter os
+  /// dois em papéis fixos evita o efeito "letreiro de fliperama" que aparece
+  /// quando neons diferentes disputam a mesma função na tela.
+  static const AppCores cyber = AppCores(
+    // Escala subida em bloco (card L* 7.5 -> 20). Na primeira versão o card
+    // era mais ESCURO que o gradiente e literalmente afundava no fundo. A
+    // saturação da base também caiu (~22%): o matiz 260° a saturação alta,
+    // quando clareado, vira lilás forte e rouba o palco dos neons — que é
+    // justamente o que o tema tem de próprio.
+    card: Color(0xFF352C45),
+    cardExterno: Color(0xFF292238),
+    campo: Color(0xFF423955),
+    superficieAlta: Color(0xFF514667),
+    ficharioFundo: Color(0xFF211A2D),
+    texto: Color(0xFFF2EDF8),
+    textoSuave: Color(0xFFC8C0D6),
+    textoFraco: Color(0xFFB3ABC2),
+    textoSobreCor: Color(0xFFFFFFFF),
+    // Magenta com texto quase-preto: sobre ele, branco daria ~3:1 e reprovaria
+    // AA justamente no botão que confirma dinheiro.
+    acaoPrimaria: Color(0xFFF45FD0),
+    textoSobreAcao: Color(0xFF1A0715),
+    borda: Color(0xFF4A3F62),
+    bordaCampo: Color(0xFF594C74),
+    bordaCampoFoco: Color(0xFF736293),
+    azul: Color(0xFF89ADFF),
+    verdeAgua: Color(0xFF4FE3E3),
+    dourado: Color(0xFFEFC55F),
+    roxo: Color(0xFFC49CFB),
+    coral: Color(0xFFF98A93),
+    verde: Color(0xFF5BE0A8),
+    vermelho: Color(0xFFFA8EA1),
+    fundoVerde: Color(0xFF1D3F38),
+    bordaVerde: Color(0xFF326A5D),
+    textoVerde: Color(0xFF68E7B3),
+    fundoAmarelo: Color(0xFF423826),
+    bordaAmarelo: Color(0xFF6F5F3A),
+    textoAmarelo: Color(0xFFEDC76B),
+    fundoAzul: Color(0xFF2B3663),
+    bordaAzul: Color(0xFF4B5DA2),
+    textoAzul: Color(0xFF95B4FF),
+    fundoVermelho: Color(0xFF532D41),
+    bordaVermelho: Color(0xFF8F4B67),
+    fundoRoxo: Color(0xFF412E69),
+    bordaRoxo: Color(0xFF6E4FAC),
+    textoRoxo: Color(0xFFC79EFB),
+    linhaPar: Color(0xFF352C45),
+    linhaImpar: Color(0xFF3B324D),
+    // Magenta no flash: a cor de ação do tema.
+    linhaNova: Color(0xFF5C2F63),
+    larguraBarraEstado: 3,
+    bolhaOutro: Color(0xFF473D5C),
+    bolhaOutroTexto: Color(0xFFF2EDF8),
+    skeletonBase: Color(0xFF423955),
+    skeletonBrilho: Color(0xFF54486A),
+    drawerFundo: Color(0xFF15111F),
+    drawerBorda: Color(0xFF352C49),
+    drawerTexto: Color(0xFFCBBFDD),
+    sombra: Color(0xFF000000),
+    // Magenta profundo → azul-petróleo: os dois neons do tema em versão
+    // dessaturada, para a moldura insinuar o par sem competir com os cards.
+    gradienteFundo: [Color(0xFF35133A), Color(0xFF0B1F2B)],
+    paradasGradiente: [0.0, 1.0],
+    pix: Color(0xFF4FE3E3),
+    pixFundo: Color(0xFF1A3E44),
+    escuro: true,
+  );
+
+  /// Tema único **Papel** — bege de caderneta e tinta marrom.
+  ///
+  /// Tema CLARO alternativo, e o mais confortável do conjunto para leitura
+  /// longa: fundo bege-papel (matiz 40°, saturação baixa) em vez de branco
+  /// puro, que sob luz forte reflete e cansa. A referência é a caderneta de
+  /// bolão anotada à mão — o que este app é, digitalizado.
+  ///
+  /// Texto marrom-tinta em vez de preto pelo mesmo motivo do bege: o par
+  /// preto-sobre-branco tem contraste maior do que o olho precisa (21:1),
+  /// e reduzi-lo para ~11:1 mantém a folga sobre AA sem o "vibrar" que
+  /// contraste máximo produz em texto denso como o desta tabela.
+  ///
+  /// Como é tema claro, [larguraBarraEstado] é 0: aqui o estado da linha volta
+  /// a ser o fundo pastel, como no [claro] (ver o doc do campo).
+  static const AppCores papel = AppCores(
+    card: Color(0xFFFBF6EC),
+    cardExterno: Color(0xFFF2EADB),
+    campo: Color(0xFFF0E8D8),
+    superficieAlta: Color(0xFFE6DCC7),
+    ficharioFundo: Color(0xFFEDE3D0),
+    texto: Color(0xFF3B3226),
+    textoSuave: Color(0xFF6E6252),
+    textoFraco: Color(0xFF877A66),
+    textoSobreCor: Color(0xFFFBF6EC),
+    // Verde-oliva escuro: a tinta de carimbo da caderneta. Sobre ele, o
+    // bege-papel dá 7.4:1.
+    acaoPrimaria: Color(0xFF5A6B33),
+    textoSobreAcao: Color(0xFFFBF6EC),
+    borda: Color(0xFFDDD2BC),
+    bordaCampo: Color(0xFFD2C6AC),
+    bordaCampoFoco: Color(0xFFB9AA8B),
+    azul: Color(0xFF3E6A8F),
+    verdeAgua: Color(0xFF3F8574),
+    dourado: Color(0xFFB0842A),
+    roxo: Color(0xFF6E538F),
+    coral: Color(0xFFBC5A46),
+    verde: Color(0xFF4A6B32),
+    vermelho: Color(0xFFB4432F),
+    fundoVerde: Color(0xFFE6EBD3),
+    bordaVerde: Color(0xFFC7D2A9),
+    textoVerde: Color(0xFF44622E),
+    fundoAmarelo: Color(0xFFF6E9C4),
+    bordaAmarelo: Color(0xFFE0CB98),
+    textoAmarelo: Color(0xFF7E5F17),
+    fundoAzul: Color(0xFFE0E8EF),
+    bordaAzul: Color(0xFFBCCBDA),
+    textoAzul: Color(0xFF2F5A7D),
+    fundoVermelho: Color(0xFFF6DFD8),
+    bordaVermelho: Color(0xFFE3BFB4),
+    fundoRoxo: Color(0xFFE9E3EF),
+    bordaRoxo: Color(0xFFCEC1DC),
+    textoRoxo: Color(0xFF5E4580),
+    linhaPar: Color(0xFFFBF6EC),
+    linhaImpar: Color(0xFFF4EDDF),
+    linhaNova: Color(0xFFEBE0BB),
+    // Tema claro: estado de linha é o fundo pastel, não barra lateral.
+    larguraBarraEstado: 0,
+    bolhaOutro: Color(0xFFF0E8D8),
+    bolhaOutroTexto: Color(0xFF3B3226),
+    skeletonBase: Color(0xFFE6DCC7),
+    skeletonBrilho: Color(0xFFF2EADB),
+    // Drawer marrom-escuro em vez do cinza-azulado dos outros temas: dentro de
+    // uma paleta inteiramente quente, um drawer frio lê como peça de outro
+    // app.
+    drawerFundo: Color(0xFF33291D),
+    drawerBorda: Color(0xFF4A3D2C),
+    drawerTexto: Color(0xFFDDD2BC),
+    sombra: Color(0xFF6B5A3E),
+    gradienteFundo: [Color(0xFFF3E2B8), Color(0xFFCFD9B4)],
+    paradasGradiente: [0.5, 0.9],
+    pix: Color(0xFF2F7A5E),
+    pixFundo: Color(0xFFE2EEE4),
+    escuro: false,
+  );
+
+  /// Tema único **Bilhete** — o volante da loteria.
+  ///
+  /// Tema CLARO institucional, inspirado no bilhete impresso: branco-creme de
+  /// papel térmico, azul e verde da Caixa como cores de seção, laranja como
+  /// acento. É o mais "sério" do conjunto — quem quer o app com cara de
+  /// serviço financeiro em vez de jogo.
+  ///
+  /// O laranja fica só como acento (chips, destaques), nunca como ação
+  /// primária: laranja saturado carrega texto mal nos dois sentidos (branco
+  /// por cima dá ~2.6:1, preto dá ~7:1 mas parece aviso), e um CTA de dinheiro
+  /// não é lugar para essa ambiguidade. A ação primária é o azul institucional.
+  static const AppCores bilhete = AppCores(
+    card: Color(0xFFFFFDF8),
+    cardExterno: Color(0xFFF4F1E9),
+    campo: Color(0xFFF1EFE7),
+    superficieAlta: Color(0xFFE6E3D9),
+    ficharioFundo: Color(0xFFEDEAE1),
+    texto: Color(0xFF1D2B36),
+    textoSuave: Color(0xFF5C6B77),
+    textoFraco: Color(0xFF7C8A95),
+    textoSobreCor: Color(0xFFFFFDF8),
+    // Azul institucional: 6.9:1 com o creme por cima.
+    acaoPrimaria: Color(0xFF12569B),
+    textoSobreAcao: Color(0xFFFFFDF8),
+    borda: Color(0xFFDFDCD2),
+    bordaCampo: Color(0xFFD2CFC4),
+    bordaCampoFoco: Color(0xFFB4B1A6),
+    azul: Color(0xFF12569B),
+    verdeAgua: Color(0xFF13866B),
+    dourado: Color(0xFFCC7A16),
+    roxo: Color(0xFF6A4CA8),
+    coral: Color(0xFFD1543C),
+    verde: Color(0xFF157A3C),
+    vermelho: Color(0xFFC4342A),
+    fundoVerde: Color(0xFFDCF0E2),
+    bordaVerde: Color(0xFFB4DCC2),
+    textoVerde: Color(0xFF126134),
+    fundoAmarelo: Color(0xFFFCECCF),
+    bordaAmarelo: Color(0xFFEFD3A0),
+    textoAmarelo: Color(0xFF8A5810),
+    fundoAzul: Color(0xFFDCE9F6),
+    bordaAzul: Color(0xFFB2CDE8),
+    textoAzul: Color(0xFF0F4A85),
+    fundoVermelho: Color(0xFFF9DEDB),
+    bordaVermelho: Color(0xFFEDBCB6),
+    fundoRoxo: Color(0xFFE7E1F4),
+    bordaRoxo: Color(0xFFC9BCE6),
+    textoRoxo: Color(0xFF553B8C),
+    linhaPar: Color(0xFFFFFDF8),
+    linhaImpar: Color(0xFFF4F2EA),
+    linhaNova: Color(0xFFCFE3F7),
+    larguraBarraEstado: 0,
+    bolhaOutro: Color(0xFFF1EFE7),
+    bolhaOutroTexto: Color(0xFF1D2B36),
+    skeletonBase: Color(0xFFE6E3D9),
+    skeletonBrilho: Color(0xFFF4F1E9),
+    drawerFundo: Color(0xFF12283A),
+    drawerBorda: Color(0xFF244057),
+    drawerTexto: Color(0xFFD3DEE7),
+    sombra: Color(0xFF000000),
+    gradienteFundo: [Color(0xFFEFE6D2), Color(0xFFBFD8CE)],
+    paradasGradiente: [0.5, 0.9],
+    pix: Color(0xFF0E7A5F),
+    pixFundo: Color(0xFFDDEFE9),
+    escuro: false,
   );
 
   /// Paleta do tema ativo neste ponto da árvore.

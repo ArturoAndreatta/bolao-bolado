@@ -72,9 +72,9 @@ class _PixInfoState extends State<PixInfo> {
   }
 
   // Layout usado quando o card tem espaço pro QR code (>= 330): QR com
-  // cantos de mira à esquerda, chave PIX + instrução à direita (separados
-  // por uma linha tracejada vertical), e o botão de copiar embaixo dos
-  // dois, ocupando a largura toda.
+  // cantos de mira à esquerda, logo do Pix + chave + instrução à direita
+  // (separados por uma linha tracejada vertical), e o botão de copiar
+  // embaixo dos dois, ocupando a largura toda.
   Widget _buildComQrCode(BuildContext context, double larguraDisponivel) {
     // A escala existe para preencher folga VERTICAL, mas o QR é quadrado:
     // crescer sem teto empurraria a coluna de texto ao lado até estourar a
@@ -123,33 +123,27 @@ class _PixInfoState extends State<PixInfo> {
                     children: [
                       Row(
                         children: [
-                          Container(
+                          Image.asset(
+                            'images/pix_logo.png',
                             width: _e(22),
                             height: _e(22),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: cores.pixFundo,
-                              borderRadius: AppRadii.circularSm,
-                            ),
-                            child: Icon(
-                              Icons.vpn_key_outlined,
-                              size: _e(13),
-                              color: cores.pix,
-                            ),
                           ),
                           SizedBox(width: _e(8)),
                           // Flexible + ellipsis: com a escala alta o rótulo
                           // cresce junto do ícone e passava da largura da
-                          // coluna, estourando o Row.
+                          // coluna, estourando o Row. Aqui o texto quebra em
+                          // duas linhas em vez de cortar, porque ao lado do QR
+                          // sobra altura mas não largura.
                           Flexible(
                             child: Text(
-                              'Chave PIX',
-                              maxLines: 1,
+                              'Pagamento via PIX',
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: _e(13),
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                                 color: cores.textoSuave,
+                                height: 1.1,
                               ),
                             ),
                           ),
@@ -192,8 +186,8 @@ class _PixInfoState extends State<PixInfo> {
   }
 
   // Layout usado quando o card fica estreito demais para o QR code (< 330):
-  // logo do Pix + selo "Seguro e rápido" no topo, chave PIX em destaque no
-  // meio e o botão de copiar embaixo, empilhados verticalmente.
+  // logo do Pix no topo, chave PIX em destaque no meio e o botão de copiar
+  // embaixo, empilhados verticalmente.
   Widget _buildSemQrCode(BuildContext context) {
     final cores = AppCores.de(context);
     return Column(
@@ -212,32 +206,6 @@ class _PixInfoState extends State<PixInfo> {
                 fontWeight: FontWeight.w500,
                 color: cores.textoSuave,
                 height: 1.1,
-              ),
-            ),
-            const Spacer(),
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: _e(10),
-                vertical: _e(6),
-              ),
-              decoration: BoxDecoration(
-                color: cores.pixFundo,
-                borderRadius: AppRadii.circularXl,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_circle, size: _e(14), color: cores.pix),
-                  SizedBox(width: _e(4)),
-                  Text(
-                    'Seguro e rápido',
-                    style: TextStyle(
-                      fontSize: _e(12),
-                      fontWeight: FontWeight.w600,
-                      color: cores.pix,
-                    ),
-                  ),
-                ],
               ),
             ),
           ],

@@ -34,43 +34,6 @@ const double larguraTotal = wNome + wValor + wCotas + wPremio + wData;
 /// tabela desalinhar silenciosamente.
 const double kAlturaLinhaTabela = 34;
 
-// Compara o valor apostado atual de um uid com o último visto e já atualiza
-// o registro em `conhecidos`. Usado para decidir se uma linha deve animar a
-// entrada (uid inédito, ou mesmo uid com valor diferente = aposta alterada).
-// Comparar por valor (não por timestamp) evita animar de novo quando o
-// usuário só reabre/reenvia o formulário sem mudar a quantia.
-bool detectarLinhaNova(
-  Map<String, Object?> conhecidos,
-  String? uid,
-  Object? valorAtual,
-) {
-  if (uid == null) return false;
-  final valorConhecido = conhecidos[uid];
-  final isNova = !conhecidos.containsKey(uid) || valorConhecido != valorAtual;
-  conhecidos[uid] = valorAtual;
-  return isNova;
-}
-
-/// Descarta de `conhecidos` os uids que não estão mais em `rows`.
-///
-/// Sem isso o mapa só cresce, e — pior — um participante removido e recriado
-/// com o mesmo valor não voltaria a animar, porque seu uid continuaria
-/// registrado com o valor antigo. Aparece na prática com o simulador de
-/// apostas, que remove e recria participantes fake o tempo todo.
-void podarConhecidos(
-  Map<String, Object?> conhecidos,
-  List<Map<String, dynamic>> rows,
-) {
-  if (conhecidos.isEmpty) return;
-  final presentes = rows
-      .map((row) => row['uid']?.toString())
-      .whereType<String>()
-      .toSet();
-  conhecidos.keys.toList().forEach((uid) {
-    if (!presentes.contains(uid)) conhecidos.remove(uid);
-  });
-}
-
 class TabelaApostas extends StatefulWidget {
   final List<Map<String, dynamic>> rows;
   final int colunaOrdenada;
@@ -147,20 +110,11 @@ class TabelaApostas extends StatefulWidget {
 }
 
 class _TabelaApostasState extends State<TabelaApostas> {
-  // Último `data-hora` (ms) visto para cada uid: usado para saber quais
-  // linhas são novas (uid inédito) ou foram recriadas/reenviadas (mesmo uid,
-  // timestamp diferente), e por isso devem animar a entrada. Evita reanimar
-  // a cada rebuild quando nada mudou.
-  final Map<String, Object?> _valoresConhecidos = {};
-
-  // Em que índice cada linha estava, para calcular quantas posições ela andou
-  // quando a lista reordena. Substitui a medição de posições no corpo do
-  // desktop, que a reciclagem do ListView tornou inviável.
-  final RastreadorDeIndices _rastreador = RastreadorDeIndices();
-
-  // Deslocamento (em índices) de cada linha que trocou de lugar no build
-  // atual. Preenchido por _corpoRolavel e lido por _linha.
-  Map<Object, int> _deslocamentosDeslize = const {};
+  // Junta os três pedaços de estado que a entrada/reordenação precisam
+  // (valores conhecidos, índices anteriores, deslocamentos do build atual).
+  // Mesmo mecanismo usado em _ListaParticipantesState (mobile), extraído
+  // porque as duas telas repetiam campo por campo.
+  final RastreadorDeLinhas _rastreador = RastreadorDeLinhas();
 
   List<Map<String, dynamic>> get rows => widget.rows;
   int get colunaOrdenada => widget.colunaOrdenada;
@@ -242,15 +196,16 @@ class _TabelaApostasState extends State<TabelaApostas> {
   /// "vai e volta": medir no meio de uma animação lê posições transitórias, e
   /// com apostas chegando em rajada nunca há um instante estável para medir.
   Widget _corpoRolavel(BuildContext context, NumberFormat formatoMoeda) {
-    podarConhecidos(_valoresConhecidos, widget.rowsCompletas ?? rows);
-
     // A ordem é registrada no build, ANTES do layout: o deslocamento já sai
     // pronto no mesmo quadro em que a linha muda de lugar, sem depender de
     // um callback pós-frame.
-    _deslocamentosDeslize = _rastreador.atualizar([
-      for (var i = 0; i < rows.length; i++)
-        rows[i]['uid']?.toString() ?? 'linha-$i',
-    ]);
+    _rastreador.registrarBuild(
+      rowsCompletas: widget.rowsCompletas ?? rows,
+      chavesEmOrdem: [
+        for (var i = 0; i < rows.length; i++)
+          rows[i]['uid']?.toString() ?? 'linha-$i',
+      ],
+    );
 
     return SelectionArea(
       // A tabela fica dentro de um SingleChildScrollView horizontal (para
@@ -276,7 +231,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
           itemBuilder: (context, index) {
             final item = rows[index];
             final chave = item['uid']?.toString() ?? 'linha-$index';
-            final andou = _deslocamentosDeslize[chave] ?? 0;
+            final andou = _rastreador.deslocamentoDe(chave);
 
             return LinhaDeslizante(
               // A chave vai aqui para o estado do deslize acompanhar a LINHA,
@@ -299,9 +254,13 @@ class _TabelaApostasState extends State<TabelaApostas> {
   }
 
   Widget _corpoTabela(BuildContext context, NumberFormat formatoMoeda) {
-    // Antes de reavaliar quem é novo: esquece quem saiu da lista, senão um
-    // participante removido e recriado nunca mais animaria.
-    podarConhecidos(_valoresConhecidos, widget.rowsCompletas ?? rows);
+    // Este corpo (usado quando `alturaFixa` é falso — hoje só como fallback
+    // genérico, não no caminho real da tela) não recicla, então quem cuida do
+    // deslize é o próprio ColunaReordenavel abaixo (mede posições sozinho) em
+    // vez do RastreadorDeIndices interno de _rastreador. Só a poda de uids
+    // que saíram é necessária aqui, senão um participante removido e
+    // recriado não voltaria a animar a entrada.
+    _rastreador.esquecerQuemSaiu(widget.rowsCompletas ?? rows);
     return SelectionArea(
       child: ColunaReordenavel(
         children: [
@@ -343,7 +302,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
       dataFormatada = Formatters.dataHoraAno2.format(dataHora.toDate());
     }
 
-    final isNova = detectarLinhaNova(_valoresConhecidos, uid, valor);
+    final isNova = _rastreador.isNovaOuAlterada(uid, valor);
 
     // Prioridade visual: edição pós-verificação > verificado > zebra
     // (par/ímpar). No escuro o estado não pinta o fundo — vira a

@@ -376,24 +376,17 @@ class CardEstatistica extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
-    // Cor "tema" do card (verde/azul/dourado), usada no rótulo e na borda.
-    final corTema = destaqueCor == DestaqueCor.verde
-        ? cores.verde
-        : destaqueCor == DestaqueCor.azul
-        ? cores.azul
-        : cores.dourado;
-
-    // No claro os três cards são pastéis levíssimos sobre branco e a cor
-    // chapada funciona. No escuro os mesmos blocos viravam três manchas
-    // sólidas disputando atenção logo acima da tabela — o card que deveria
-    // ser um indicador discreto virava o elemento mais forte da tela.
+    // Os pares fundo/borda/texto de estado já vêm calibrados por tema na
+    // paleta, então aqui basta escolher o par pela cor do card.
     //
-    // Lá o fundo fica praticamente na cor do próprio card, com a cor
-    // aparecendo só onde ela informa: o rótulo e um fio de borda.
+    // Antes havia um ramo `cores.escuro ?` que, no escuro, ignorava esses
+    // campos e misturava a cor de marca a 7% sobre o card. A intenção era
+    // evitar três manchas sólidas competindo com a tabela, mas 7% sobre um
+    // card escuro é indistinguível do próprio card: os três indicadores
+    // sumiam da tela. Quem resolve "quão insinuada" a cor deve ser é a
+    // paleta — é lá que dá para calibrar olhando o tema inteiro.
     final corFundo = !destaque
         ? cores.card
-        : cores.escuro
-        ? Color.alphaBlend(corTema.withValues(alpha: 0.07), cores.card)
         : destaqueCor == DestaqueCor.verde
         ? cores.fundoVerde
         : destaqueCor == DestaqueCor.azul
@@ -401,8 +394,6 @@ class CardEstatistica extends StatelessWidget {
         : cores.fundoAmarelo;
     final corBorda = !destaque
         ? cores.borda
-        : cores.escuro
-        ? Color.alphaBlend(corTema.withValues(alpha: 0.28), cores.card)
         : destaqueCor == DestaqueCor.verde
         ? cores.bordaVerde
         : destaqueCor == DestaqueCor.azul
@@ -429,13 +420,10 @@ class CardEstatistica extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              // No escuro o rótulo carrega sozinho a identidade do card (o
-              // fundo é quase neutro), então usa a cor de marca cheia; no
-              // claro segue o tom escurecido, legível sobre o pastel.
+              // `texto*` de estado é calibrado contra o `fundo*` do mesmo
+              // par, nos dois temas — daí não haver ramo por brilho aqui.
               color: !destaque
                   ? cores.textoSuave
-                  : cores.escuro
-                  ? corTema
                   : destaqueCor == DestaqueCor.verde
                   ? cores.textoVerde
                   : destaqueCor == DestaqueCor.azul

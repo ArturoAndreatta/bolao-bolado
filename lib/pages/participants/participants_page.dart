@@ -12,6 +12,7 @@ import 'package:bolao_bolado/pages/participants/participants_skeletons.dart';
 import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
+import 'package:bolao_bolado/services/bet/preco_cota.dart';
 import 'package:bolao_bolado/widgets/chat_sala.dart';
 import 'package:bolao_bolado/widgets/minha_aposta_card.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -31,7 +32,8 @@ class Participants extends StatefulWidget {
 }
 
 class _ParticipantsState extends State<Participants> {
-  List<Map<String, dynamic>> _rowsData = [];
+  // Apostas reais, já com cotas/prêmio calculados por streamBets().
+  List<Map<String, Object?>> _apostasReais = [];
   bool _loading = true;
   String? _salaId;
   bool _isAdmin = false;
@@ -62,6 +64,16 @@ class _ParticipantsState extends State<Participants> {
   void initState() {
     super.initState();
     _load();
+    // Reflete apostas fake do simulador em modo "não gravar" (ver
+    // gravarSimulacaoFirestoreGlobal em debug_flags.dart): elas vivem só em
+    // memória, dentro do próprio _simulador, então esta tela precisa
+    // reconstruir sempre que a lista local mudar — sem isso a rajada local
+    // nunca apareceria na tabela.
+    _simulador.apostasLocais.addListener(_onApostasLocaisMudaram);
+  }
+
+  void _onApostasLocaisMudaram() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -85,8 +97,37 @@ class _ParticipantsState extends State<Participants> {
   void dispose() {
     _betsSubscription?.cancel();
     _salaSubscription?.cancel();
+    _simulador.apostasLocais.removeListener(_onApostasLocaisMudaram);
     _simulador.parar();
     super.dispose();
+  }
+
+  /// Apostas reais + apostas fake locais do simulador (quando houver),
+  /// recalculando cotas/prêmio do conjunto junto — as fake locais entram no
+  /// mesmo rateio que apostas de verdade, para a tela ficar idêntica ao modo
+  /// "grava no Firestore". Sem apostas locais, é simplesmente `_apostasReais`
+  /// (o caminho comum, sem custo extra de recálculo).
+  List<Map<String, Object?>> get _rowsData {
+    final locais = _simulador.apostasLocais.value;
+    if (locais.isEmpty) return _apostasReais;
+
+    // As reais já vieram de streamBets() com `cotas`/`premio` calculados só
+    // entre elas; juntar direto com as fake (que não têm esses campos)
+    // deixaria os dois conjuntos com números que não somam entre si. Tira
+    // esses campos das reais e recalcula tudo junto, com o mesmo prêmio e
+    // preço de cota da sala.
+    final semCotasPremio = _apostasReais.map((item) {
+      final copia = Map<String, Object?>.from(item)
+        ..remove('cotas')
+        ..remove('premio');
+      return copia;
+    });
+    final precoCota = precoCotaPara(_sorteio);
+    return calcularCotasEPremios(
+      [...semCotasPremio, ...locais],
+      _premioSala,
+      precoCota,
+    );
   }
 
   Future<void> _load() async {
@@ -134,7 +175,7 @@ class _ParticipantsState extends State<Participants> {
         (dataBets) {
           if (!mounted) return;
           setState(() {
-            _rowsData = dataBets;
+            _apostasReais = dataBets;
             _loading = false;
           });
         },
@@ -189,11 +230,11 @@ class _ParticipantsState extends State<Participants> {
   }
 
   Widget _painelParticipantesDesktop(String? currentUid, bool isLoggedIn) {
-    // Altura igual à do card interno de MinhaApostaCard (height: 486), para
+    // Altura igual à do card interno de MinhaApostaCard (height: 538), para
     // os dois cards ficarem com a mesma altura total lado a lado no
     // desktop — a altura vai direto pro CustomCard(isChild:true) do
     // HeaderCard, no mesmo ponto da árvore que MinhaApostaCard usa.
-    const double chatHeight = 486;
+    const double chatHeight = 538;
 
     return GestureDetector(
       // Fecha o chat clicando em qualquer lugar do card pai (cabeçalho,

@@ -27,6 +27,14 @@ class DefaultLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final esticar = esticarLarguraCompact && Responsive.isCompact(context);
     final cores = AppCores.de(context);
+    // logo_appbar.png é recorte pré-reduzido (215x160, gerado a partir do
+    // logo3.png com resample bicúbico) especificamente pra essa caixa. Pedir
+    // pro Skia/CanvasKit encolher a arte em 1 passo de 931px pra ~70px (13x)
+    // usa o filtro fraco dele e sai borrado — pré-reduzir deixa só ~3x de
+    // trabalho pro runtime, faixa em que qualquer filtro fica bom.
+    // cacheHeight ainda decodifica no tamanho físico exato da tela.
+    final alturaLogoAppBar = (54 * MediaQuery.of(context).devicePixelRatio)
+        .round();
 
     return Container(
       decoration: GradientDecoration.backgroundGradient(context),
@@ -44,10 +52,12 @@ class DefaultLayout extends StatelessWidget {
                 centerTitle: true,
                 title: showLogo
                     ? SizedBox(
-                        height: 50,
+                        height: 54,
                         child: Image.asset(
-                          'images/logo4.png',
+                          'images/logo_appbar.png',
                           fit: BoxFit.contain,
+                          cacheHeight: alturaLogoAppBar,
+                          filterQuality: FilterQuality.high,
                         ),
                       )
                     : null,

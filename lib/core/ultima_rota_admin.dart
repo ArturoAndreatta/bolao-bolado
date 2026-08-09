@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// `_guestOnlyRoutes` decide o destino a partir deste valor).
 ///
 /// PERSISTE entre sessões (SharedPreferences → localStorage na web), mesmo
-/// padrão do [temaModoGlobal] em tema_controller.dart, e pelo mesmo motivo: a
+/// padrão do `temaGlobal` em tema_controller.dart, e pelo mesmo motivo: a
 /// leitura acontece ANTES do primeiro frame (ver main.dart) para o redirect
 /// do router já ter a resposta pronta na primeira navegação, sem round-trip.
 ///

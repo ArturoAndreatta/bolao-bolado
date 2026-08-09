@@ -19,6 +19,14 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <!--
+    Sem esta linha o navegador móvel assume um viewport virtual de ~980px e
+    encolhe a página inteira para caber na tela — o app renderiza no layout
+    de desktop e depois é reduzido, o que borra o texto e quebra os
+    breakpoints de core/responsive.dart (que passariam a ler 980 em vez da
+    largura real do aparelho).
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Organize e participe de bolões com seus amigos de forma simples e divertida.">
 
   <!--

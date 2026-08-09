@@ -1,4 +1,4 @@
-import 'package:bolao_bolado/pages/participants/participants_tabela.dart';
+import 'package:bolao_bolado/pages/participants/participants_reordenacao.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 List<Map<String, dynamic>> _linhas(List<String> uids) =>

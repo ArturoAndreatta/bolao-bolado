@@ -4,9 +4,28 @@ import 'package:bolao_bolado/components/shared/selo_manual.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/pages/participants/participants_reordenacao.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart'
-    show LinhaEntrandoAnimada, detectarLinhaNova, podarConhecidos;
+    show LinhaEntrandoAnimada;
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:flutter/material.dart';
+
+/// Altura de uma linha da lista mobile, incluindo o divisor.
+///
+/// É constante — e não decidida pelo conteúdo — pelo mesmo motivo da tabela
+/// desktop ([kAlturaLinhaTabela] em participants_tabela.dart): o corpo usa
+/// `ListView.builder` com `itemExtent`, o que exige altura uniforme para
+/// montar só as linhas visíveis (em vez de todas de uma vez, que é o que
+/// deixava 1000 apostas lentas no mobile) e para o deslize de reordenação
+/// calcular a distância certa por índice.
+///
+/// Isso significa que o NOME nunca quebra linha aqui — antes podia ocupar
+/// duas linhas com nome comprido; agora corta com reticências, igual já
+/// acontecia na tabela desktop. É a mesma concessão feita lá, pelo mesmo
+/// motivo.
+///
+/// O valor foi MEDIDO (ver test/pages/participants/altura_linha_lista_test.dart),
+/// não deduzido: título (14sp) + subtítulo do prêmio (11.5sp) + os espaçamentos
+/// entre eles + padding vertical 12 dos dois lados (63) + 1 do divisor.
+const double kAlturaLinhaLista = 64;
 
 const List<Color> coresAvatar = [
   Color(0xFF2E7D32),
@@ -37,11 +56,28 @@ class ListaParticipantes extends StatefulWidget {
   /// linhas já vistas. Ver [TabelaApostas.rowsCompletas].
   final List<Map<String, dynamic>>? rowsCompletas;
 
+  /// Quando `true`, a lista NÃO rola por conta própria: usa `shrinkWrap` e
+  /// cede o scroll para um `SingleChildScrollView` ancestral.
+  ///
+  /// É o modo usado só quando o chamador não tem uma altura definida para
+  /// oferecer (`alturaMobile == null` em participants_painel.dart) — um caso
+  /// hoje sem uso real na tela de Participantes, mas mantido para outros
+  /// consumidores do widget.
+  ///
+  /// **Custa a reciclagem.** Com `shrinkWrap`, o `ListView.builder` constrói
+  /// TODOS os itens para medir a altura total, mesmo com `itemExtent` — é a
+  /// viewport finita do próprio ListView que permite montar só o visível, e
+  /// `shrinkWrap` abre mão dela. Era assim que 1000 apostas travavam o
+  /// mobile mesmo depois de ganhar `itemExtent`: a reciclagem nunca chegava
+  /// a acontecer porque a lista sempre estava neste modo.
+  final bool semScrollProprio;
+
   const ListaParticipantes({
     super.key,
     required this.rows,
     required this.currentUid,
     this.rowsCompletas,
+    this.semScrollProprio = false,
   });
 
   @override
@@ -49,79 +85,97 @@ class ListaParticipantes extends StatefulWidget {
 }
 
 class _ListaParticipantesState extends State<ListaParticipantes> {
-  // Mesmo mecanismo usado em TabelaApostas: guarda o último valor apostado
-  // por uid para detectar apostas novas/alteradas e disparar a animação de
-  // entrada só quando o valor realmente muda.
-  final Map<String, Object?> _valoresConhecidos = {};
+  // Junta os três pedaços de estado que a entrada/reordenação precisam
+  // (valores conhecidos, índices anteriores, deslocamentos do build atual).
+  // Mesmo mecanismo usado em _TabelaApostasState (desktop), extraído porque
+  // as duas telas repetiam campo por campo.
+  final RastreadorDeLinhas _rastreador = RastreadorDeLinhas();
 
   @override
   Widget build(BuildContext context) {
     final rows = widget.rows;
-    // Esquece quem saiu da lista antes de reavaliar quem é novo (ver
-    // podarConhecidos): sem isso um participante removido e recriado com o
-    // mesmo valor nunca voltaria a animar.
-    podarConhecidos(_valoresConhecidos, widget.rowsCompletas ?? rows);
 
-    return ColunaReordenavel(
-      children: [
+    // A ordem é registrada no build, ANTES do layout: o deslocamento já sai
+    // pronto no mesmo quadro em que a linha muda de lugar.
+    _rastreador.registrarBuild(
+      rowsCompletas: widget.rowsCompletas ?? rows,
+      chavesEmOrdem: [
         for (var i = 0; i < rows.length; i++)
-          Builder(
-            // A chave precisa ficar AQUI, no filho direto da
-            // ColunaReordenavel: é por ela que a coluna reconhece que esta
-            // linha é a mesma que estava em outra posição.
-            key: ValueKey(
-              rows[i]['uid']?.toString() ?? '$i-${rows[i]['nome']}',
-            ),
-            builder: (context) {
-              final uid = rows[i]['uid']?.toString();
-              final valorAtual = rows[i]['valor'];
-              final isNova = detectarLinhaNova(
-                _valoresConhecidos,
-                uid,
-                valorAtual,
-              );
-
-              return LinhaEntrandoAnimada(
-                animar: isNova,
-                corBase: Colors.transparent,
-                // O divisor entra DENTRO da linha (não como irmão dela) para
-                // viajar junto quando ela desliza para outra posição. Solto
-                // no Column, ele ficava parado enquanto a linha se movia, e
-                // dava para ver a linha passar por cima do próprio divisor.
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    LinhaParticipante(
-                      nome: rows[i]['nome']?.toString() ?? '—',
-                      valor: Formatters.moeda.format(
-                        (rows[i]['valor'] as num?)?.toDouble() ?? 0,
-                      ),
-                      cotas: (rows[i]['cotas'] as num?)?.toInt() ?? 0,
-                      premio: Formatters.moeda.format(
-                        (rows[i]['premio'] as num?)?.toDouble() ?? 0,
-                      ),
-                      uid: uid,
-                      corAvatar: (rows[i]['avatarColor'] as int?) != null
-                          ? Color(rows[i]['avatarColor'] as int)
-                          : null,
-                      emojiAvatar: rows[i]['avatarEmoji']?.toString(),
-                      destacado: rows[i]['uid'] == widget.currentUid,
-                      verificado: rows[i]['verificado'] == true,
-                      alterada: rows[i]['editadoAposVerificacao'] == true,
-                      manual: rows[i]['criadoPeloAdmin'] == true,
-                    ),
-                    if (i < rows.length - 1)
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: AppCores.de(context).borda,
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
+          rows[i]['uid']?.toString() ?? 'linha-$i',
       ],
+    );
+
+    // ListView.builder monta só as linhas visíveis (~10-15 de uma tela),
+    // não as N da sala inteira — DESDE QUE ele tenha viewport própria, isto
+    // é, `semScrollProprio: false` (o padrão). Com 1000 apostas o Column
+    // anterior mantinha 1000 linhas vivas e as reconstruía a cada emissão do
+    // Firestore; era esse custo, e não a animação em si, que travava o
+    // mobile. Ver a doc de [ListaParticipantes.semScrollProprio].
+    return ListView.builder(
+      shrinkWrap: widget.semScrollProprio,
+      physics: widget.semScrollProprio
+          ? const NeverScrollableScrollPhysics()
+          : null,
+      itemExtent: kAlturaLinhaLista,
+      itemCount: rows.length,
+      itemBuilder: (context, index) {
+        final item = rows[index];
+        final chave = item['uid']?.toString() ?? 'linha-$index';
+        final uid = item['uid']?.toString();
+        final valorAtual = item['valor'];
+        final isNova = _rastreador.isNovaOuAlterada(uid, valorAtual);
+        final andou = _rastreador.deslocamentoDe(chave);
+
+        return LinhaDeslizante(
+          // A chave vai aqui, não no filho: é o que faz o ListView (e o
+          // deslize) acompanharem a LINHA, não a posição na lista.
+          key: ValueKey(chave),
+          deslocamento: andou * kAlturaLinhaLista,
+          child: LinhaEntrandoAnimada(
+            animar: isNova,
+            corBase: Colors.transparent,
+            // Igual à tabela desktop: dentro da grade de altura fixa, a
+            // chegada é encenada por dentro (o conteúdo desliza atrás de um
+            // recorte) em vez de abrir espaço de verdade — o ListView já
+            // reservou a linha inteira, então abrir espaço não produziria
+            // nada visível.
+            reservaAlturaFixa: true,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LinhaParticipante(
+                  nome: item['nome']?.toString() ?? '—',
+                  valor: Formatters.moeda.format(
+                    (item['valor'] as num?)?.toDouble() ?? 0,
+                  ),
+                  cotas: (item['cotas'] as num?)?.toInt() ?? 0,
+                  premio: Formatters.moeda.format(
+                    (item['premio'] as num?)?.toDouble() ?? 0,
+                  ),
+                  uid: uid,
+                  corAvatar: (item['avatarColor'] as int?) != null
+                      ? Color(item['avatarColor'] as int)
+                      : null,
+                  emojiAvatar: item['avatarEmoji']?.toString(),
+                  destacado: item['uid'] == widget.currentUid,
+                  verificado: item['verificado'] == true,
+                  alterada: item['editadoAposVerificacao'] == true,
+                  manual: item['criadoPeloAdmin'] == true,
+                ),
+                // O divisor entra DENTRO da linha (não como irmão dela) para
+                // caber na altura fixa reservada pelo itemExtent, e some na
+                // última para não sobrar borda dupla contra o rodapé.
+                if (index < rows.length - 1)
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppCores.de(context).borda,
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -162,8 +216,15 @@ class LinhaParticipante extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
-    final emoji = emojiAvatar ?? emojiAvatarPara(nome);
-    final cor = corAvatar ?? corAvatarPara(nome);
+    // Fallback derivado do nome só serve para aposta manual (sem uid, nunca
+    // vai existir doc de avatar real). Com uid, aplicar aqui um fallback que
+    // não bate com o avatar de verdade fazia o ícone da linha nova NASCER
+    // errado e TROCAR assim que o doc do Firestore chegasse — bem no momento
+    // em que a animação de entrada chama atenção para o avatar. Nesse caso é
+    // melhor deixar `AvatarDoParticipante` usar o próprio neutro enquanto
+    // espera, sem "chute" divergente.
+    final emoji = emojiAvatar ?? (uid == null ? emojiAvatarPara(nome) : null);
+    final cor = corAvatar ?? (uid == null ? corAvatarPara(nome) : null);
     final temEstado = alterada || verificado || destacado;
 
     // Prioridade visual: edição pós-verificação > verificado/destacado.

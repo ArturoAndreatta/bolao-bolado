@@ -40,7 +40,6 @@ dependencies:
   flutter_svg: ^2.0.9
   firebase_core: ^4.3.0
   cloud_firestore: ^6.1.1
-  dropdown_button2: ^2.3.9
   firebase_auth: ^6.1.4
   go_router: ^17.3.0
   qr_flutter: ^4.1.0
@@ -48,6 +47,7 @@ dependencies:
   # é síncrono e independente do IndexedDB usado pelo cache do Firestore —
   # então ler o tema não disputa nada com as leituras do caminho crítico.
   shared_preferences: ^2.3.3
+  board_datetime_picker: ^2.8.7
 
 dev_dependencies:
   flutter_test:
@@ -88,6 +88,7 @@ flutter:
   assets:
     - images/logo.png
     - images/logo4.png
+    - images/logo_appbar.png
     - images/pix_logo.png
     - images/icone.png
 

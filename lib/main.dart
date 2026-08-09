@@ -6,6 +6,7 @@ import 'package:bolao_bolado/core/tema_controller.dart';
 import 'package:bolao_bolado/core/ultima_rota_admin.dart';
 import 'package:bolao_bolado/pages/splash_screen.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
+import 'package:bolao_bolado/services/configuracoes/configuracoes_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -121,6 +122,15 @@ class _AppInitState extends State<_AppInit> {
     // do valor trata o erro na própria tela.
     unawaited(buscarSalaPrincipal().then((_) {}, onError: (Object _) {}));
 
+    // Mesmo padrão: assina sem esperar, os notifiers já nascem com o padrão
+    // local (definido em debug_flags.dart) e passam a refletir o Firestore
+    // assim que a primeira emissão chegar. A assinatura fica aberta pela
+    // vida inteira do app — não há tela "dona" desse listener para cancelar
+    // ao sair, já que a configuração precisa valer em qualquer parte do app
+    // a qualquer momento (é global, não de uma tela). A busca da sala
+    // principal por trás reaproveita o Future memoizado já disparado acima.
+    unawaited(ouvirConfiguracoesGlobais());
+
     setState(() => _pronto = true);
   }
 
@@ -131,13 +141,17 @@ class _AppInitState extends State<_AppInit> {
     // usa o app no escuro leva um flash branco a cada abertura — justamente
     // o que o dark mode existe para evitar.
     if (!_pronto) {
-      return ValueListenableBuilder<ThemeMode>(
-        valueListenable: temaModoGlobal,
-        builder: (context, modo, _) => MaterialApp(
+      return ValueListenableBuilder<TemaApp>(
+        valueListenable: temaGlobal,
+        builder: (context, tema, _) => MaterialApp(
           title: 'Bolão Bolado',
-          theme: AppTema.claro(),
-          darkTheme: AppTema.escuro(),
-          themeMode: modo,
+          // O tema vai resolvido em `theme`, não via `themeMode`: os temas
+          // únicos não são "o claro" nem "o escuro" do MaterialApp, então
+          // deixar o par theme/darkTheme decidir jogaria a splash de volta
+          // para uma das duas paletas padrão.
+          theme: AppTema.de(
+            paletaDe(tema, MediaQuery.platformBrightnessOf(context)),
+          ),
           debugShowCheckedModeBanner: false,
           home: const SplashScreen(),
         ),

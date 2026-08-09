@@ -281,13 +281,18 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
                   : MainAxisSize.min,
               children: [
                 widget.alturaMobile != null
+                    // Com altura definida, a lista rola por CONTA PRÓPRIA
+                    // (sem SingleChildScrollView envolvendo) — é isso que dá
+                    // ao ListView.builder uma viewport finita para reciclar.
+                    // Um shrinkWrap dentro de scroll externo faz o Flutter
+                    // construir TODOS os itens para medir a altura total,
+                    // ainda que só alguns apareçam na tela: com 1000 apostas
+                    // isso montava a lista inteira mesmo tendo itemExtent.
                     ? Expanded(
-                        child: SingleChildScrollView(
-                          child: ListaParticipantes(
-                            rows: linhasFiltradas,
-                            currentUid: widget.currentUid,
-                            rowsCompletas: widget.rowsData,
-                          ),
+                        child: ListaParticipantes(
+                          rows: linhasFiltradas,
+                          currentUid: widget.currentUid,
+                          rowsCompletas: widget.rowsData,
                         ),
                       )
                     : SingleChildScrollView(
@@ -295,6 +300,7 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
                           rows: linhasFiltradas,
                           currentUid: widget.currentUid,
                           rowsCompletas: widget.rowsData,
+                          semScrollProprio: true,
                         ),
                       ),
                 Divider(height: 1, thickness: 1, color: cores.borda),

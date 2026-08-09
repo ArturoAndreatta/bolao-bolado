@@ -1,6 +1,132 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+/// Um valor com o rótulo "é uma linha nova?" já resolvido — o par que
+/// controla a animação de ENTRADA de uma linha (ver [LinhaEntrandoAnimada] em
+/// participants_tabela.dart).
+///
+/// Comparar por valor (não por timestamp) evita animar de novo quando o
+/// usuário só reabre/reenvia o formulário sem mudar a quantia.
+bool detectarLinhaNova(
+  Map<String, Object?> conhecidos,
+  String? uid,
+  Object? valorAtual,
+) {
+  if (uid == null) return false;
+  final valorConhecido = conhecidos[uid];
+  final isNova = !conhecidos.containsKey(uid) || valorConhecido != valorAtual;
+  conhecidos[uid] = valorAtual;
+  return isNova;
+}
+
+/// Descarta de `conhecidos` os uids que não estão mais em `rows`.
+///
+/// Sem isso o mapa só cresce, e — pior — um participante removido e recriado
+/// com o mesmo valor não voltaria a animar, porque seu uid continuaria
+/// registrado com o valor antigo. Aparece na prática com o simulador de
+/// apostas, que remove e recria participantes fake o tempo todo.
+void podarConhecidos(
+  Map<String, Object?> conhecidos,
+  List<Map<String, dynamic>> rows,
+) {
+  if (conhecidos.isEmpty) return;
+  final presentes = rows
+      .map((row) => row['uid']?.toString())
+      .whereType<String>()
+      .toSet();
+  conhecidos.keys.toList().forEach((uid) {
+    if (!presentes.contains(uid)) conhecidos.remove(uid);
+  });
+}
+
+/// Junta os TRÊS pedaços de estado que uma lista reciclada (tabela desktop e
+/// lista mobile) precisa manter para animar entrada e reordenação de linhas:
+/// quais uids/valores já foram vistos, em que índice cada um estava, e o
+/// deslocamento resultante do build atual.
+///
+/// Existe porque as duas telas tinham o mesmo trio de campos e a mesma
+/// sequência de chamadas (podar → atualizar índices → ler isNova/deslocamento
+/// por item) copiados lado a lado. O que continua diferente entre elas — a
+/// aparência de cada linha, a largura das colunas, se tem barra de estado —
+/// fica de fora de propósito: esta classe só resolve "essa linha é nova?" e
+/// "quantos pixels ela andou?", não desenha nada.
+///
+/// Uso típico dentro do `build()` de um `ListView.builder`:
+/// ```dart
+/// final chave = item['uid']?.toString() ?? 'linha-$index';
+/// final isNova = _controle.registrarBuild(rowsCompletas ?? rows)
+///     .isNovaOuAlterada(chave, item['uid']?.toString(), item['valor']);
+/// ```
+/// (ver o uso completo em participants_tabela.dart e participants_lista.dart)
+class RastreadorDeLinhas {
+  final Map<String, Object?> _valoresConhecidos = {};
+  final RastreadorDeIndices _indices = RastreadorDeIndices();
+  Map<Object, int> _deslocamentos = const {};
+
+  /// `false` só até o primeiro [registrarBuild]. Existe para resolver um bug
+  /// bem específico da RECICLAGEM (`ListView.builder`): [isNovaOuAlterada] só
+  /// era chamado dentro do `itemBuilder`, que só roda para as linhas que o
+  /// ListView decide MONTAR — e ele monta sob demanda, conforme a viewport e
+  /// o scroll, não conforme os dados chegam.
+  ///
+  /// Resultado: uma aposta que já existia desde a primeira carga da tela, mas
+  /// estava fora da área visível, só entrava em `_valoresConhecidos` quando o
+  /// usuário rolava até ela pela primeira vez — e nesse instante
+  /// `detectarLinhaNova` a via como inédita e disparava a animação de
+  /// entrada. A rolagem em si passou a "criar" apostas novas.
+  bool _primeiraCarga = true;
+
+  /// Chamado uma vez por build, ANTES de montar os itens: esquece quem saiu
+  /// da lista e recalcula os deslocamentos de quem reordenou.
+  ///
+  /// [rowsCompletas] pode ser diferente de [chavesEmOrdem] quando a tela tem
+  /// filtro de busca — a poda usa a lista SEM filtro (o widget recebe as
+  /// linhas completas separadamente), senão filtrar esconderia uids que
+  /// "esqueceriam" e reanimariam ao a busca ser limpa.
+  ///
+  /// Na PRIMEIRA chamada, [rowsCompletas] é registrada inteira como já
+  /// conhecida — mesmo a parte fora da viewport, que ainda não passou (e
+  /// pode nunca passar, se o usuário não rolar até lá) pelo `itemBuilder`.
+  /// É isso que fecha o bug: a novidade passa a depender de quando os dados
+  /// chegaram, não de quando o widget foi desenhado. Builds seguintes não
+  /// repetem isso — aí sim só quem realmente for inédito (ou mudou de valor)
+  /// deve animar, e isso continua decidido por [isNovaOuAlterada].
+  void registrarBuild({
+    required List<Map<String, dynamic>> rowsCompletas,
+    required List<Object> chavesEmOrdem,
+  }) {
+    if (_primeiraCarga) {
+      _primeiraCarga = false;
+      for (final row in rowsCompletas) {
+        final uid = row['uid']?.toString();
+        if (uid != null) _valoresConhecidos[uid] = row['valor'];
+      }
+    }
+
+    podarConhecidos(_valoresConhecidos, rowsCompletas);
+    _deslocamentos = _indices.atualizar(chavesEmOrdem);
+  }
+
+  /// Esta linha deve animar a ENTRADA (uid inédito, ou valor mudou desde a
+  /// última vez)? Precisa ser chamado uma vez por linha, na ordem do build —
+  /// ele também é quem ATUALIZA o registro do uid.
+  bool isNovaOuAlterada(String? uid, Object? valorAtual) =>
+      detectarLinhaNova(_valoresConhecidos, uid, valorAtual);
+
+  /// Quantas posições esta linha andou desde o build anterior (ver
+  /// [RastreadorDeIndices.atualizar]) — 0 se ela não reordenou.
+  int deslocamentoDe(Object chave) => _deslocamentos[chave] ?? 0;
+
+  /// Só a poda de [podarConhecidos], para quem usa [isNovaOuAlterada] mas não
+  /// tem deslize por índice — o corpo não-reciclado da tabela, que mede
+  /// posições sozinho via `ColunaReordenavel` em vez de usar o índice interno
+  /// desta classe. Chamar [registrarBuild] nesse caso limparia o histórico de
+  /// índices sem necessidade.
+  void esquecerQuemSaiu(List<Map<String, dynamic>> rowsCompletas) {
+    podarConhecidos(_valoresConhecidos, rowsCompletas);
+  }
+}
+
 /// Guarda em que índice cada linha estava, para saber quantas posições ela
 /// andou quando a lista é reordenada.
 ///

@@ -1,20 +1,21 @@
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/formatters/money_input_format.dart';
+import 'package:bolao_bolado/components/shared/combos.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/pages/cadastrar_sala/cadastrar_sala_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-// Opções do dropdown "Sorteio", únicas para CadastrarSalaDesktop e
+// Opções do combo "Sorteio", únicas para CadastrarSalaDesktop e
 // CadastrarSalaMobile (antes duplicadas, hardcoded, em cada tela).
-const List<DropdownMenuItem<String>> opcoesSorteio = [
-  DropdownMenuItem(value: 'mega', child: Text('Mega-Sena')),
-  // O value precisa ser 'lotofacil' (não 'loto'): é essa string que
+const List<OpcaoCombo<String>> opcoesSorteio = [
+  OpcaoCombo('mega', 'Mega-Sena'),
+  // O valor precisa ser 'lotofacil' (não 'loto'): é essa string que
   // precoCotaPara() e as estatísticas de probabilidade usam para identificar
   // a Lotofácil. Com 'loto' a sala caía no preço de cota padrão da Mega-Sena
   // (R$6 em vez de R$3,50), calculando cotas e prêmios errados.
-  DropdownMenuItem(value: 'lotofacil', child: Text('Lotofácil')),
-  DropdownMenuItem(value: 'outros', child: Text('Outros')),
+  OpcaoCombo('lotofacil', 'Lotofácil'),
+  OpcaoCombo('outros', 'Outros'),
 ];
 
 // Estado e regras de carregar/salvar sala, compartilhados entre

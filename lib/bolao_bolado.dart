@@ -35,8 +35,11 @@ class BolaoBolado extends StatelessWidget {
       theme: AppTema.claro(),
       darkTheme: AppTema.escuro(),
       // themeMode fixo: quem decide o tema exibido é o AnimatedTheme do
-      // builder. Deixar o MaterialApp também reagir ao modo faria os dois
+      // builder. Deixar o MaterialApp também reagir ao tema faria os dois
       // competirem, e a troca dele (não animada) venceria a do builder.
+      //
+      // O par theme/darkTheme acima é só o valor inicial da árvore antes do
+      // primeiro build do builder; nenhum dos temas únicos passa por ele.
       themeMode: ThemeMode.light,
       debugShowCheckedModeBanner: false,
       routerConfig: appRouter,
@@ -48,20 +51,19 @@ class BolaoBolado extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       builder: (context, child) {
-        return ValueListenableBuilder<ThemeMode>(
-          valueListenable: temaModoGlobal,
+        return ValueListenableBuilder<TemaApp>(
+          valueListenable: temaGlobal,
           child: child,
-          builder: (context, modo, child) {
-            final escuro = switch (modo) {
-              ThemeMode.dark => true,
-              ThemeMode.light => false,
-              // ThemeMode.system: acompanha o brilho do SO ao vivo — o
-              // MediaQuery aqui já reconstrói sozinho quando ele muda.
-              ThemeMode.system =>
-                MediaQuery.platformBrightnessOf(context) == Brightness.dark,
-            };
+          builder: (context, tema, child) {
+            // TemaApp.seguirSistema acompanha o brilho do SO ao vivo — o
+            // MediaQuery aqui já reconstrói sozinho quando ele muda. Os
+            // demais temas ignoram esse argumento.
+            final cores = paletaDe(
+              tema,
+              MediaQuery.platformBrightnessOf(context),
+            );
             return AnimatedTheme(
-              data: escuro ? AppTema.escuro() : AppTema.claro(),
+              data: AppTema.de(cores),
               duration: _duracaoTransicaoTema,
               // easeInOutCubic (em vez do linear padrão): a transição arranca
               // e termina devagar, sem salto no primeiro frame nem parada

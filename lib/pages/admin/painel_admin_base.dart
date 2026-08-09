@@ -5,6 +5,7 @@ import 'package:bolao_bolado/components/shared/custom_confirm_dialog.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/snackbar_deslizante.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/pages/admin/admin_abas.dart';
 import 'package:bolao_bolado/pages/admin/widgets/admin_widgets.dart';
 import 'package:bolao_bolado/pages/admin/widgets/moderar_chat.dart';
@@ -184,12 +185,13 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
   Future<void> _abrirDialogValorAposta({
     required String titulo,
     required bool comCampoNome,
+    String nomeInicial = '',
     String valorInicial = '',
     String? avisoRodape,
     required Future<void> Function(String nome, String valor) onSalvar,
     required String mensagemErro,
   }) async {
-    final nameController = TextEditingController();
+    final nameController = TextEditingController(text: nomeInicial);
     final valueController = TextEditingController(text: valorInicial);
     final valueFocusNode = FocusNode();
     final formKey = GlobalKey<FormState>();
@@ -297,14 +299,8 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
                         child: campoValor,
                       ),
                       if (avisoRodape != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          avisoRodape,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AdminCores.de(dialogContext).textoSuave,
-                          ),
-                        ),
+                        const SizedBox(height: 14),
+                        _AvisoInfo(texto: avisoRodape),
                       ],
                     ],
                   ),
@@ -342,8 +338,9 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
     final valorFormatado = Formatters.moedaSemSimbolo.format(valorAtual).trim();
 
     await _abrirDialogValorAposta(
-      titulo: 'Editar valor de ${aposta['nome']}',
-      comCampoNome: false,
+      titulo: 'Editar aposta de ${aposta['nome']}',
+      comCampoNome: true,
+      nomeInicial: aposta['nome']?.toString() ?? '',
       valorInicial: valorAtual == 0
           ? ''
           : (precoCota % 1 == 0
@@ -354,11 +351,16 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
                 'para re-verificação.'
           : null,
       mensagemErro: 'Erro ao salvar',
-      onSalvar: (_, valor) => editarValorAposta(
+      onSalvar: (nome, valor) => editarValorAposta(
         salaId: salaId!,
         uid: uid,
+        nome: nome,
         valor: valor,
-        estavaVerificado: estavaVerificado,
+        // Só marca para re-verificação se o VALOR mudou — trocar o nome
+        // (correção de digitação, apelido) não afeta o rateio de prêmio e
+        // não deveria tirar a aposta do estado verificado.
+        estavaVerificado:
+            estavaVerificado && (double.tryParse(valor) ?? 0) != valorAtual,
       ),
     );
   }
@@ -647,6 +649,45 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
       child: Text(
         'Você não tem permissão para acessar esta página.',
         style: TextStyle(color: AdminCores.de(context).texto, fontSize: 16),
+      ),
+    );
+  }
+}
+
+// Aviso informativo do rodapé dos diálogos de aposta (ex.: "editar o valor
+// vai marcar para re-verificação"). Ícone (i) fixo no início da frase, num
+// bloco tingido de azul em vez de texto solto — deixa claro que é um aviso,
+// não parte do formulário.
+class _AvisoInfo extends StatelessWidget {
+  final String texto;
+  const _AvisoInfo({required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cores.azul.withValues(alpha: 0.08),
+        borderRadius: AppRadii.circularMd,
+        border: Border.all(color: cores.azul.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 16, color: cores.azul),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              texto,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.35,
+                color: cores.textoSuave,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

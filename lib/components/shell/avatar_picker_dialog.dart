@@ -116,14 +116,39 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
         borderRadius: AppRadii.circularXxl,
         side: BorderSide(color: cores.borda, width: 1),
       ),
-      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      // O 20 embaixo separa a última fileira de emojis dos botões. Com 0 (o
+      // valor de antes) a fileira de "Coisas" encostava em Cancelar/Confirmar,
+      // e a régua do `actions` sozinha não dá folga suficiente.
+      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      // O padrão é 40 de cada lado; 12 garante que os 484+48 do conteúdo
+      // caibam mesmo numa janela logo acima do corte de 600px, em vez de o
+      // AlertDialog comprimir o conteúdo e desmontar a grade (a 601px o
+      // conteúdo caía para 473 e as bolhas voltavam a sobrar de um lado só).
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
       content: SizedBox(
-        width: 380,
-        // O conteúdo é mais alto que a área útil de telas baixas (notebook
-        // com a janela reduzida), então rola dentro do diálogo em vez de
-        // estourar.
+        // 484 e não 380: é a largura em que cabem 8 emojis por linha, e 8 é o
+        // tamanho de três das quatro categorias — cada uma passa a ocupar UMA
+        // linha (só Bichos, com 12, usa duas). Isso derruba a altura do
+        // conteúdo de ~890px para ~625px, que é o que faz o diálogo caber sem
+        // rolagem num desktop comum. Alargar além disso não ganha linha
+        // nenhuma, só espalha as bolhas.
+        //
+        // A simetria das margens não depende mais deste número — quem cuida
+        // dela é o `_GradeBolhas`, que calcula o respiro a partir da largura
+        // recebida. Aqui 484 vale só pela ALTURA: é onde 8 emojis entram numa
+        // linha.
+        width: 484,
+        // A rolagem continua como rede de segurança para janela baixa
+        // (notebook com a janela reduzida). Com o conteúdo em ~625px ela fica
+        // inerte num desktop comum, e sem área rolável a barra de rolagem não
+        // aparece — era ela que comia ~12px da direita e deixava as grades
+        // visivelmente deslocadas para a esquerda.
         child: SingleChildScrollView(child: _conteudo()),
       ),
+      // A folga acima dos botões já vem do `contentPadding`; aqui só sobra a
+      // margem lateral e a de baixo. Sem isso o padrão do AlertDialog somava
+      // mais ~20px de altura e devolvia a rolagem em janela de 768px.
+      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
       actions: [
         TextButton(
           onPressed: _salvando ? null : () => Navigator.of(context).pop(),
@@ -227,8 +252,8 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
         Center(
           child: Column(
             children: [
-              AvatarEmoji(tamanho: 76, cor: _cor, emoji: _emoji),
-              const SizedBox(height: 10),
+              AvatarEmoji(tamanho: 64, cor: _cor, emoji: _emoji),
+              const SizedBox(height: 6),
               Text(
                 'Seu avatar',
                 style: TextStyle(
@@ -240,7 +265,7 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
         const _TituloSecao('Cor'),
         const SizedBox(height: 10),
@@ -249,11 +274,14 @@ class _SeletorAvatarState extends State<_SeletorAvatar> {
           isAdmin: widget.isAdmin,
           onTap: (cor) => setState(() => _cor = cor),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
         const _TituloSecao('Emoji'),
         for (final categoria in kCategoriasEmojiAvatar) ...[
-          const SizedBox(height: 12),
+          // 10 e não 12: multiplicado pelas quatro categorias, é o que fecha a
+          // altura necessária para o diálogo caber sem rolagem em janela de
+          // 768px depois de abrir a folga acima dos botões.
+          const SizedBox(height: 10),
           Text(
             categoria.nome,
             style: TextStyle(
@@ -307,6 +335,68 @@ class _Progresso extends StatelessWidget {
   }
 }
 
+/// Grade de bolhas que termina rente às duas margens em qualquer largura.
+///
+/// Um `Wrap` de `spacing` fixo empacota da esquerda e joga todo o resto da
+/// divisão na direita — daí a margem esquerda ficar visivelmente menor que a
+/// direita. Escolher um `spacing` que feche a conta resolve numa largura só, e
+/// no mobile a largura é a que o aparelho der (a sobra ia de 1px a 52px entre
+/// 360 e 599 de tela).
+///
+/// Então o espaçamento é CALCULADO: com a largura disponível em mãos, descobre
+/// quantas bolhas cabem com o respiro mínimo e reparte a sobra entre os vãos.
+/// Centralizar o `Wrap` seria mais curto, mas centraliza também a ÚLTIMA linha
+/// de cada categoria — os emojis órfãos ficam flutuando no meio, desalinhados
+/// da coluna de cima.
+class _GradeBolhas extends StatelessWidget {
+  /// Lado da bolha, já incluindo o que ela pinta fora da caixa.
+  final double tamanho;
+
+  /// Respiro mínimo entre bolhas; a sobra da divisão é somada a ele.
+  final double respiroMinimo;
+
+  final double respiroVertical;
+  final List<Widget> bolhas;
+
+  const _GradeBolhas({
+    required this.tamanho,
+    required this.respiroMinimo,
+    required this.respiroVertical,
+    required this.bolhas,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final disponivel = constraints.maxWidth;
+
+        // Quantas cabem com o respiro mínimo.
+        var porLinha = 1;
+        while ((porLinha + 1) * tamanho + porLinha * respiroMinimo <=
+            disponivel) {
+          porLinha++;
+        }
+        if (porLinha > bolhas.length) porLinha = bolhas.length;
+
+        // A sobra vira respiro extra, dividida pelos vãos DESSA contagem. Com
+        // uma bolha só na linha não há vão onde distribuir, então fica o
+        // mínimo.
+        final vaos = porLinha - 1;
+        final respiro = vaos == 0
+            ? respiroMinimo
+            : (disponivel - porLinha * tamanho) / vaos;
+
+        return Wrap(
+          spacing: respiro,
+          runSpacing: respiroVertical,
+          children: bolhas,
+        );
+      },
+    );
+  }
+}
+
 // ─── Grade de cores ──────────────────────────────────────────────────────────
 
 class _GradeCores extends StatelessWidget {
@@ -326,10 +416,15 @@ class _GradeCores extends StatelessWidget {
     // querer voltar pra ela depois de experimentar outra.
     final cores = [if (isAdmin) kCorBaseAdmin, ...kCoresAvatar];
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
+    // 38 = 34 da bolha + 2 de margem de cada lado, reservados para o halo de
+    // seleção. Os respiros caem para 6 e 2 porque a margem já contribui com 4
+    // entre duas bolhas vizinhas — o resultado visual é o mesmo de 10 e 6 sem
+    // margem, e é o que mantém o diálogo sem rolagem em janela de 768px.
+    return _GradeBolhas(
+      tamanho: 38,
+      respiroMinimo: 6,
+      respiroVertical: 2,
+      bolhas: [
         for (final cor in cores)
           _BolhaCor(
             cor: cor,
@@ -363,6 +458,11 @@ class _BolhaCor extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           width: 34,
           height: 34,
+          // O halo de seleção é `boxShadow` com spread 2, ou seja, pinta 2px
+          // FORA da caixa medida pelo layout. A margem reserva esse espaço:
+          // sem ela a bolha da ponta esquerda tinha o anel cortado, porque a
+          // grade encosta a primeira coluna na margem do conteúdo.
+          margin: const EdgeInsets.all(2),
           decoration: BoxDecoration(
             color: cor,
             shape: BoxShape.circle,
@@ -406,13 +506,17 @@ class _GradeEmojis extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Wrap em vez de GridView: as categorias têm tamanhos diferentes (8 e 12
-    // emojis) e um GridView de contagem fixa deixaria buracos no fim de cada
-    // seção.
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
+    // Grade calculada (não `GridView`): as categorias têm tamanhos diferentes
+    // (8 e 12 emojis) e um GridView de contagem fixa deixaria buracos no fim
+    // de cada seção.
+    //
+    // 50 é o lado real da bolha: 40 do avatar + 3 de padding e 2 de borda de
+    // cada lado.
+    return _GradeBolhas(
+      tamanho: 50,
+      respiroMinimo: 10,
+      respiroVertical: 10,
+      bolhas: [
         for (final emoji in emojis)
           _BolhaEmoji(
             emoji: emoji,

@@ -82,20 +82,25 @@ class _DialogoSimulacaoApostasState extends State<DialogoSimulacaoApostas> {
               style: TextStyle(fontSize: 13, color: cores.textoSuave),
             ),
             const SizedBox(height: 8),
-            // O ritmo é ajustado no Painel ADM (Configurações), não aqui: é
-            // uma preferência de dev que vale para a simulação inteira, e o
-            // painel é onde as outras ferramentas de dev já moram. Mostrar o
-            // valor em vigor evita a pergunta "por que está tão lento?" sem
-            // duplicar o controle nas duas telas.
+            // Ritmo e gravação são ajustados no Painel ADM (Configurações),
+            // não aqui: são preferências de dev que valem para a simulação
+            // inteira, e o painel é onde as outras ferramentas de dev já
+            // moram. Mostrar os dois valores em vigor numa linha só evita a
+            // pergunta "por que está lento?"/"por que não salvou?" sem
+            // duplicar os controles nem estourar a altura do diálogo.
             ValueListenableBuilder<int>(
               valueListenable: intervaloSimulacaoMsGlobal,
-              builder: (context, intervalo, _) => Text(
-                'Ritmo atual: uma ação a cada ${intervalo}ms '
-                '(ajustável no Painel ADM › Configurações).',
-                style: TextStyle(fontSize: 12, color: cores.textoFraco),
+              builder: (context, intervalo, _) => ValueListenableBuilder<bool>(
+                valueListenable: gravarSimulacaoFirestoreGlobal,
+                builder: (context, gravando, _) => Text(
+                  'Ritmo: ${intervalo}ms · '
+                  '${gravando ? "gravando no Firestore" : "só visual"} '
+                  '(Painel ADM › Configurações).',
+                  style: TextStyle(fontSize: 12, color: cores.textoFraco),
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             // Trocar de modo com a simulação rodando exigiria reiniciar o
             // timer no meio; mais simples (e mais previsível) é exigir parar
             // antes, deixando as opções visivelmente desabilitadas.

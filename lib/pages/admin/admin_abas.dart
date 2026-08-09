@@ -2,6 +2,7 @@ import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/formatters/money_input_format.dart';
 import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
+import 'package:bolao_bolado/components/shared/combos.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
@@ -13,6 +14,7 @@ import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/pages/admin/widgets/admin_widgets.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
+import 'package:bolao_bolado/services/configuracoes/configuracoes_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -386,7 +388,9 @@ class _ModuloPendencias extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: cores.vermelho,
+                  // Mesma razão da barra de seção: o vermelho é claro no tema
+                  // escuro e o branco por cima dele sumia.
+                  color: cores.barraDeSecao(cores.vermelho),
                   borderRadius: AppRadii.circularPill,
                 ),
                 child: Text(
@@ -770,15 +774,22 @@ class _AbaParticipantesState extends State<AbaParticipantes> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _FiltroChips(selecionado: _filtro, onSelecionar: _mudarFiltro),
+              // Combobox em vez de chips: os chips usavam Wrap sem largura
+              // própria e, junto do divisor e do botão "Lançar" na mesma
+              // linha, estourava a largura em layouts estreitos (aba
+              // Participantes com o painel encolhido). Um único dropdown
+              // tem largura fixa e nunca quebra linha.
+              Expanded(
+                child: ComboFiltro<int>(
+                  selecionado: _filtro,
+                  opcoes: _opcoesFiltro(cores),
+                  onSelecionar: _mudarFiltro,
+                ),
+              ),
               const SizedBox(width: 12),
-              // Divisor vertical separa visualmente "Lançar" dos filtros —
-              // ele não filtra nada, é uma ação, e ficar colado nos chips
-              // dava a entender que era mais uma opção de filtro. Sem
-              // Expanded/Spacer nos chips: antes o Expanded esticava até o
-              // botão e deixava o espaço vazio sobrando DEPOIS do divisor
-              // (mais perto do botão do que dos chips) — aqui o respiro é o
-              // mesmo (12px) dos dois lados do traço.
+              // Divisor vertical separa visualmente "Lançar" do filtro — ele
+              // não filtra nada, é uma ação, e ficar colado dava a entender
+              // que era mais uma opção de filtro.
               Container(width: 1, height: 28, color: cores.borda),
               const SizedBox(width: 12),
               PrimaryButton(
@@ -915,52 +926,18 @@ class _Paginador extends StatelessWidget {
   }
 }
 
-class _FiltroChips extends StatelessWidget {
-  final int selecionado;
-  final void Function(int) onSelecionar;
-
-  const _FiltroChips({required this.selecionado, required this.onSelecionar});
-
-  @override
-  Widget build(BuildContext context) {
-    final cores = AdminCores.de(context);
-    // Cor de cada chip combina com o que ele filtra: azul neutro pra "todos"
-    // (não é um estado, é ausência de filtro), vermelho pra "pendentes"
-    // (mesma cor de alerta usada no resto do painel pra apostas não
-    // verificadas) e verde pra "verificados" (estado positivo/concluído).
-    final opcoes = [
-      ('Todos', cores.azul),
-      ('Pendentes', cores.vermelho),
-      ('Verificados', cores.verde),
-    ];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (var i = 0; i < opcoes.length; i++)
-          ChoiceChip(
-            label: Text(opcoes[i].$1),
-            selected: selecionado == i,
-            onSelected: (_) => onSelecionar(i),
-            showCheckmark: false,
-            labelStyle: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: selecionado == i ? Colors.white : opcoes[i].$2,
-            ),
-            selectedColor: opcoes[i].$2,
-            backgroundColor: opcoes[i].$2.withValues(alpha: 0.1),
-            side: BorderSide(
-              color: selecionado == i
-                  ? opcoes[i].$2
-                  : opcoes[i].$2.withValues(alpha: 0.35),
-            ),
-            shape: RoundedRectangleBorder(borderRadius: AppRadii.circularPill),
-          ),
-      ],
-    );
-  }
-}
+/// Opções do filtro de estado da lista de participantes. Os índices são a
+/// posição na lista — é esse int que `_filtro` guarda.
+///
+/// Cor de cada opção combina com o que ela filtra: azul neutro pra "todos"
+/// (não é um estado, é ausência de filtro), vermelho pra "pendentes" (mesma
+/// cor de alerta usada no resto do painel pra apostas não verificadas) e verde
+/// pra "verificados" (estado positivo/concluído).
+List<OpcaoCombo<int>> _opcoesFiltro(AdminCores cores) => [
+  OpcaoCombo(0, 'Todos', cor: cores.azul),
+  OpcaoCombo(1, 'Pendentes', cor: cores.vermelho),
+  OpcaoCombo(2, 'Verificados', cor: cores.verde),
+];
 
 class _LinhaParticipante extends StatelessWidget {
   final Map<String, dynamic> aposta;
@@ -984,12 +961,16 @@ class _LinhaParticipante extends StatelessWidget {
     final verificado = aposta['verificado'] == true;
     final editado = aposta['editadoAposVerificacao'] == true;
     final manual = aposta['criadoPeloAdmin'] == true;
+    // Sem fallback "chutado" quando há uid: como em ListaParticipantes, um
+    // fallback que diverge do avatar real faz o ícone trocar assim que o doc
+    // de usuarios/{uid} chega. Só a aposta manual (sem uid) usa um fixo, já
+    // que para ela nunca existirá avatar de verdade.
     final corAvatar = aposta['avatarColor'] is int
         ? Color(aposta['avatarColor'] as int)
-        : cores.azul;
+        : (aposta['uid'] == null ? cores.azul : null);
     final emojiAvatar = aposta['avatarEmoji'] is String
         ? aposta['avatarEmoji'] as String
-        : kEmojiAvatarPadrao;
+        : (aposta['uid'] == null ? kEmojiAvatarPadrao : null);
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -1579,6 +1560,10 @@ class AbaConfig extends StatelessWidget {
                 Divider(height: 20, thickness: 1, color: cores.borda),
                 const _RitmoSimulacao(),
                 Divider(height: 20, thickness: 1, color: cores.borda),
+                const _RajadaSimulacao(),
+                Divider(height: 20, thickness: 1, color: cores.borda),
+                const _GravarSimulacaoFirestore(),
+                Divider(height: 20, thickness: 1, color: cores.borda),
                 const _EstiloEntradaAposta(),
               ],
             ),
@@ -1628,10 +1613,28 @@ class AbaConfig extends StatelessWidget {
 /// Slider do intervalo entre passos do simulador de apostas.
 ///
 /// O simulador roda na tela de Participantes, não aqui — o valor vai para
-/// [intervaloSimulacaoMsGlobal] e é lido de lá, então dá para ajustar o ritmo
-/// com a simulação já rodando na outra aba/janela.
-class _RitmoSimulacao extends StatelessWidget {
+/// [intervaloSimulacaoMsGlobal] (lido de lá) e é PERSISTIDO no campo
+/// `configuracoes` da sala principal via [salvarRitmoSimulacao]. Como a
+/// leitura vem de um `snapshots()` (ver [ouvirConfiguracoesGlobais]), o
+/// ritmo muda para qualquer um com o app aberto no momento — não só entre
+/// abas do mesmo
+/// admin, e não só até a próxima recarga.
+class _RitmoSimulacao extends StatefulWidget {
   const _RitmoSimulacao();
+
+  @override
+  State<_RitmoSimulacao> createState() => _RitmoSimulacaoState();
+}
+
+class _RitmoSimulacaoState extends State<_RitmoSimulacao> {
+  /// Valor exibido ENQUANTO o dedo arrasta o slider, sem esperar o Firestore.
+  ///
+  /// `null` quando ninguém está arrastando — nesse estado o slider segue
+  /// [intervaloSimulacaoMsGlobal] direto. Sem isto, mostrar sempre o valor
+  /// global faria o dedo "descolar" da bolinha: o global só muda quando
+  /// `ouvirConfiguracoesGlobais()` recebe a confirmação do Firestore, que não
+  /// acompanha a velocidade do gesto.
+  double? _valorArrastando;
 
   /// Rótulo do valor atual. Abaixo de 1s milissegundo é a unidade natural;
   /// acima, "1,5s" lê melhor que "1500 ms".
@@ -1647,7 +1650,13 @@ class _RitmoSimulacao extends StatelessWidget {
     final cores = AdminCores.de(context);
     return ValueListenableBuilder<int>(
       valueListenable: intervaloSimulacaoMsGlobal,
-      builder: (context, valor, _) {
+      builder: (context, valorGlobal, _) {
+        final valor =
+            _valorArrastando?.round() ??
+            valorGlobal.clamp(
+              kIntervaloSimulacaoMinMs,
+              kIntervaloSimulacaoMaxMs,
+            );
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1675,14 +1684,12 @@ class _RitmoSimulacao extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'Tempo entre uma aposta simulada e a próxima (dev). Vale para a '
-              'simulação da tela de Participantes, inclusive já rodando.',
+              'Tempo entre uma aposta simulada e a próxima. Fica salvo e vale '
+              'para todo mundo, inclusive com a simulação já rodando.',
               style: TextStyle(fontSize: 12, color: cores.textoSuave),
             ),
             Slider(
-              value: valor
-                  .clamp(kIntervaloSimulacaoMinMs, kIntervaloSimulacaoMaxMs)
-                  .toDouble(),
+              value: valor.toDouble(),
               min: kIntervaloSimulacaoMinMs.toDouble(),
               max: kIntervaloSimulacaoMaxMs.toDouble(),
               // Passos de 100ms: com o slider contínuo o valor parava em
@@ -1692,8 +1699,23 @@ class _RitmoSimulacao extends StatelessWidget {
                   (kIntervaloSimulacaoMaxMs - kIntervaloSimulacaoMinMs) ~/ 100,
               label: _rotulo(valor),
               activeColor: cores.azul,
-              onChanged: (novo) =>
-                  intervaloSimulacaoMsGlobal.value = novo.round(),
+              // Só atualiza o estado LOCAL enquanto arrasta — nada de rede
+              // aqui. Escrever a cada pixel arrastado (o que este widget
+              // fazia antes) disparava uma escrita no Firestore a cada
+              // frame do gesto, dezenas por segundo, e cada uma delas
+              // reabre round-trip até `ouvirConfiguracoesGlobais()`
+              // confirmar: era isso que deixava o arrasto lento/travado.
+              onChanged: (novo) => setState(() => _valorArrastando = novo),
+              // Só ao SOLTAR o dedo é que grava — uma escrita por gesto, não
+              // uma por pixel. Não escreve o notifier direto: quem faz isso
+              // é o listener de ouvirConfiguracoesGlobais(), reagindo à
+              // confirmação do Firestore. Escrever os dois arriscaria
+              // divergir se a escrita remota falhasse — o slider volta ao
+              // valor salvo assim que o Firestore confirmar ou rejeitar.
+              onChangeEnd: (novo) {
+                salvarRitmoSimulacao(novo.round());
+                setState(() => _valorArrastando = null);
+              },
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1715,12 +1737,210 @@ class _RitmoSimulacao extends StatelessWidget {
   }
 }
 
+/// Controle de "rajada": quantas apostas o simulador cria de uma vez em cada
+/// inclusão ([quantidadeRajadaSimulacaoGlobal], lido pelo simulador em
+/// [SimuladorApostas._inserir]) e o atraso entre cada uma delas dentro da
+/// rajada ([atrasoRajadaSimulacaoMsGlobal]). Mesmo arranjo do
+/// [_RitmoSimulacao]: PERSISTIDO no campo `configuracoes` da sala principal
+/// via [salvarQuantidadeRajada]/[salvarAtrasoRajada].
+class _RajadaSimulacao extends StatefulWidget {
+  const _RajadaSimulacao();
+
+  @override
+  State<_RajadaSimulacao> createState() => _RajadaSimulacaoState();
+}
+
+class _RajadaSimulacaoState extends State<_RajadaSimulacao> {
+  /// Valor do atraso exibido ENQUANTO o dedo arrasta o slider, sem esperar o
+  /// Firestore — mesma razão do `_valorArrastando` de [_RitmoSimulacaoState].
+  double? _atrasoArrastando;
+
+  static String _rotuloAtraso(int ms) {
+    if (ms < 1000) return '$ms ms';
+    final segundos = ms / 1000;
+    final texto = segundos.toStringAsFixed(segundos % 1 == 0 ? 0 : 1);
+    return '${texto.replaceAll('.', ',')}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    return ValueListenableBuilder<int>(
+      valueListenable: quantidadeRajadaSimulacaoGlobal,
+      builder: (context, quantidade, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Apostas por rajada',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: cores.texto,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline),
+                  iconSize: 26,
+                  color: cores.azul,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: quantidade > 1
+                      ? () => salvarQuantidadeRajada(quantidade - 1)
+                      : null,
+                ),
+                SizedBox(
+                  width: 24,
+                  child: Text(
+                    '$quantidade',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: cores.azul,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  iconSize: 26,
+                  color: cores.azul,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: quantidade < kQuantidadeRajadaSimulacaoMax
+                      ? () => salvarQuantidadeRajada(quantidade + 1)
+                      : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Quantas apostas cada inclusão do simulador cria de uma vez, '
+              'como se várias pessoas apostassem em sequência. 1 desliga a '
+              'rajada.',
+              style: TextStyle(fontSize: 12, color: cores.textoSuave),
+            ),
+            // O atraso só faz sentido com rajada de 2+; com 1 aposta por vez
+            // não há "entre uma e outra" para configurar.
+            if (quantidade > 1) ...[
+              const SizedBox(height: 12),
+              ValueListenableBuilder<int>(
+                valueListenable: atrasoRajadaSimulacaoMsGlobal,
+                builder: (context, atrasoGlobal, _) {
+                  final atraso =
+                      _atrasoArrastando?.round() ??
+                      atrasoGlobal.clamp(0, kAtrasoRajadaSimulacaoMaxMs);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Atraso entre apostas da rajada',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: cores.texto,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _rotuloAtraso(atraso),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: cores.azul,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tempo entre uma aposta e a próxima DENTRO da mesma '
+                        'rajada. 0 faz todas saírem no mesmo instante.',
+                        style: TextStyle(fontSize: 12, color: cores.textoSuave),
+                      ),
+                      Slider(
+                        value: atraso.toDouble(),
+                        min: 0,
+                        max: kAtrasoRajadaSimulacaoMaxMs.toDouble(),
+                        divisions: kAtrasoRajadaSimulacaoMaxMs ~/ 100,
+                        label: _rotuloAtraso(atraso),
+                        activeColor: cores.azul,
+                        onChanged: (novo) =>
+                            setState(() => _atrasoArrastando = novo),
+                        onChangeEnd: (novo) {
+                          salvarAtrasoRajada(novo.round());
+                          setState(() => _atrasoArrastando = null);
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Switch "Gravar no Firestore": liga [gravarSimulacaoFirestoreGlobal], lido
+/// pelo simulador em [SimuladorApostas._inserirUm] (e nas demais ações) para
+/// decidir se escreve no banco de verdade ou só mantém as apostas fake em
+/// memória ([SimuladorApostas.apostasLocais]). Mesmo arranjo do
+/// [_RitmoSimulacao]: PERSISTIDO no campo `configuracoes` da sala principal
+/// via [salvarGravarSimulacaoFirestore].
+class _GravarSimulacaoFirestore extends StatelessWidget {
+  const _GravarSimulacaoFirestore();
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    return ValueListenableBuilder<bool>(
+      valueListenable: gravarSimulacaoFirestoreGlobal,
+      builder: (context, ativo, _) {
+        return SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(
+            'Gravar no Firestore',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: cores.texto,
+            ),
+          ),
+          subtitle: Text(
+            ativo
+                ? 'Apostas simuladas são gravadas de verdade, como hoje: '
+                      'podem ser conferidas e apagadas depois.'
+                : 'Apostas simuladas ficam só na tela desta sessão, sem '
+                      'tocar no banco — somem ao sair de Participantes.',
+            style: TextStyle(fontSize: 12, color: cores.textoSuave),
+          ),
+          value: ativo,
+          activeThumbColor: cores.azul,
+          // Não escreve o notifier direto: quem faz isso é o listener de
+          // ouvirConfiguracoesGlobais(), reagindo à confirmação do
+          // Firestore — mesma observação do ritmo/rajada/estilo.
+          onChanged: (novo) => salvarGravarSimulacaoFirestore(novo),
+        );
+      },
+    );
+  }
+}
+
 /// Seletor do estilo da animação de entrada de uma aposta nova.
 ///
-/// Mesmo arranjo do [_RitmoSimulacao]: o valor vai para [estiloEntradaGlobal]
-/// e a tabela lê de lá, então dá para trocar o estilo com a tela de
-/// Participantes já aberta em outra aba. O estilo novo vale a partir da
-/// próxima aposta — uma linha a meio caminho não muda de animação no ar.
+/// Mesmo arranjo do [_RitmoSimulacao]: PERSISTIDO no campo `configuracoes`
+/// da sala principal via [salvarEstiloEntrada], e refletido em
+/// [estiloEntradaGlobal] (que a tabela lê) por [ouvirConfiguracoesGlobais].
+/// Vale para qualquer um com o app aberto, a partir da próxima aposta — uma
+/// linha a meio caminho não muda de animação no ar.
 class _EstiloEntradaAposta extends StatelessWidget {
   const _EstiloEntradaAposta();
 
@@ -1743,15 +1963,18 @@ class _EstiloEntradaAposta extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'Como uma aposta nova entra na tabela de Participantes (dev). '
-              'Vale a partir da próxima aposta.',
+              'Como uma aposta nova entra na tabela de Participantes. Fica '
+              'salvo e vale para todo mundo, a partir da próxima aposta.',
               style: TextStyle(fontSize: 12, color: cores.textoSuave),
             ),
             const SizedBox(height: 8),
             RadioGroup<EstiloEntrada>(
               groupValue: atual,
+              // Mesma observação do ritmo do simulador: não escreve o
+              // notifier direto, quem faz isso é o listener reagindo à
+              // confirmação do Firestore.
               onChanged: (novo) {
-                if (novo != null) estiloEntradaGlobal.value = novo;
+                if (novo != null) salvarEstiloEntrada(novo);
               },
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1759,7 +1982,7 @@ class _EstiloEntradaAposta extends StatelessWidget {
                 children: [
                   for (final estilo in EstiloEntrada.values)
                     InkWell(
-                      onTap: () => estiloEntradaGlobal.value = estilo,
+                      onTap: () => salvarEstiloEntrada(estilo),
                       borderRadius: AppRadii.circularSmd,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1989,18 +2212,26 @@ class AdminDialogFrame extends StatelessWidget {
         ? larguraTela - 80
         : 340.0;
 
+    final cores = AdminCores.de(context);
     return AlertDialog(
-      backgroundColor: AdminCores.de(context).fundoCard,
+      backgroundColor: cores.fundoCard,
       surfaceTintColor: Colors.transparent,
+      elevation: 12,
       shape: RoundedRectangleBorder(borderRadius: AppRadii.circularXxl),
+      titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
       title: Text(
         titulo,
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 18,
+          color: cores.texto,
+        ),
       ),
+      contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
       content: SizedBox(width: larguraConteudo, child: corpo),
       // actionsPadding para o par de botões respirar da borda do card e do
       // conteúdo acima.
-      actionsPadding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       actions: [
         Row(
           children: [

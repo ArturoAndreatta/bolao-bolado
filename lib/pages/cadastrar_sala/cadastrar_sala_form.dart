@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
+import 'package:bolao_bolado/components/shared/combos.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
@@ -240,10 +241,10 @@ class _CadastrarSalaFormState extends State<CadastrarSalaForm> {
                       SizedBox(height: gap),
                       FocusTraversalOrder(
                         order: const NumericFocusOrder(3),
-                        child: CustomDropdownField(
+                        child: ComboCampo<String>(
                           hint: 'Sorteio',
                           icon: Icons.confirmation_number_outlined,
-                          value: _c.sorteio,
+                          valor: _c.sorteio,
                           maxWidth: maxWidth,
                           onChanged: (v) {
                             setState(() => _c.sorteio = v);
@@ -255,7 +256,7 @@ class _CadastrarSalaFormState extends State<CadastrarSalaForm> {
                             }
                             return null;
                           },
-                          items: opcoesSorteio,
+                          opcoes: opcoesSorteio,
                         ),
                       ),
                       SizedBox(height: gap),
