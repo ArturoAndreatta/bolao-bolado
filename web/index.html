@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Organize e participe de bolões com seus amigos de forma simples e divertida.">
+
+  <!--
+    Abre DNS + TLS com os hosts do Firebase já durante o download do
+    main.dart.js, em vez de só quando a primeira leitura do Firestore
+    acontece. Em redes com latência alta (ou resolução de DNS lenta), esse
+    handshake sozinho custava quase um segundo antes da primeira query sair.
+    crossorigin é obrigatório: sem ele o navegador abre uma conexão anônima
+    separada e o preconnect é desperdiçado.
+  -->
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
+  <!-- O CanvasKit baixa fontes de fallback sob demanda (Noto Color Emoji
+       para os emojis de avatar) direto do fonts.gstatic.com. -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Bolão Bolado">
+  <link rel="apple-touch-icon" href="assets/images/icone.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="assets/images/icone.png" />
+
+  <title>Bolão Bolado</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+
+</html>

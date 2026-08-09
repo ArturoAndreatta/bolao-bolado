@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "bolaobolado-app",
+    "bolaobolado-app": "bolaobolado-app"
+  },
+  "targets": {},
+  "etags": {}
+}

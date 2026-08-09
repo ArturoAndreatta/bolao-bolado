@@ -1,0 +1,41 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class Mensagem {
+  final String id;
+  final String texto;
+  final String autorUid;
+  final String autorNome;
+  final DateTime? criadoEm;
+
+  Mensagem({
+    required this.id,
+    required this.texto,
+    required this.autorUid,
+    required this.autorNome,
+    this.criadoEm,
+  });
+
+  /// Monta uma [Mensagem] a partir de um documento do Firestore.
+  ///
+  /// Mesma proteção de [Sala.fromDoc]: doc sem dados vira mensagem vazia em
+  /// vez de lançar e derrubar o chat inteiro.
+  factory Mensagem.fromDoc(DocumentSnapshot doc) {
+    final data = (doc.data() as Map<String, dynamic>?) ?? const {};
+    return Mensagem(
+      id: doc.id,
+      texto: data['texto'] ?? '',
+      autorUid: data['autorUid'] ?? '',
+      autorNome: data['autorNome'] ?? 'Anônimo',
+      criadoEm: (data['criadoEm'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'texto': texto,
+      'autorUid': autorUid,
+      'autorNome': autorNome,
+      'criadoEm': FieldValue.serverTimestamp(),
+    };
+  }
+}

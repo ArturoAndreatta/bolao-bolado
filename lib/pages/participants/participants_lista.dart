@@ -1,0 +1,335 @@
+import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
+import 'package:bolao_bolado/components/shared/selo_manual.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
+import 'package:bolao_bolado/pages/participants/participants_reordenacao.dart';
+import 'package:bolao_bolado/pages/participants/participants_tabela.dart'
+    show LinhaEntrandoAnimada, detectarLinhaNova, podarConhecidos;
+import 'package:bolao_bolado/services/avatar/avatar_service.dart';
+import 'package:flutter/material.dart';
+
+const List<Color> coresAvatar = [
+  Color(0xFF2E7D32),
+  Color(0xFF487DE5),
+  Color(0xFF7C5CD9),
+  Color(0xFFCB8A2C),
+  Color(0xFFD9534F),
+  Color(0xFF17A398),
+];
+
+// Deriva cor determinística a partir do nome (mesmo participante = mesma cor sempre)
+Color corAvatarPara(String nome) {
+  final soma = nome.codeUnits.fold<int>(0, (acc, c) => acc + c);
+  return coresAvatar[soma % coresAvatar.length];
+}
+
+// Deriva emoji determinístico a partir do nome (mesmo participante = mesmo emoji sempre)
+String emojiAvatarPara(String nome) {
+  final soma = nome.codeUnits.fold<int>(0, (acc, c) => acc + c);
+  return kEmojisAvatar[soma % kEmojisAvatar.length];
+}
+
+class ListaParticipantes extends StatefulWidget {
+  final List<Map<String, dynamic>> rows;
+  final String? currentUid;
+
+  /// Lista completa (sem filtro de busca), usada só para podar o registro de
+  /// linhas já vistas. Ver [TabelaApostas.rowsCompletas].
+  final List<Map<String, dynamic>>? rowsCompletas;
+
+  const ListaParticipantes({
+    super.key,
+    required this.rows,
+    required this.currentUid,
+    this.rowsCompletas,
+  });
+
+  @override
+  State<ListaParticipantes> createState() => _ListaParticipantesState();
+}
+
+class _ListaParticipantesState extends State<ListaParticipantes> {
+  // Mesmo mecanismo usado em TabelaApostas: guarda o último valor apostado
+  // por uid para detectar apostas novas/alteradas e disparar a animação de
+  // entrada só quando o valor realmente muda.
+  final Map<String, Object?> _valoresConhecidos = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = widget.rows;
+    // Esquece quem saiu da lista antes de reavaliar quem é novo (ver
+    // podarConhecidos): sem isso um participante removido e recriado com o
+    // mesmo valor nunca voltaria a animar.
+    podarConhecidos(_valoresConhecidos, widget.rowsCompletas ?? rows);
+
+    return ColunaReordenavel(
+      children: [
+        for (var i = 0; i < rows.length; i++)
+          Builder(
+            // A chave precisa ficar AQUI, no filho direto da
+            // ColunaReordenavel: é por ela que a coluna reconhece que esta
+            // linha é a mesma que estava em outra posição.
+            key: ValueKey(
+              rows[i]['uid']?.toString() ?? '$i-${rows[i]['nome']}',
+            ),
+            builder: (context) {
+              final uid = rows[i]['uid']?.toString();
+              final valorAtual = rows[i]['valor'];
+              final isNova = detectarLinhaNova(
+                _valoresConhecidos,
+                uid,
+                valorAtual,
+              );
+
+              return LinhaEntrandoAnimada(
+                animar: isNova,
+                corBase: Colors.transparent,
+                // O divisor entra DENTRO da linha (não como irmão dela) para
+                // viajar junto quando ela desliza para outra posição. Solto
+                // no Column, ele ficava parado enquanto a linha se movia, e
+                // dava para ver a linha passar por cima do próprio divisor.
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LinhaParticipante(
+                      nome: rows[i]['nome']?.toString() ?? '—',
+                      valor: Formatters.moeda.format(
+                        (rows[i]['valor'] as num?)?.toDouble() ?? 0,
+                      ),
+                      cotas: (rows[i]['cotas'] as num?)?.toInt() ?? 0,
+                      premio: Formatters.moeda.format(
+                        (rows[i]['premio'] as num?)?.toDouble() ?? 0,
+                      ),
+                      uid: uid,
+                      corAvatar: (rows[i]['avatarColor'] as int?) != null
+                          ? Color(rows[i]['avatarColor'] as int)
+                          : null,
+                      emojiAvatar: rows[i]['avatarEmoji']?.toString(),
+                      destacado: rows[i]['uid'] == widget.currentUid,
+                      verificado: rows[i]['verificado'] == true,
+                      alterada: rows[i]['editadoAposVerificacao'] == true,
+                      manual: rows[i]['criadoPeloAdmin'] == true,
+                    ),
+                    if (i < rows.length - 1)
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppCores.de(context).borda,
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class LinhaParticipante extends StatelessWidget {
+  final String nome;
+  final String valor;
+  final int cotas;
+  final String premio;
+
+  /// Uid do participante, usado para resolver o avatar sob demanda. Nulo em
+  /// aposta manual lançada pelo admin, que não tem usuário por trás — aí o
+  /// avatar cai no derivado do nome.
+  final String? uid;
+
+  final Color? corAvatar;
+  final String? emojiAvatar;
+  final bool destacado;
+  final bool verificado;
+  final bool alterada;
+  final bool manual;
+
+  const LinhaParticipante({
+    super.key,
+    required this.nome,
+    required this.valor,
+    required this.cotas,
+    required this.premio,
+    this.uid,
+    this.corAvatar,
+    this.emojiAvatar,
+    required this.destacado,
+    this.verificado = false,
+    this.alterada = false,
+    this.manual = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    final emoji = emojiAvatar ?? emojiAvatarPara(nome);
+    final cor = corAvatar ?? corAvatarPara(nome);
+    final temEstado = alterada || verificado || destacado;
+
+    // Prioridade visual: edição pós-verificação > verificado/destacado.
+    //
+    // No claro o estado é o fundo pastel da linha; no escuro esse mesmo
+    // fundo, traduzido para tom escuro, empilhava blocos de cor na lista
+    // toda — lá o fundo fica transparente e o estado vira a barra lateral
+    // (mesma decisão da tabela desktop, ver TabelaApostas.corBarraEstado).
+    final corEstado = alterada ? cores.dourado : cores.verde;
+    final usaBarra = cores.larguraBarraEstado > 0;
+    final corFundo = !temEstado || usaBarra
+        ? Colors.transparent
+        : (alterada ? cores.fundoAmarelo : cores.fundoVerde);
+
+    return Container(
+      color: corFundo,
+      foregroundDecoration: (usaBarra && temEstado)
+          ? BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: corEstado,
+                  width: cores.larguraBarraEstado,
+                ),
+              ),
+            )
+          : null,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // O avatar se resolve sozinho a partir do uid, em vez de depender
+          // de um pré-carregamento de todos os participantes da sala. As
+          // cores derivadas do nome ficam como fallback: valem para aposta
+          // manual (sem uid) e enquanto o documento não chega.
+          AvatarDoParticipante(
+            uid: uid,
+            tamanho: 32,
+            corFallback: cor,
+            emojiFallback: emoji,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Flexible (não Expanded): o nome encolhe com reticências
+                    // para o selo caber, em vez de empurrá-lo para fora.
+                    Flexible(
+                      child: Text(
+                        nome,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: destacado
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                          color: cores.texto,
+                        ),
+                      ),
+                    ),
+                    if (manual) ...[
+                      const SizedBox(width: 6),
+                      const SeloManual(),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.emoji_events_outlined,
+                      size: 12,
+                      color: cores.dourado,
+                    ),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text(
+                        premio,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: cores.textoAmarelo,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                valor,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: cores.textoVerde,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                cotas == 1 ? '1 cota' : '$cotas cotas',
+                style: TextStyle(fontSize: 12, color: cores.textoFraco),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RodapeLista extends StatelessWidget {
+  final int total;
+  final double valorTotal;
+  final int cotasTotal;
+
+  const RodapeLista({
+    super.key,
+    required this.total,
+    required this.valorTotal,
+    required this.cotasTotal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Nessa largura o texto "X participantes" espreme o valor/cotas até
+        // cortar; abaixo dela mostra só o ícone + número, sem o rótulo.
+        final compacto = constraints.maxWidth < 265;
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Flexible(
+              child: Text(
+                '${Formatters.moeda.format(valorTotal)} | $cotasTotal Cotas',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: cores.textoFraco),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(Icons.people_outline, size: 15, color: cores.textoFraco),
+            const SizedBox(width: 6),
+            Text(
+              compacto
+                  ? '$total'
+                  : '$total ${total == 1 ? 'participante' : 'participantes'}',
+              style: TextStyle(fontSize: 12, color: cores.textoFraco),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

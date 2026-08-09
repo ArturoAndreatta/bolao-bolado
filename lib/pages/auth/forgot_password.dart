@@ -1,0 +1,138 @@
+import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
+import 'package:bolao_bolado/components/shared/header_paginas.dart';
+import 'package:bolao_bolado/components/shell/default_layout.dart';
+import 'package:bolao_bolado/components/shared/buttons.dart';
+import 'package:bolao_bolado/components/shared/custom_card.dart';
+import 'package:bolao_bolado/components/shell/drawer.dart';
+import 'package:bolao_bolado/components/shared/custom_fields.dart';
+import 'package:bolao_bolado/router/app_router.dart';
+import 'package:bolao_bolado/services/authentication/auth_service.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+class RecuperarSenha extends StatefulWidget {
+  final String? email;
+  const RecuperarSenha({super.key, this.email});
+
+  @override
+  State<RecuperarSenha> createState() => _RecuperarSenhaState();
+}
+
+class _RecuperarSenhaState extends State<RecuperarSenha> {
+  late final emailController = TextEditingController(text: widget.email);
+  bool _loading = false;
+  // Controla a troca entre o formulário de e-mail e a tela de confirmação de envio
+  bool _enviado = false;
+  final _formKey = GlobalKey<FormState>();
+  final AuthService _authService = AuthService();
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultLayout(
+      drawer: AppDrawer(),
+      child: Stack(
+        children: [
+          CustomCard(
+            color: AppCores.de(context).cardExterno,
+            children: [
+              HeaderPaginas(
+                text: 'Recuperar senha',
+                subtitle: 'Informe seu e-mail para redefinir a senha',
+                onBack: () => context.go(AppRoutes.signup),
+              ),
+              Form(
+                key: _formKey,
+                child: CustomCard(
+                  isChild: true,
+                  children: [
+                    const SizedBox(height: 20),
+                    if (_enviado)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.mark_email_read_outlined,
+                              size: 60,
+                              color: AppCores.de(context).verdeAgua,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'E-mail enviado para\n${emailController.text}',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppCores.de(context).texto,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Verifique sua caixa de entrada e spam.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppCores.de(context).textoSuave,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else ...[
+                      CustomField(
+                        hint: 'E-mail',
+                        isRequired: true,
+                        icon: Icons.alternate_email,
+                        keyboardType: TextInputType.emailAddress,
+                        controller: emailController,
+                        textInputAction: TextInputAction.done,
+                        maxWidth: 480,
+                        autofocus: true,
+                      ),
+                      const SizedBox(height: 20),
+                      PrimaryButton(
+                        text: 'Enviar',
+                        onTap: _enviar,
+                        loading: _loading,
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _enviar() async {
+    if (!_formKey.currentState!.validate()) {
+      CustomShowDialog.show(context, "Preencha o e-mail!");
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      await _authService.recuperarSenha(emailController.text.trim());
+      if (mounted) setState(() => _enviado = true);
+    } on Exception catch (e) {
+      if (mounted) {
+        // Firebase retorna 'user-not-found' quando o e-mail não está cadastrado
+        final msg = e.toString().contains('user-not-found')
+            ? 'E-mail não encontrado.'
+            : 'Erro ao enviar e-mail. Tente novamente.';
+        CustomShowDialog.show(context, msg);
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+}

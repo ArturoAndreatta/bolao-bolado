@@ -1,0 +1,479 @@
+import 'dart:async';
+
+import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
+import 'package:bolao_bolado/services/bet/preco_cota.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+/// Probabilidade de acertar as 6 dezenas da Mega-Sena com um único jogo (1 em 50.063.860).
+const double probabilidadeMega = 1 / 50063860;
+
+/// Probabilidade de acertar as 15 dezenas da Lotofácil com um único jogo (1 em 3.268.760).
+const double probabilidadeLotofacil = 1 / 3268760;
+
+class PainelEstatisticas extends StatefulWidget {
+  final List<Map<String, dynamic>> rows;
+  final String? currentUid;
+  final String? sorteio;
+  final DateTime? dataSorteio;
+  final double premioSala;
+  // No mobile os 3 cards ocupavam espaço demais acima da lista de
+  // participantes; recolhidos atrás de um botão, somem por padrão e deixam
+  // o grid ir até o fim da tela.
+  final bool recolhivel;
+
+  const PainelEstatisticas({
+    super.key,
+    required this.rows,
+    required this.currentUid,
+    this.sorteio,
+    this.dataSorteio,
+    this.premioSala = 0,
+    this.recolhivel = false,
+  });
+
+  @override
+  State<PainelEstatisticas> createState() => _PainelEstatisticasState();
+}
+
+class _PainelEstatisticasState extends State<PainelEstatisticas> {
+  bool _expandido = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    final rows = widget.rows;
+    final sorteio = widget.sorteio;
+    final premioSala = widget.premioSala;
+    final totalCotas = rows.fold<int>(
+      0,
+      (soma, item) => soma + ((item['cotas'] as num?)?.toInt() ?? 0),
+    );
+    final probabilidadeJogo = isLotofacil(sorteio)
+        ? probabilidadeLotofacil
+        : probabilidadeMega;
+
+    // Cada cota representa um jogo apostado no bolão, então a chance do
+    // BOLÃO (todos os participantes juntos) é o total de cotas vezes a
+    // probabilidade de acerto de um único jogo no tipo de sorteio da sala.
+    final chance = totalCotas > 0 ? totalCotas * probabilidadeJogo : 0.0;
+    final chancePercentualValor = chance * 100;
+    final chancePercentual = chancePercentualValor == 0
+        ? '0'
+        : chancePercentualValor.toStringAsFixed(8);
+    final chanceFracao = chance > 0
+        ? '1 em ${NumberFormat.decimalPattern('pt_BR').format((1 / chance).round())}'
+        : '0 em 0';
+
+    final cardChance = CardEstatistica(
+      destaque: true,
+      titulo: 'Chance de Ganhar',
+      valor: '$chancePercentual%',
+      fontSizeValor: 16,
+      valorWidget: ChanceFracaoReveal(
+        percentual: chancePercentual,
+        fracao: chanceFracao,
+        horizontal: true,
+        percentualStyle: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: cores.texto,
+        ),
+        fracaoStyle: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: cores.textoSuave,
+        ),
+      ),
+    );
+    final cardPremio = CardPremioTotal(premioSala: premioSala);
+    final premioPorCota = totalCotas > 0 ? premioSala / totalCotas : 0.0;
+    final cardPremioPorCota = CardEstatistica(
+      destaque: true,
+      destaqueCor: DestaqueCor.azul,
+      titulo: 'Prêmio por Cota',
+      fontSizeValor: 15,
+      valor: Formatters.moeda.format(premioPorCota),
+    );
+
+    final cards = [cardPremio, cardPremioPorCota, cardChance];
+
+    final grade = LayoutBuilder(
+      builder: (context, constraints) {
+        // Abaixo dessa largura os cards espremidos lado a lado cortam texto;
+        // empilha em coluna para manter cada card legível.
+        if (constraints.maxWidth < 815) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                cards[i],
+                if (i != cards.length - 1) const SizedBox(height: 10),
+              ],
+            ],
+          );
+        }
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                Expanded(child: cards[i]),
+                if (i != cards.length - 1) const SizedBox(width: 12),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!widget.recolhivel) return grade;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _BotaoAlternarEstatisticas(
+          expandido: _expandido,
+          onTap: () => setState(() => _expandido = !_expandido),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox(width: double.infinity),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: grade,
+          ),
+          crossFadeState: _expandido
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 200),
+          sizeCurve: Curves.easeOutCubic,
+        ),
+      ],
+    );
+  }
+}
+
+/// Botão que alterna a visibilidade dos 3 cards de estatística no layout
+/// mobile. Roxo/lilás de propósito: os 3 cards por trás já usam
+/// verde/azul/dourado, então o botão não pode repetir nenhuma delas — senão
+/// pareceria um 4º card em vez de um controle de exibição.
+class _BotaoAlternarEstatisticas extends StatelessWidget {
+  final bool expandido;
+  final VoidCallback onTap;
+
+  const _BotaoAlternarEstatisticas({
+    required this.expandido,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadii.circularSmd,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: cores.fundoRoxo,
+            borderRadius: AppRadii.circularSmd,
+            border: Border.all(color: cores.bordaRoxo, width: 1),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.query_stats, size: 18, color: cores.roxo),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Estatísticas do bolão',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: cores.textoRoxo,
+                  ),
+                ),
+              ),
+              AnimatedRotation(
+                turns: expandido ? 0.5 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 20,
+                  color: cores.roxo,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Card de "Prêmio Total" isolado dos demais indicadores.
+///
+/// O prêmio só muda quando o campo `premio` da sala é editado pelo admin —
+/// nunca por causa de uma aposta sendo criada/editada/removida. Por isso,
+/// este widget reconstrói apenas quando [premioSala] muda de valor, mesmo
+/// que o painel de estatísticas como um todo seja reconstruído a cada
+/// evento do stream de apostas.
+class CardPremioTotal extends StatefulWidget {
+  final double premioSala;
+
+  const CardPremioTotal({super.key, required this.premioSala});
+
+  @override
+  State<CardPremioTotal> createState() => _CardPremioTotalState();
+}
+
+class _CardPremioTotalState extends State<CardPremioTotal> {
+  late double _premioExibido = widget.premioSala;
+
+  @override
+  void didUpdateWidget(covariant CardPremioTotal oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.premioSala != _premioExibido) {
+      _premioExibido = widget.premioSala;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valor = Formatters.moeda.format(_premioExibido);
+
+    return RepaintBoundary(
+      child: CardEstatistica(
+        destaque: true,
+        destaqueCor: DestaqueCor.verde,
+        titulo: 'Prêmio Total',
+        fontSizeValor: 15,
+        valor: valor,
+      ),
+    );
+  }
+}
+
+class ChanceFracaoReveal extends StatefulWidget {
+  final String percentual;
+  final String fracao;
+  final TextStyle percentualStyle;
+  final TextStyle fracaoStyle;
+  final bool horizontal;
+
+  const ChanceFracaoReveal({
+    super.key,
+    required this.percentual,
+    required this.fracao,
+    required this.percentualStyle,
+    required this.fracaoStyle,
+    this.horizontal = false,
+  });
+
+  @override
+  State<ChanceFracaoReveal> createState() => _ChanceFracaoRevealState();
+}
+
+class _ChanceFracaoRevealState extends State<ChanceFracaoReveal> {
+  bool _revelado = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) setState(() => _revelado = !_revelado);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.horizontal
+        ? AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            layoutBuilder: (currentChild, previousChildren) => Stack(
+              alignment: Alignment.centerRight,
+              children: [
+                ...previousChildren,
+                if (currentChild != null) currentChild,
+              ],
+            ),
+            child: _revelado
+                ? Text(
+                    widget.fracao,
+                    key: const ValueKey('fracao'),
+                    style: widget.percentualStyle,
+                  )
+                : Text(
+                    '${widget.percentual}%',
+                    key: const ValueKey('percentual'),
+                    style: widget.percentualStyle,
+                  ),
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${widget.percentual}%', style: widget.percentualStyle),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 150),
+                transitionBuilder: (child, animation) =>
+                    FadeTransition(opacity: animation, child: child),
+                layoutBuilder: (currentChild, previousChildren) =>
+                    currentChild ?? const SizedBox.shrink(),
+                child: _revelado
+                    ? Padding(
+                        key: const ValueKey('fracao'),
+                        padding: EdgeInsets.zero,
+                        child: Text(widget.fracao, style: widget.fracaoStyle),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('vazio')),
+              ),
+            ],
+          );
+  }
+}
+
+enum DestaqueCor { amarelo, verde, azul }
+
+class CardEstatistica extends StatelessWidget {
+  final String titulo;
+  final String valor;
+  final bool destaque;
+  final DestaqueCor destaqueCor;
+  final IconData? icone;
+  final Color? corValor;
+  final String? infoTooltip;
+  final double fontSizeValor;
+  final Widget? valorWidget;
+
+  const CardEstatistica({
+    super.key,
+    required this.titulo,
+    required this.valor,
+    this.destaque = false,
+    this.destaqueCor = DestaqueCor.amarelo,
+    this.icone,
+    this.corValor,
+    this.infoTooltip,
+    this.fontSizeValor = 24,
+    this.valorWidget,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    // Cor "tema" do card (verde/azul/dourado), usada no rótulo e na borda.
+    final corTema = destaqueCor == DestaqueCor.verde
+        ? cores.verde
+        : destaqueCor == DestaqueCor.azul
+        ? cores.azul
+        : cores.dourado;
+
+    // No claro os três cards são pastéis levíssimos sobre branco e a cor
+    // chapada funciona. No escuro os mesmos blocos viravam três manchas
+    // sólidas disputando atenção logo acima da tabela — o card que deveria
+    // ser um indicador discreto virava o elemento mais forte da tela.
+    //
+    // Lá o fundo fica praticamente na cor do próprio card, com a cor
+    // aparecendo só onde ela informa: o rótulo e um fio de borda.
+    final corFundo = !destaque
+        ? cores.card
+        : cores.escuro
+        ? Color.alphaBlend(corTema.withValues(alpha: 0.07), cores.card)
+        : destaqueCor == DestaqueCor.verde
+        ? cores.fundoVerde
+        : destaqueCor == DestaqueCor.azul
+        ? cores.fundoAzul
+        : cores.fundoAmarelo;
+    final corBorda = !destaque
+        ? cores.borda
+        : cores.escuro
+        ? Color.alphaBlend(corTema.withValues(alpha: 0.28), cores.card)
+        : destaqueCor == DestaqueCor.verde
+        ? cores.bordaVerde
+        : destaqueCor == DestaqueCor.azul
+        ? cores.bordaAzul
+        : cores.bordaAmarelo;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        color: corFundo,
+        borderRadius: AppRadii.circularSmd,
+        border: Border.all(color: corBorda, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icone != null) ...[
+            Icon(icone, size: 18, color: cores.dourado),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            titulo,
+            softWrap: false,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              // No escuro o rótulo carrega sozinho a identidade do card (o
+              // fundo é quase neutro), então usa a cor de marca cheia; no
+              // claro segue o tom escurecido, legível sobre o pastel.
+              color: !destaque
+                  ? cores.textoSuave
+                  : cores.escuro
+                  ? corTema
+                  : destaqueCor == DestaqueCor.verde
+                  ? cores.textoVerde
+                  : destaqueCor == DestaqueCor.azul
+                  ? cores.textoAzul
+                  : cores.textoAmarelo,
+            ),
+          ),
+          if (infoTooltip != null) ...[
+            const SizedBox(width: 4),
+            Tooltip(
+              message: infoTooltip!,
+              child: Icon(
+                Icons.info_outline,
+                size: 15,
+                color: cores.textoFraco,
+              ),
+            ),
+          ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child:
+                  valorWidget ??
+                  Text(
+                    valor,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: fontSizeValor,
+                      fontWeight: FontWeight.w700,
+                      color: corValor ?? cores.texto,
+                    ),
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

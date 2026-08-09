@@ -1,0 +1,75 @@
+import 'package:bolao_bolado/components/shared/back_screen_button.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
+import 'package:bolao_bolado/core/responsive.dart';
+import 'package:flutter/material.dart';
+
+class HeaderPaginas extends StatelessWidget {
+  final String text;
+  final String subtitle;
+  final Widget? trailing;
+  final bool showBackButton;
+  final VoidCallback? onBack;
+
+  const HeaderPaginas({
+    super.key,
+    required this.text,
+    required this.subtitle,
+    this.trailing,
+    this.showBackButton = true,
+    this.onBack,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    final isMobile = Responsive.isMobile(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(15, 5, 10, 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (showBackButton) BackScreenButton(floating: false, onTap: onBack),
+          const SizedBox(width: 14),
+          Container(width: 1, height: isMobile ? 50 : 40, color: cores.borda),
+
+          const SizedBox(width: 14),
+
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: isMobile ? 24 : 21,
+                      fontWeight: FontWeight.w700,
+                      color: cores.texto,
+                      height: 1.0,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: isMobile ? 15 : 14,
+                      color: cores.textoSuave,
+                      height: 1.0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}

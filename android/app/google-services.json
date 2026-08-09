@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "854630072700",
+    "project_id": "bolaobolado-app",
+    "storage_bucket": "bolaobolado-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:854630072700:android:3ece062fcb6e03468f64f9",
+        "android_client_info": {
+          "package_name": "com.example.bolao_bolado"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7QGl3ijLXdRx0ZPQtoOSyh4EEGUhLDpQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

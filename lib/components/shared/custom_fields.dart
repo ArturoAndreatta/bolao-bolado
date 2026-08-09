@@ -1,0 +1,293 @@
+import 'package:bolao_bolado/components/formatters/formatters.dart';
+import 'package:bolao_bolado/components/formatters/money_input_format.dart';
+import 'package:bolao_bolado/components/shared/custom_field_decoration.dart';
+import 'package:bolao_bolado/core/app_cores.dart';
+import 'package:dropdown_button2/dropdown_button2.dart';
+import 'package:flutter/material.dart';
+
+class CustomField extends StatelessWidget {
+  final String hint;
+  final IconData? icon;
+  final bool? isNumeric;
+  final TextInputType? keyboardType;
+  final TextEditingController controller;
+  final TextInputAction? textInputAction;
+  final double? maxWidth;
+  final Widget? suffix;
+  final bool? obscure;
+  final bool? readOnly;
+  final Widget? prefix;
+  final void Function()? onTap;
+  final void Function(String)? onFieldSubmitted;
+  final bool? isRequired;
+  // Validação adicional, aplicada depois da checagem de obrigatório/numérico.
+  // Retorne null para indicar que o valor passou nessa checagem extra.
+  final String? Function(String?)? validator;
+  final bool autofocus;
+  // Quando isNumeric, controla se os dígitos digitados vão direto para a
+  // parte inteira (sem centavos) — usado em valores sempre inteiros, como
+  // o valor de aposta da Mega-Sena (múltiplo de R$6).
+  final bool semCentavos;
+  final FocusNode? focusNode;
+
+  const CustomField({
+    super.key,
+    required this.hint,
+    required this.controller,
+    this.icon,
+    this.isNumeric = false,
+    this.obscure = false,
+    this.textInputAction,
+    this.keyboardType,
+    this.maxWidth = 300,
+    this.suffix,
+    this.readOnly = false,
+    this.onTap,
+    this.onFieldSubmitted,
+    this.prefix,
+    this.isRequired = false,
+    this.validator,
+    this.autofocus = false,
+    this.semCentavos = false,
+    this.focusNode,
+  });
+
+  String? _validate(String? value) {
+    if (isRequired!) {
+      if (value == null || value.isEmpty) {
+        // String vazia (não null): ativa a borda de erro sem reservar
+        // altura pra texto, evitando que o card cresça/role. O aviso
+        // completo aparece no dialog ao tentar confirmar.
+        return '';
+      }
+      if (isNumeric!) {
+        final number = MoneyInputFormat.parse(value);
+        if (number == null || number == 0) {
+          return '';
+        }
+      }
+    }
+    return validator?.call(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth!),
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        autofocus: autofocus,
+        readOnly: readOnly!,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        style: TextStyle(color: cores.texto, fontSize: 18),
+        obscureText: obscure!,
+        enableInteractiveSelection: true,
+        onTap: onTap,
+        onFieldSubmitted: onFieldSubmitted,
+        inputFormatters: isNumeric!
+            ? [MoneyInputFormat(semCentavos: semCentavos)]
+            : null,
+        validator: (isRequired! || validator != null) ? _validate : null,
+        decoration: CustomFieldDecoration.build(
+          context,
+          hint: hint,
+          icon: icon,
+          prefix: prefix,
+          suffix: suffix,
+        ),
+      ),
+    );
+  }
+}
+
+class CustomDropdownField<T> extends StatelessWidget {
+  final String hint;
+  final IconData? icon;
+  final T? value;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?> onChanged;
+  final double? maxWidth;
+  final String? Function(T?)? validator;
+  final bool enabled;
+
+  const CustomDropdownField({
+    super.key,
+    required this.hint,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    this.icon,
+    this.maxWidth,
+    this.validator,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    return Theme(
+      data: Theme.of(context).copyWith(canvasColor: cores.campo),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth ?? 300),
+        child: DropdownButtonFormField2(
+          value: value,
+          items: items,
+          onChanged: enabled ? onChanged : null,
+          validator: validator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          isExpanded: true,
+          iconStyleData: const IconStyleData(
+            icon: Icon(Icons.keyboard_arrow_down_rounded),
+            iconSize: 26,
+          ),
+          style: TextStyle(color: cores.texto, fontSize: 18),
+          decoration: CustomFieldDecoration.build(
+            context,
+            hint: hint,
+            icon: icon,
+          ),
+          // Altura default do botão (40px) corta a parte de baixo do texto
+          // do item selecionado quando o InputDecoration tem labelText
+          // flutuante (o rótulo some pro topo e o valor precisa da altura
+          // toda) — sem isso, textos com descendentes (ex: "ç", "ã") ficam
+          // visualmente cortados em vez de dar ellipsis.
+          buttonStyleData: const ButtonStyleData(
+            height: 56,
+            padding: EdgeInsets.symmetric(horizontal: 4),
+          ),
+          dropdownStyleData: DropdownStyleData(
+            decoration: BoxDecoration(
+              color: cores.card,
+              borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 12,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+          ),
+          menuItemStyleData: const MenuItemStyleData(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            height: 48,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Campo de data: encapsula showDatePicker + formatação (dd/MM/yyyy via
+// intl), evitando reimplementar o picker e o padLeft manual em cada tela.
+class CustomDateField extends StatelessWidget {
+  final String hint;
+  final IconData? icon;
+  final TextEditingController controller;
+  final double? maxWidth;
+  final bool isRequired;
+  final DateTime? initialDate;
+  final DateTime? firstDate;
+  final DateTime? lastDate;
+  final void Function(DateTime picked)? onPicked;
+  final TextInputAction? textInputAction;
+
+  const CustomDateField({
+    super.key,
+    required this.hint,
+    required this.controller,
+    this.icon = Icons.calendar_today,
+    this.maxWidth = 300,
+    this.isRequired = false,
+    this.initialDate,
+    this.firstDate,
+    this.lastDate,
+    this.onPicked,
+    this.textInputAction,
+  });
+
+  Future<void> _abrirPicker(BuildContext context) async {
+    FocusScope.of(context).unfocus();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate ?? DateTime.now(),
+      firstDate: firstDate ?? DateTime(2020),
+      lastDate: lastDate ?? DateTime(2030),
+    );
+    if (picked == null) return;
+    controller.text = Formatters.data.format(picked);
+    onPicked?.call(picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomField(
+      hint: hint,
+      icon: icon,
+      controller: controller,
+      readOnly: true,
+      isRequired: isRequired,
+      maxWidth: maxWidth,
+      textInputAction: textInputAction,
+      onTap: () => _abrirPicker(context),
+    );
+  }
+}
+
+// Campo de hora: encapsula showTimePicker + formatação (HH:mm via intl),
+// evitando reimplementar o picker e o padLeft manual em cada tela.
+class CustomTimeField extends StatelessWidget {
+  final String hint;
+  final IconData? icon;
+  final TextEditingController controller;
+  final double? maxWidth;
+  final bool isRequired;
+  final TimeOfDay? initialTime;
+  final void Function(TimeOfDay picked)? onPicked;
+  final TextInputAction? textInputAction;
+
+  const CustomTimeField({
+    super.key,
+    required this.hint,
+    required this.controller,
+    this.icon = Icons.schedule_outlined,
+    this.maxWidth = 300,
+    this.isRequired = false,
+    this.initialTime,
+    this.onPicked,
+    this.textInputAction,
+  });
+
+  static String format(TimeOfDay time) =>
+      '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
+
+  Future<void> _abrirPicker(BuildContext context) async {
+    FocusScope.of(context).unfocus();
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initialTime ?? TimeOfDay.now(),
+    );
+    if (picked == null) return;
+    controller.text = format(picked);
+    onPicked?.call(picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomField(
+      hint: hint,
+      icon: icon,
+      controller: controller,
+      readOnly: true,
+      isRequired: isRequired,
+      maxWidth: maxWidth,
+      textInputAction: textInputAction,
+      onTap: () => _abrirPicker(context),
+    );
+  }
+}
