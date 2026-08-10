@@ -61,6 +61,10 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    // O memo é por uid, então outro usuário logando já teria chave própria —
+    // limpar aqui é higiene: evita carregar a resposta de uma conta que saiu
+    // por uma sessão que pode durar horas.
+    _isAdminPorUid.clear();
     await _auth.signOut();
     // App sempre mantém alguma sessão ativa (mesmo anônima) pra permitir
     // leitura de dados públicos sem forçar login imediato.
@@ -72,9 +76,46 @@ class AuthService {
     return doc.exists ? doc.data() : null;
   }
 
-  Future<bool> isAdmin(String uid) async {
-    final dados = await getDadosUsuario(uid);
-    return dados?['isAdmin'] == true;
+  /// Resposta de [isAdmin] memoizada por uid, pela sessão do app.
+  ///
+  /// `isAdmin` era consultado de quatro lugares numa navegação normal — o
+  /// drawer, a tela de Participantes, o card Minha Aposta (ao confirmar) e o
+  /// Painel ADM — e cada um pagava sua própria leitura do MESMO documento
+  /// `usuarios/{uid}`.
+  ///
+  /// Congelar por sessão é seguro pelo mesmo motivo de `buscarSalaPrincipal()`:
+  /// o campo só muda via console/admin SDK, porque as regras do Firestore
+  /// proíbem o próprio usuário de alterar o seu `isAdmin`. O app nunca escreve
+  /// nesse campo, então não existe caminho em que ele mude com o app aberto.
+  ///
+  /// Guarda o *Future*, não o valor: as telas montam praticamente juntas, então
+  /// chamadas concorrentes compartilham a mesma leitura em vez de disparar
+  /// várias em paralelo.
+  static final Map<String, Future<bool>> _isAdminPorUid = {};
+
+  Future<bool> isAdmin(String uid) {
+    final memoizado = _isAdminPorUid[uid];
+    if (memoizado != null) return memoizado;
+
+    final future = getDadosUsuario(uid).then((d) => d?['isAdmin'] == true);
+    _isAdminPorUid[uid] = future;
+
+    // Falha de rede não pode ficar memoizada: sem isto um erro na primeira
+    // tentativa deixaria o usuário sem acesso de admin até recarregar o app
+    // inteiro. O `identical` evita que um erro atrasado descarte uma tentativa
+    // mais nova já em andamento.
+    unawaited(
+      future.then(
+        (_) {},
+        onError: (Object _) {
+          if (identical(_isAdminPorUid[uid], future)) {
+            _isAdminPorUid.remove(uid);
+          }
+        },
+      ),
+    );
+
+    return future;
   }
 
   Future<void> atualizarNome(String novoNome) async {

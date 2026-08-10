@@ -48,7 +48,13 @@ class AvatarDoParticipante extends StatelessWidget {
     // Já em memória (outra linha ou o chat já observou este uid): desenha
     // direto, sem StreamBuilder e sem piscar no estado neutro.
     final conhecido = cache.avatarConhecido(id);
-    if (conhecido != null) return _avatar(conhecido.cor, conhecido.emoji);
+    if (conhecido != null) {
+      // Desenhar sem assinar deixaria este uid parecendo ocioso para o descarte
+      // por desuso do cache — e ele está justamente na tela. Ver
+      // AvatarColorCache.tocarSeObservado.
+      cache.tocarSeObservado(id);
+      return _avatar(conhecido.cor, conhecido.emoji);
+    }
 
     return StreamBuilder<({Color cor, String emoji})>(
       // A stream é memoizada por uid dentro do cache, então reconstruir este

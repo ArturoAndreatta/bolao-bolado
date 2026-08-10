@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
@@ -39,36 +41,45 @@ class _AppDrawerState extends State<AppDrawer> {
   @override
   void initState() {
     super.initState();
-    _carregarAvatar();
-    _carregarIsAdmin();
+    _carregarPerfil();
   }
 
-  Future<void> _carregarAvatar() async {
+  /// Cor do avatar, emoji e `isAdmin` numa LEITURA só.
+  ///
+  /// Eram três chamadas separadas (`buscarCor`, `buscarEmoji`, `isAdmin`) e as
+  /// três liam o mesmo documento `usuarios/{uid}` — três leituras cobradas
+  /// para abrir o menu. Estavam em paralelo, o que resolvia a latência mas não
+  /// o custo. Agora o documento é lido uma vez e os três valores saem dele.
+  Future<void> _carregarPerfil() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.isAnonymous) return;
-    // Cor e emoji leem o mesmo doc `usuarios/{uid}` e não dependem um do
-    // outro: em série eram dois round-trips para abrir o menu.
-    final (cor, emoji) = await (
-      AvatarService.buscarCor(user.uid),
-      AvatarService.buscarEmoji(user.uid),
-    ).wait;
-    if (mounted) {
-      setState(() {
-        _corAvatarAtual = cor;
-        _emojiAvatarAtual = emoji;
-      });
-    }
-  }
 
-  Future<void> _carregarIsAdmin() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.isAnonymous) return;
-    final isAdmin = await AuthService().isAdmin(user.uid);
+    final dados = await AuthService().getDadosUsuario(user.uid);
     if (!mounted) return;
+
+    final avatar = AvatarService.avatarDeDados(dados);
+    final isAdmin = dados?['isAdmin'] == true;
+
     setState(() {
+      _corAvatarAtual = avatar.cor;
+      _emojiAvatarAtual = avatar.emoji;
       _isAdmin = isAdmin;
       if (isAdmin) _apostasPendentesStream ??= streamApostasPendentes();
     });
+
+    // Conta antiga, sem cor/emoji gravados: persiste o que foi sorteado agora,
+    // fora do caminho da abertura do menu (a UI já está pintada com o valor).
+    // Só faz sentido com documento existente — anônimo nem chega aqui.
+    if (avatar.faltava && dados != null) {
+      unawaited(
+        AvatarService.persistirAvatar(
+          user.uid,
+          dados: dados,
+          cor: avatar.cor,
+          emoji: avatar.emoji,
+        ),
+      );
+    }
   }
 
   @override

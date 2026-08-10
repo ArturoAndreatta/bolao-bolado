@@ -39,8 +39,17 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
   // Instanciada uma única vez: se streamApostasPendentes() fosse chamada
   // direto no build(), cada setState() recriaria a Query e o StreamBuilder
   // reiniciaria do zero, piscando a lista.
-  final Stream<QuerySnapshot<Map<String, dynamic>>> apostasPendentesStream =
-      streamApostasPendentes();
+  //
+  // Null até `_verificarAcesso` confirmar que é admin. Como inicializador de
+  // campo, ela abria o listener `collectionGroup` no instante em que o State
+  // nascia — ou seja, antes de saber se a pessoa pode ver isso. Quem caísse
+  // nesta rota sem ser admin (incluindo sessão anônima) disparava uma query que
+  // as regras recusam, e o StreamBuilder mostrava o estado de erro do painel em
+  // vez do "sem permissão". É o mesmo ajuste já feito no drawer.
+  //
+  // O StreamBuilder aceita stream nula e simplesmente fica sem dado até ela
+  // existir, então nada precisa mudar em quem consome.
+  Stream<QuerySnapshot<Map<String, dynamic>>>? apostasPendentesStream;
 
   // Apostas fake para testar o layout sem tocar no Firestore.
   List<Map<String, dynamic>>? fakePendentes;
@@ -72,8 +81,48 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
     _verificarAcesso();
     _avatarMudancasSub = AvatarColorCache.instance.mudancas.listen((_) {
       if (!mounted || carregandoStats) return;
-      unawaited(_carregarStats());
+      _reaplicarAvatares();
     });
+  }
+
+  /// Repinta os avatares da lista com o que o cache já sabe — **sem tocar na
+  /// rede**.
+  ///
+  /// Antes este aviso chamava `_carregarStats()`, ou seja a query COMPLETA de
+  /// Participantes mais a releitura do documento da sala (duas, na época). E o
+  /// aviso não é raro — cada linha que entra
+  /// na tela abre um `snapshots()` em `usuarios/{uid}` e, ao responder, emite
+  /// `mudancas`. Ou seja: rolar a lista do painel disparava releituras da
+  /// coleção inteira, uma atrás da outra. Numa sala de 300 apostas, cada
+  /// rolagem custava algumas centenas de leituras.
+  ///
+  /// O aviso de avatar não traz dado de aposta nenhum — valor, verificação e
+  /// prêmio continuam iguais. O que mudou está em memória, no próprio cache,
+  /// então basta reler dele. Rede zero.
+  void _reaplicarAvatares() {
+    final cache = AvatarColorCache.instance;
+    var mudou = false;
+
+    final atualizadas = bets.map((aposta) {
+      final uid = aposta['uid']?.toString();
+      if (uid == null) return aposta;
+      final avatar = cache.avatarConhecido(uid);
+      if (avatar == null) return aposta;
+
+      final cor = avatar.cor.toARGB32();
+      if (aposta['avatarColor'] == cor &&
+          aposta['avatarEmoji'] == avatar.emoji) {
+        return aposta;
+      }
+      mudou = true;
+      return {...aposta, 'avatarColor': cor, 'avatarEmoji': avatar.emoji};
+    }).toList();
+
+    // Só reconstrói se algum avatar realmente mudou: o cache emite um aviso
+    // agrupado por rajada de documentos, e boa parte deles confirma valores que
+    // a lista já mostrava.
+    if (!mudou) return;
+    setState(() => bets = atualizadas);
   }
 
   @override
@@ -107,6 +156,8 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
       salaId = id;
       adminUser = user;
       loading = false;
+      // Só agora abre o listener das pendências — ver o campo.
+      if (isAdmin) apostasPendentesStream ??= streamApostasPendentes();
     });
 
     if (isAdmin) {
@@ -115,16 +166,14 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
   }
 
   Future<void> _carregarStats() async {
-    // As duas partem da mesma sala (já memoizada) mas não dependem uma da
-    // outra: em série o painel esperava dois round-trips em fila.
-    final (novasBets, novosDados) = await (
-      getBets(),
-      getDadosSalaPrincipal(),
-    ).wait;
+    // Uma chamada só: antes eram duas funções em paralelo, e cada uma relia o
+    // documento da sala por conta própria — duas leituras cobradas pelo mesmo
+    // `Salas/{id}` a cada atualização do painel.
+    final resultado = await getDadosSalaEApostas();
     if (!mounted) return;
     setState(() {
-      bets = novasBets;
-      dadosSala = novosDados;
+      bets = resultado.apostas;
+      dadosSala = resultado.dadosSala;
       carregandoStats = false;
     });
   }
@@ -570,12 +619,32 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
   // Conteúdo de cada seção do dashboard
   // ---------------------------------------------------------------------------
 
+  /// Quantas apostas aguardam verificação.
+  ///
+  /// O número sai de [bets] — as apostas que `_carregarStats` já carregou —, e
+  /// não do `docs.length` da stream do badge. Dois motivos:
+  ///
+  /// - Aquela query passou a ter teto ([kLimitePendentesBadge]), porque sem
+  ///   limite ela baixava a fila inteira de todas as salas só para alimentar um
+  ///   contador. Contar os `docs` dela travaria o painel em "100 pendentes"
+  ///   numa fila maior.
+  /// - `bets` é a fila desta sala, que é exatamente o recorte de todo o resto
+  ///   do dashboard (participantes, arrecadado, cotas, verificadas). O
+  ///   `collectionGroup` cruza TODAS as salas, então o painel exibia uma
+  ///   contagem de escopo diferente das outras ao lado dela.
+  ///
+  /// E não custa leitura nenhuma: a lista já está em memória.
+  ///
+  /// O erro da stream continua sendo respeitado. Ele é o sinal de que a
+  /// verificação de pendências não está funcionando (regra recusando a query,
+  /// índice faltando), e engolir isso mostraria "nada pendente" com a mesma
+  /// cara de "tudo verificado" — o oposto do que o admin precisa saber.
   int _totalPendentes(
     AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot,
   ) {
     if (fakePendentes != null) return fakePendentes!.length;
     if (pendentesSnapshot.hasError) return -1;
-    return pendentesSnapshot.data?.docs.length ?? 0;
+    return bets.where((b) => b['verificado'] != true).length;
   }
 
   /// Card de estatísticas (participantes, arrecadado, prêmio, cotas,

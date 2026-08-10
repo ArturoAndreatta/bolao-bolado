@@ -166,58 +166,95 @@ class AvatarService {
     }, SetOptions(merge: true));
   }
 
-  /// Busca a cor de avatar do usuário no Firestore.
-  /// A cor salva em `avatarColor` sempre tem prioridade — a conta admin só
-  /// recebe [kCorBaseAdmin] como valor padrão, enquanto nenhuma cor tiver
-  /// sido gravada explicitamente. Usuários sem documento em `usuarios`
-  /// (ex.: anônimos) recebem uma cor sorteada apenas em memória, sem
-  /// tentar persistir.
-  static Future<Color> buscarCor(String uid) async {
-    final doc = await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(uid)
-        .get();
+  /// Cor e emoji do avatar derivados de um documento `usuarios/{uid}` **já
+  /// lido**, sorteando em memória o que estiver faltando.
+  ///
+  /// Função pura, sem Firestore: quem chama decide se relê o documento
+  /// ([buscarAvatar]) ou se aproveita um que já tem em mãos. Era isso que
+  /// faltava — `buscarCor` e `buscarEmoji` liam o MESMO documento cada uma por
+  /// sua conta, e quem também precisava do `isAdmin` (o drawer) lia uma
+  /// terceira vez. Três leituras cobradas para o mesmo `usuarios/{uid}` só
+  /// para abrir o menu.
+  ///
+  /// Regras preservadas: `avatarColor`/`avatarEmoji` gravados sempre têm
+  /// prioridade; a conta admin cai em [kCorBaseAdmin] enquanto não tiver cor
+  /// própria; e [faltava] avisa que algo foi sorteado agora e merece ser
+  /// persistido — decisão de quem chama, porque usuário sem documento
+  /// (anônimo) recebe valores só em memória.
+  static ({Color cor, String emoji, bool faltava}) avatarDeDados(
+    Map<String, dynamic>? dados,
+  ) {
+    final corValue = dados?['avatarColor'] as int?;
+    final emojiSalvo = dados?['avatarEmoji'] as String?;
+    final temEmoji = emojiSalvo != null && emojiSalvo.isNotEmpty;
 
     // Sem documento em `usuarios` (ex.: anônimo) nunca é admin — admin sempre
-    // tem doc com isAdmin: true. Só sorteia uma cor em memória.
-    if (!doc.exists) {
-      return Color(sortearCorAleatoria());
-    }
+    // tem doc com isAdmin: true.
+    final cor = corValue != null
+        ? Color(corValue)
+        : (dados?['isAdmin'] == true
+              ? kCorBaseAdmin
+              : Color(sortearCorAleatoria()));
 
-    final corValue = doc.data()?['avatarColor'] as int?;
-    if (corValue != null) return Color(corValue);
-
-    if (doc.data()?['isAdmin'] == true) return kCorBaseAdmin;
-
-    final novaCor = sortearCorAleatoria();
-    await FirebaseFirestore.instance.collection('usuarios').doc(uid).set({
-      'avatarColor': novaCor,
-    }, SetOptions(merge: true));
-    return Color(novaCor);
+    return (
+      cor: cor,
+      emoji: temEmoji ? emojiSalvo : sortearEmojiAleatorio(),
+      // A cor do admin é um padrão calculado, não um sorteio a persistir.
+      faltava: (corValue == null && dados?['isAdmin'] != true) || !temEmoji,
+    );
   }
 
-  /// Busca o emoji de avatar do usuário no Firestore, sorteando e
-  /// persistindo um novo caso ainda não exista (ex.: contas criadas antes
-  /// da migração para emojis). Usuários sem documento (ex.: anônimos)
-  /// recebem um emoji sorteado apenas em memória.
-  static Future<String> buscarEmoji(String uid) async {
+  /// Grava cor e/ou emoji sorteados por [avatarDeDados], num `set` só.
+  ///
+  /// Só grava o que realmente faltava no documento — passar os dois campos
+  /// sempre sobrescreveria uma escolha que o usuário já tinha feito.
+  static Future<void> persistirAvatar(
+    String uid, {
+    required Map<String, dynamic>? dados,
+    required Color cor,
+    required String emoji,
+  }) async {
+    final campos = <String, Object?>{
+      if (dados?['avatarColor'] == null && dados?['isAdmin'] != true)
+        'avatarColor': cor.toARGB32(),
+      if ((dados?['avatarEmoji'] as String?)?.isNotEmpty != true)
+        'avatarEmoji': emoji,
+    };
+    if (campos.isEmpty) return;
+
+    await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(uid)
+        .set(campos, SetOptions(merge: true));
+  }
+
+  /// Cor e emoji do avatar do usuário, resolvidos numa leitura só.
+  ///
+  /// Substitui o par `buscarCor`/`buscarEmoji`, que lia o mesmo documento duas
+  /// vezes e podia disparar dois `set` separados para preencher o que faltava.
+  /// Quem já tem o documento em mãos deve usar [avatarDeDados] direto, sem
+  /// nenhuma leitura.
+  static Future<({Color cor, String emoji})> buscarAvatar(String uid) async {
     final doc = await FirebaseFirestore.instance
         .collection('usuarios')
         .doc(uid)
         .get();
 
-    if (!doc.exists) {
-      return sortearEmojiAleatorio();
+    final dados = doc.exists ? doc.data() : null;
+    final avatar = avatarDeDados(dados);
+
+    // Sem documento não há o que persistir: usuário anônimo recebe os valores
+    // sorteados apenas em memória, como antes.
+    if (avatar.faltava && doc.exists) {
+      await persistirAvatar(
+        uid,
+        dados: dados,
+        cor: avatar.cor,
+        emoji: avatar.emoji,
+      );
     }
 
-    final emoji = doc.data()?['avatarEmoji'] as String?;
-    if (emoji != null && emoji.isNotEmpty) return emoji;
-
-    final novoEmoji = sortearEmojiAleatorio();
-    await FirebaseFirestore.instance.collection('usuarios').doc(uid).set({
-      'avatarEmoji': novoEmoji,
-    }, SetOptions(merge: true));
-    return novoEmoji;
+    return (cor: avatar.cor, emoji: avatar.emoji);
   }
 }
 
@@ -244,10 +281,32 @@ class AvatarColorCache {
   final Map<String, Stream<({Color cor, String emoji})>> _avatarStreams = {};
 
   /// Assinatura interna de cada uid observado, guardada só para poder ser
-  /// cancelada em [liberar]. Sem isto o listener do `snapshots()` ficava
+  /// cancelada em [_soltar]. Sem isto o listener do `snapshots()` ficava
   /// inalcançável depois de criado — o cache só crescia.
   final Map<String, StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>
   _assinaturas = {};
+
+  /// Ordem de último uso de cada uid (contador crescente, não relógio: só a
+  /// ordem relativa importa e assim não há dependência de horário do sistema).
+  final Map<String, int> _ultimoUso = {};
+  int _relogioDeUso = 0;
+
+  void _tocar(String uid) => _ultimoUso[uid] = _relogioDeUso++;
+
+  /// Avisa que este uid está sendo DESENHADO agora, renovando a posição dele na
+  /// fila de descarte ([_podarObservados]).
+  ///
+  /// Existe porque um avatar já resolvido é desenhado direto do último valor
+  /// conhecido, sem assinar stream nenhuma (ver `AvatarDoParticipante`) — então
+  /// sem este aviso a linha na tela há mais tempo pareceria a mais ociosa de
+  /// todas, e seria a primeira a perder o listener.
+  ///
+  /// Não confundir com [avatarConhecido] e companhia, que são leituras PURAS:
+  /// elas também são chamadas em massa para montar a lista inteira (inclusive o
+  /// que está fora da tela), e renovar a fila ali diria que tudo está em uso.
+  void tocarSeObservado(String uid) {
+    if (_docs.containsKey(uid)) _tocar(uid);
+  }
 
   // Compartilhado por toda a vida do app junto com o próprio cache
   // (singleton), por isso não é fechado.
@@ -280,27 +339,32 @@ class AvatarColorCache {
   /// bytes. Numa sala com 20 apostas isso eram 40 listeners abertos em vez
   /// de 20, todos concorrendo pela mesma conexão na primeira carga.
   Stream<DocumentSnapshot<Map<String, dynamic>>> _docStream(String uid) {
-    return _docs.putIfAbsent(uid, () {
-      final stream = FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(uid)
-          .snapshots()
-          .asBroadcastStream();
+    _tocar(uid);
+    final existente = _docs[uid];
+    if (existente != null) return existente;
 
-      // Registrado antes de qualquer outro assinante, então os "últimos
-      // valores conhecidos" já estão preenchidos quando alguém consulta
-      // corConhecida/emojiConhecido depois do primeiro evento.
-      _assinaturas[uid] = stream.listen((doc) {
-        final dados = doc.data();
-        final cor = _corDe(dados);
-        final emoji = _emojiDe(dados);
-        final mudou = _ultimoValor[uid] != cor || _ultimoEmoji[uid] != emoji;
-        _ultimoValor[uid] = cor;
-        _ultimoEmoji[uid] = emoji;
-        if (mudou) _notificarMudanca();
-      });
-      return stream;
+    final stream = FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(uid)
+        .snapshots()
+        .asBroadcastStream();
+    _docs[uid] = stream;
+
+    // Registrado antes de qualquer outro assinante, então os "últimos
+    // valores conhecidos" já estão preenchidos quando alguém consulta
+    // corConhecida/emojiConhecido depois do primeiro evento.
+    _assinaturas[uid] = stream.listen((doc) {
+      final dados = doc.data();
+      final cor = _corDe(dados);
+      final emoji = _emojiDe(dados);
+      final mudou = _ultimoValor[uid] != cor || _ultimoEmoji[uid] != emoji;
+      _ultimoValor[uid] = cor;
+      _ultimoEmoji[uid] = emoji;
+      if (mudou) _notificarMudanca();
     });
+
+    _podarObservados();
+    return stream;
   }
 
   static Color _corDe(Map<String, dynamic>? dados) {
@@ -398,35 +462,59 @@ class AvatarColorCache {
     if (mudou) _notificarMudanca();
   }
 
-  /// Para de observar os uids que não estão em [emUso], fechando os listeners
-  /// do Firestore correspondentes.
+  /// Quantos uids podem ficar sendo observados ao mesmo tempo.
   ///
-  /// O cache nunca soltava nada: cada uid observado (participante da lista,
-  /// autor de mensagem do chat) deixava um `snapshots()` aberto até o app ser
-  /// recarregado. Numa sessão longa com chat movimentado, isso é um listener
-  /// acumulado por pessoa que já passou pela tela, todos recebendo push do
-  /// servidor para sempre.
+  /// O cache não soltava nada: cada uid observado (participante da lista, autor
+  /// de mensagem do chat) deixava um `snapshots()` aberto até o app recarregar.
+  /// Numa sessão longa, rolando salas grandes e um chat movimentado, isso é um
+  /// listener acumulado por pessoa que passou pela tela — todos recebendo push
+  /// do servidor para sempre.
+  ///
+  /// O teto é deliberadamente MUITO maior que uma tela (um viewport mostra ~15
+  /// linhas de aposta e o chat carrega no máximo 100 mensagens). Isso importa
+  /// porque o listener é o que mantém o avatar AO VIVO: se alguém troca o seu,
+  /// é por ele que a mudança chega às telas abertas dos outros. Com folga
+  /// grande, o uso normal nunca chega perto do limite e esse comportamento fica
+  /// intacto; o teto existe só para a sessão que rolou por horas, onde os uids
+  /// descartados são justamente os que ninguém está olhando há muito tempo.
+  ///
+  /// Mesmo descartado, o avatar continua sendo desenhado: o último valor
+  /// conhecido é preservado (ver [_soltar]). O que se perde é só a atualização
+  /// automática daquele uid — que volta assim que ele reaparecer e alguém
+  /// pedir a stream de novo.
+  static const int kMaxUidsObservados = 150;
+
+  /// Fecha os listeners dos uids parados há mais tempo, até voltar ao teto.
+  void _podarObservados() {
+    if (_docs.length <= kMaxUidsObservados) return;
+
+    // Ordena por último uso: os mais antigos saem primeiro. O uid que acabou de
+    // ser criado é sempre o mais recente, então nunca é o escolhido — nenhum
+    // StreamBuilder que ainda está esperando o primeiro evento é cortado.
+    final porIdade = _docs.keys.toList()
+      ..sort((a, b) => (_ultimoUso[a] ?? 0).compareTo(_ultimoUso[b] ?? 0));
+
+    for (final uid in porIdade.take(_docs.length - kMaxUidsObservados)) {
+      _soltar(uid);
+    }
+  }
+
+  /// Para de observar um uid, fechando o listener do Firestore.
   ///
   /// Os últimos valores conhecidos (cor/emoji) são MANTIDOS de propósito: são
-  /// baratos (dois campos por uid) e permitem redesenhar um avatar já visto
-  /// sem piscar no estado neutro caso ele volte à tela. O que se solta aqui é
-  /// a conexão viva, não a memória.
+  /// baratos (dois campos por uid) e permitem redesenhar um avatar já visto sem
+  /// piscar no estado neutro caso ele volte à tela. O que se solta aqui é a
+  /// conexão viva, não a memória.
   ///
-  /// Ninguém chama isto hoje, e o motivo mudou de natureza: agora que cada
-  /// avatar é observado pela linha VISÍVEL que o desenha (ver
-  /// `AvatarDoParticipante`), o conjunto de uids observados já acompanha a
-  /// tela em vez de crescer com o tamanho da sala. O que ainda falta é soltar
-  /// o listener quando a linha sai de cena — hoje ele fica aberto até o app
-  /// recarregar. Numa sessão muito longa rolando salas grandes isso volta a
-  /// acumular, e é aqui que a limpeza deve entrar.
-  void liberar(Set<String> emUso) {
-    final ociosos = _docs.keys.where((uid) => !emUso.contains(uid)).toList();
-    for (final uid in ociosos) {
-      unawaited(_assinaturas.remove(uid)?.cancel());
-      _docs.remove(uid);
-      _streams.remove(uid);
-      _emojiStreams.remove(uid);
-      _avatarStreams.remove(uid);
-    }
+  /// As streams derivadas saem dos mapas junto: assim, se o uid voltar a ser
+  /// pedido, [_docStream] abre uma assinatura nova em vez de devolver uma que
+  /// já foi cancelada.
+  void _soltar(String uid) {
+    unawaited(_assinaturas.remove(uid)?.cancel());
+    _docs.remove(uid);
+    _streams.remove(uid);
+    _emojiStreams.remove(uid);
+    _avatarStreams.remove(uid);
+    _ultimoUso.remove(uid);
   }
 }

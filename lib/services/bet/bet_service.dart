@@ -12,7 +12,7 @@ const String kSalaPrincipalIdFallback = '9DvtjeS3gzyNyhFkqaF5';
 /// Descoberta da sala principal memoizada por sessão do app.
 ///
 /// `buscarSalaPrincipalId()` era chamada de cinco pontos diferentes numa
-/// única carga da tela de Participantes (getDadosSalaPrincipal, streamBets
+/// única carga da tela de Participantes (getDadosSalaEApostas, streamBets
 /// pela página, streamBets e streamSalaPrincipal pelo MinhaApostaCard,
 /// _carregarDados do MinhaApostaCard) e cada chamada era uma query de rede
 /// própria — cinco round-trips seriais só para redescobrir o mesmo ID. Em
@@ -89,34 +89,52 @@ Stream<DocumentSnapshot<Map<String, dynamic>>> streamSalaPrincipal() async* {
   yield* sala.reference.snapshots();
 }
 
-/// Lê uma vez os dados (sorteio, data, prêmio) da sala principal.
-/// Usado pelo painel admin, que trabalha com uma leitura pontual em vez de
-/// stream. Relê o documento em vez de devolver o snapshot memoizado: o ID
-/// da sala não muda durante a sessão, mas prêmio e data do sorteio mudam, e
-/// devolver um valor velho aqui mostraria dinheiro errado na tela.
-Future<Map<String, dynamic>> getDadosSalaPrincipal() async {
+/// Dados da sala principal (sorteio, data, prêmio) **e** as apostas dela, numa
+/// leitura pontual — o modo como o Painel ADM trabalha, em vez de stream.
+///
+/// Substituiu o par `getDadosSalaPrincipal()` + `getBets()`, que o painel
+/// chamava em paralelo: cada uma relia o documento da sala por conta própria,
+/// então o mesmo `Salas/{id}` era lido DUAS vezes por atualização das
+/// estatísticas. Aqui ele é lido uma vez e o valor serve aos dois usos.
+///
+/// A releitura da sala e a query de Participantes saem juntas (`.wait`): não
+/// dependem uma da outra, e encadeadas eram dois round-trips em fila antes de
+/// o painel sair do skeleton.
+///
+/// Relê o documento em vez de aproveitar o snapshot memoizado por
+/// [buscarSalaPrincipal]: o ID da sala não muda durante a sessão, mas prêmio e
+/// data do sorteio mudam, e devolver um valor velho aqui mostraria dinheiro
+/// errado na tela.
+Future<({Map<String, dynamic> dadosSala, List<Map<String, Object?>> apostas})>
+getDadosSalaEApostas() async {
   final sala = await buscarSalaPrincipal();
-  final atual = await sala.reference.get();
-  return {'salaId': sala.id, ...?atual.data()};
+
+  final (atual, snapshot) = await (
+    sala.reference.get(),
+    sala.reference
+        .collection('Participantes')
+        .orderBy('data-hora', descending: true)
+        .get(),
+  ).wait;
+
+  final dados = atual.data();
+  return (
+    dadosSala: {'salaId': sala.id, ...?dados},
+    apostas: _montarParticipantes(
+      snapshot.docs,
+      (dados?['premio'] as num?)?.toDouble() ?? 0,
+      precoCotaPara(dados?['sorteio']?.toString()),
+    ),
+  );
 }
 
 /// Lê todos os participantes/apostas da sala principal.
 /// Fonte: Salas/{salaPrincipalId}/Participantes/{uid}
+///
+/// Quem também precisa dos dados da sala deve usar [getDadosSalaEApostas], que
+/// aproveita a mesma leitura em vez de pagar duas.
 Future<List<Map<String, Object?>>> getBets() async {
-  final sala = await buscarSalaPrincipal();
-  // Prêmio e preço de cota saem de uma releitura (mesmo motivo de
-  // getDadosSalaPrincipal: o rateio não pode ser calculado com prêmio
-  // velho), mas a query de descoberta da sala já foi paga uma vez só.
-  final atual = await sala.reference.get();
-  final premioSala = (atual.data()?['premio'] as num?)?.toDouble() ?? 0;
-  final precoCota = precoCotaPara(atual.data()?['sorteio']?.toString());
-
-  final snapshot = await sala.reference
-      .collection('Participantes')
-      .orderBy('data-hora', descending: true)
-      .get();
-
-  return _montarParticipantes(snapshot.docs, premioSala, precoCota);
+  return (await getDadosSalaEApostas()).apostas;
 }
 
 /// Observa em tempo real os participantes/apostas da sala principal.
@@ -441,6 +459,19 @@ List<Map<String, Object?>> calcularCotasEPremios(
 /// stream há mais tempo) ficava preso em ConnectionState.waiting até a
 /// PRÓXIMA mudança nos dados — só saindo do skeleton quando alguém
 /// confirmava/lançava uma aposta.
+/// Teto de apostas pendentes trazidas pela stream do badge.
+///
+/// A query não tinha limite: ela baixava TODAS as apostas não verificadas de
+/// todas as salas e mantinha o conjunto inteiro sincronizado, só para alimentar
+/// um número. Numa sala com centenas de apostas por verificar, abrir o menu
+/// custava centenas de leituras e um push contínuo do servidor.
+///
+/// 100 não perde informação em nenhum dos dois consumidores: o badge do drawer
+/// já corta em `'99+'` (ver `_DrawerItem`), e o Painel ADM passou a contar as
+/// pendências a partir das apostas que ele já carregou, sem depender desta
+/// stream para o número exato.
+const int kLimitePendentesBadge = 100;
+
 QuerySnapshot<Map<String, dynamic>>? _ultimoSnapshotPendentes;
 Object? _erroApostasPendentes;
 StreamController<QuerySnapshot<Map<String, dynamic>>>?
@@ -469,6 +500,9 @@ Stream<QuerySnapshot<Map<String, dynamic>>> streamApostasPendentes() {
   FirebaseFirestore.instance
       .collectionGroup('Participantes')
       .where('verificado', isEqualTo: false)
+      // Ver [kLimitePendentesBadge]: sem limite esta query trazia a fila
+      // inteira de todas as salas para exibir um contador.
+      .limit(kLimitePendentesBadge)
       .snapshots()
       .listen(
         (snapshot) {
