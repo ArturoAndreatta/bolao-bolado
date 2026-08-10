@@ -174,10 +174,12 @@ class _BarraDeslizanteState extends State<_BarraDeslizante>
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
-    final media = MediaQuery.of(context);
     // Acompanha o rodapé do sistema (barra de gestos no Android, home
-    // indicator no iPhone) em vez de ficar por baixo dele.
-    final margemInferior = 16 + media.padding.bottom;
+    // indicator no iPhone) em vez de ficar por baixo dele. `paddingOf` em vez
+    // de `MediaQuery.of`: só o padding interessa aqui, e depender do
+    // MediaQueryData inteiro fazia a snackbar reconstruir a cada mudança de
+    // `viewInsets` (teclado abrindo) no meio da própria animação de entrada.
+    final margemInferior = 16 + MediaQuery.paddingOf(context).bottom;
 
     return Positioned(
       left: 16,

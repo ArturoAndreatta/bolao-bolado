@@ -33,7 +33,11 @@ class DefaultLayout extends StatelessWidget {
     // usa o filtro fraco dele e sai borrado — pré-reduzir deixa só ~3x de
     // trabalho pro runtime, faixa em que qualquer filtro fica bom.
     // cacheHeight ainda decodifica no tamanho físico exato da tela.
-    final alturaLogoAppBar = (54 * MediaQuery.of(context).devicePixelRatio)
+    //
+    // `devicePixelRatioOf` e não `MediaQuery.of`: este é o layout de TODAS as
+    // telas, e depender do MediaQueryData inteiro fazia o teclado abrindo
+    // (mudança em `viewInsets`) reconstruir a AppBar e o corpo da página junto.
+    final alturaLogoAppBar = (54 * MediaQuery.devicePixelRatioOf(context))
         .round();
 
     return Container(

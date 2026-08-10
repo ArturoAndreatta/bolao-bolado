@@ -64,7 +64,7 @@ class _ConsultarSalasState extends State<ConsultarSalas> {
 
   @override
   Widget build(BuildContext context) {
-    final altura = MediaQuery.of(context).size.height;
+    final altura = MediaQuery.sizeOf(context).height;
     // Limita a altura da lista a uma faixa razoável para não estourar em telas pequenas
     // nem ficar desproporcional em telas grandes.
     final alturaLista = (altura * 0.5).clamp(260.0, 500.0);

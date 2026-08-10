@@ -100,6 +100,11 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
   // próprio layout — ver _MedidorDeAltura e o cálculo de escalaPix.
   double? _alturaTopoMedida;
 
+  // Última escala do Pix calculada, e a chave das condições que a produziram
+  // (ver _escalaPix). Memoizar é o que tira a medição do caminho do teclado.
+  String? _chaveEscalaPix;
+  double _escalaPixMemo = 1;
+
   @override
   void initState() {
     super.initState();
@@ -364,6 +369,68 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     }
   }
 
+  /// Quanto esticar o bloco Pix para ele absorver a folga vertical do card —
+  /// **memoizado pelas condições que realmente mudam essa conta**.
+  ///
+  /// A memoização não é micro-otimização. Descobrir a escala custa SETE
+  /// chamadas de [_alturaDe] (uma para a altura natural + seis passos da busca
+  /// binária), e cada uma monta o `PixInfo` inteiro numa árvore descartável —
+  /// incluindo o `QrImageView`, que codifica o QR code no próprio build. Sem
+  /// cache isso rodava a cada rebuild do card: **toda tecla digitada no campo
+  /// Valor** (o listener do controller chama setState), toda emissão de
+  /// `streamBets()` e toda mudança na sala. Digitar um valor de dois dígitos
+  /// gerava e jogava no lixo 14 QR codes.
+  ///
+  /// Nada disso depende do valor apostado: ele entra só no payload do QR, que
+  /// ocupa o mesmo espaço em pixels qualquer que seja o conteúdo. O que mexe
+  /// na altura é a CHAVE Pix (o texto ao lado do QR), o espaço disponível, a
+  /// altura já ocupada pelos campos e a escala de fonte do sistema — e é por
+  /// esses quatro que a conta é chaveada.
+  double _escalaPix({
+    required BuildContext context,
+    required Widget Function({double escalaPix}) blocoPix,
+    required double largura,
+    required double alturaDisponivel,
+    required double alturaTopo,
+  }) {
+    if (_chavePix.isEmpty || !alturaDisponivel.isFinite) return 1;
+
+    // Arredondado para pixel inteiro: variação sub-pixel de constraint não
+    // muda a escala de forma perceptível, e sem isso o cache erraria sempre.
+    final chave =
+        '$_chavePix|${largura.round()}|${alturaDisponivel.round()}'
+        '|${alturaTopo.round()}|${MediaQuery.textScalerOf(context).scale(14)}';
+    if (chave == _chaveEscalaPix) return _escalaPixMemo;
+
+    var escala = 1.0;
+    final alturaBloco = _alturaDe(context, blocoPix(), largura);
+    // Reserva 12px para o Pix não colar no botão Confirmar.
+    final folga = alturaDisponivel - alturaTopo - alturaBloco - 12;
+    if (alturaBloco > 0 && folga > 0) {
+      // A altura do card NÃO é linear na escala (o QR tem teto de largura,
+      // textos quebram em linhas), então em vez de calcular a escala por regra
+      // de três faz-se uma busca binária medindo o bloco realmente escalado. 6
+      // passos já chegam a ~1% do alvo.
+      final alvo = alturaBloco + folga;
+      var min = 1.0;
+      var max = 1.6;
+      for (var i = 0; i < 6; i++) {
+        final meio = (min + max) / 2;
+        final altura = _alturaDe(context, blocoPix(escalaPix: meio), largura);
+        if (altura <= alvo) {
+          min = meio;
+        } else {
+          max = meio;
+        }
+      }
+      escala = min;
+    }
+
+    _chaveEscalaPix = chave;
+    _escalaPixMemo = escala;
+    return escala;
+  }
+
   @override
   Widget build(BuildContext context) {
     // forcarSkeletonGlobal (toggle do Painel ADM) força o skeleton mesmo já
@@ -530,42 +597,16 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
                   // compartilhado) passa por _alturaDe.
                   final alturaTopo =
                       _alturaTopoMedida ?? constraints.maxHeight * 0.55;
-                  var escalaPix = 1.0;
-                  if (_chavePix.isNotEmpty && constraints.maxHeight.isFinite) {
-                    final alturaBloco = _alturaDe(
-                      context,
-                      blocoPix(),
-                      larguraDisponivel,
-                    );
-                    // Reserva 12px para o Pix não colar no botão Confirmar.
-                    final folga =
-                        constraints.maxHeight - alturaTopo - alturaBloco - 12;
-                    if (alturaBloco > 0 && folga > 0) {
-                      // A altura do card NÃO é linear na escala (o QR tem teto
-                      // de largura, textos quebram em linhas), então em vez de
-                      // calcular a escala por regra de três faz-se uma busca
-                      // binária medindo o bloco realmente escalado. 6 passos
-                      // já chegam a ~1% do alvo, e cada passo é só layout de
-                      // um subwidget pequeno.
-                      final alvo = alturaBloco + folga;
-                      var min = 1.0;
-                      var max = 1.6;
-                      for (var i = 0; i < 6; i++) {
-                        final meio = (min + max) / 2;
-                        final altura = _alturaDe(
-                          context,
-                          blocoPix(escalaPix: meio),
-                          larguraDisponivel,
-                        );
-                        if (altura <= alvo) {
-                          min = meio;
-                        } else {
-                          max = meio;
-                        }
-                      }
-                      escalaPix = min;
-                    }
-                  }
+                  // Medir custa 7 layouts fora da árvore (com 7 QR codes),
+                  // então o resultado é memoizado pelas condições que o
+                  // determinam — ver [_escalaPix].
+                  final escalaPix = _escalaPix(
+                    context: context,
+                    blocoPix: blocoPix,
+                    largura: larguraDisponivel,
+                    alturaDisponivel: constraints.maxHeight,
+                    alturaTopo: alturaTopo,
+                  );
 
                   return SingleChildScrollView(
                     child: ConstrainedBox(

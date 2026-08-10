@@ -191,7 +191,34 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
     return habilitarSelecao ? SelectionArea(child: child) : child;
   }
 
+  // Resultado do último filtro+ordenação e as entradas que o produziram.
+  //
+  // Filtrar e ordenar percorre a lista inteira (o `sort` ainda faz `toString`
+  // e lookup de mapa por comparação), e isso acontecia dentro do build — ou
+  // seja, a cada emissão do stream, a cada tecla na busca e a cada tick do
+  // simulador, mesmo quando nada tinha mudado. Numa rajada de apostas em sala
+  // grande era o custo dominante do frame.
+  //
+  // `rowsData` é comparada por IDENTIDADE, não conteúdo: `streamBets()` só
+  // emite lista nova quando algo mudou de verdade, então identidade igual
+  // significa dados iguais — e comparar 1000 mapas campo a campo custaria
+  // quase o mesmo que refazer a conta.
+  List<Map<String, dynamic>>? _linhasCache;
+  List<Map<String, dynamic>>? _rowsDataDoCache;
+  String? _buscaDoCache;
+  int? _colunaDoCache;
+  bool? _ascendenteDoCache;
+
   List<Map<String, dynamic>> _linhasFiltradas() {
+    final cache = _linhasCache;
+    if (cache != null &&
+        identical(_rowsDataDoCache, widget.rowsData) &&
+        _buscaDoCache == _busca &&
+        _colunaDoCache == _colunaOrdenada &&
+        _ascendenteDoCache == _ascendente) {
+      return cache;
+    }
+
     // Descarta posições memorizadas de apostas que saíram da sala (ver
     // esquecerOrdemDeChegada). Usa a lista COMPLETA, não a filtrada: filtrar
     // pela busca não é motivo para uma aposta perder o lugar que já tinha.
@@ -211,6 +238,12 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
               )
               .toList();
     _ordenar(rows);
+
+    _linhasCache = rows;
+    _rowsDataDoCache = widget.rowsData;
+    _buscaDoCache = _busca;
+    _colunaDoCache = _colunaOrdenada;
+    _ascendenteDoCache = _ascendente;
     return rows;
   }
 

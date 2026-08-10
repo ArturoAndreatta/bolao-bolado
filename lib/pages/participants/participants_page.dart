@@ -107,9 +107,28 @@ class _ParticipantsState extends State<Participants> {
   /// mesmo rateio que apostas de verdade, para a tela ficar idêntica ao modo
   /// "grava no Firestore". Sem apostas locais, é simplesmente `_apostasReais`
   /// (o caminho comum, sem custo extra de recálculo).
+  // Resultado do último merge reais+fake e as entradas que o produziram. Sem
+  // isto o getter devolvia uma lista NOVA a cada build, e o painel logo abaixo
+  // (que memoiza filtro/ordenação por identidade da lista) errava o cache
+  // sempre — justamente durante a simulação, que é quando mais reconstrói.
+  List<Map<String, Object?>>? _rowsDataCache;
+  List<Map<String, Object?>>? _reaisDoCache;
+  List<Map<String, Object?>>? _locaisDoCache;
+  double? _premioDoCache;
+  String? _sorteioDoCache;
+
   List<Map<String, Object?>> get _rowsData {
     final locais = _simulador.apostasLocais.value;
     if (locais.isEmpty) return _apostasReais;
+
+    final cache = _rowsDataCache;
+    if (cache != null &&
+        identical(_reaisDoCache, _apostasReais) &&
+        identical(_locaisDoCache, locais) &&
+        _premioDoCache == _premioSala &&
+        _sorteioDoCache == _sorteio) {
+      return cache;
+    }
 
     // As reais já vieram de streamBets() com `cotas`/`premio` calculados só
     // entre elas; juntar direto com as fake (que não têm esses campos)
@@ -123,11 +142,18 @@ class _ParticipantsState extends State<Participants> {
       return copia;
     });
     final precoCota = precoCotaPara(_sorteio);
-    return calcularCotasEPremios(
+    final resultado = calcularCotasEPremios(
       [...semCotasPremio, ...locais],
       _premioSala,
       precoCota,
     );
+
+    _rowsDataCache = resultado;
+    _reaisDoCache = _apostasReais;
+    _locaisDoCache = locais;
+    _premioDoCache = _premioSala;
+    _sorteioDoCache = _sorteio;
+    return resultado;
   }
 
   Future<void> _load() async {

@@ -76,6 +76,10 @@ class _PainelEstatisticasState extends State<PainelEstatisticas> {
         percentual: chancePercentual,
         fracao: chanceFracao,
         horizontal: true,
+        // Recolhido (mobile), o card segue montado atrás do AnimatedCrossFade
+        // mas invisível: alternar percentual/fração ali é setState a cada 3s
+        // para ninguém ver.
+        animar: !widget.recolhivel || _expandido,
         percentualStyle: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w700,
@@ -266,6 +270,14 @@ class ChanceFracaoReveal extends StatefulWidget {
   final TextStyle fracaoStyle;
   final bool horizontal;
 
+  /// Alterna entre percentual e fração a cada 3s?
+  ///
+  /// `false` quando o painel está recolhido: no mobile os três cards ficam
+  /// atrás de um `AnimatedCrossFade`, que mantém os DOIS lados montados. O
+  /// timer então continuava batendo (e chamando setState) para um card fora de
+  /// vista, pela sessão inteira — trabalho perpétuo em troca de nada.
+  final bool animar;
+
   const ChanceFracaoReveal({
     super.key,
     required this.percentual,
@@ -273,6 +285,7 @@ class ChanceFracaoReveal extends StatefulWidget {
     required this.percentualStyle,
     required this.fracaoStyle,
     this.horizontal = false,
+    this.animar = true,
   });
 
   @override
@@ -286,6 +299,19 @@ class _ChanceFracaoRevealState extends State<ChanceFracaoReveal> {
   @override
   void initState() {
     super.initState();
+    _sincronizarTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant ChanceFracaoReveal oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.animar != oldWidget.animar) _sincronizarTimer();
+  }
+
+  void _sincronizarTimer() {
+    _timer?.cancel();
+    _timer = null;
+    if (!widget.animar) return;
     _timer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted) setState(() => _revelado = !_revelado);
     });
@@ -299,6 +325,14 @@ class _ChanceFracaoRevealState extends State<ChanceFracaoReveal> {
 
   @override
   Widget build(BuildContext context) {
+    // O conteúdo troca sozinho a cada 3s. Sem a boundary, esse repaint subia
+    // para o card inteiro (e, no desktop, para os três cards da fileira ao
+    // lado) — a boundary confina a repintura ao texto que de fato mudou. O
+    // layout não escapa daqui porque o pai já dá largura fixa via Expanded.
+    return RepaintBoundary(child: _conteudo());
+  }
+
+  Widget _conteudo() {
     return widget.horizontal
         ? AnimatedSwitcher(
             duration: const Duration(milliseconds: 150),

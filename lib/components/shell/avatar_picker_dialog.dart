@@ -14,7 +14,7 @@ Future<void> mostrarEscolhaAvatar(
   required void Function(String novoEmoji, Color novaCor) onSelecionado,
   bool isAdmin = false,
 }) async {
-  final isMobile = MediaQuery.of(context).size.width < 600;
+  final isMobile = MediaQuery.sizeOf(context).width < 600;
 
   if (isMobile) {
     await showModalBottomSheet(

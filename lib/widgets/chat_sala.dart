@@ -594,10 +594,15 @@ class _BolhaMensagem extends StatelessWidget {
             child: ConstrainedBox(
               // Bolha nunca encosta na margem oposta: mesmo no mobile sobra
               // um respiro que deixa claro de que lado a mensagem está.
+              //
+              // `sizeOf` e não `of`: com `of`, cada bolha passava a depender do
+              // MediaQueryData inteiro — inclusive de `viewInsets` —, então
+              // abrir o teclado para responder reconstruía todas as bolhas
+              // visíveis de uma vez, justamente no momento em que o chat
+              // precisa estar leve.
               constraints: BoxConstraints(
                 maxWidth:
-                    MediaQuery.of(context).size.width *
-                    (compacto ? 0.78 : 0.85),
+                    MediaQuery.sizeOf(context).width * (compacto ? 0.78 : 0.85),
               ),
               child: Column(
                 crossAxisAlignment: isMinha

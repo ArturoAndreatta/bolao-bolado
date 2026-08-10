@@ -132,7 +132,7 @@ class _SalaDetalhesState extends State<SalaDetalhes> {
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
-    final height = MediaQuery.of(context).size.height;
+    final height = MediaQuery.sizeOf(context).height;
     // Limita a altura da tabela a uma faixa razoável para não estourar em telas muito
     // pequenas nem ficar desproporcional em telas muito grandes.
     final heightTable = (height * 0.45).clamp(260.0, 420.0);
