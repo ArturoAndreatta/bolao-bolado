@@ -50,6 +50,41 @@ Gerado a partir de uma análise completa da base de código em 2026-07-09.
 
 ---
 
+## Chat — ideias levantadas, ainda não feitas
+
+Levantamento de 2026-08-15, junto com a implementação de menções, reações,
+marcação de texto e mensagem fixada (essas quatro já estão no app). O que ficou
+para depois, em ordem de valor por esforço:
+
+- [ ] **Responder mensagem (citação)**: campo `respostaA {id, autorNome, trecho}`
+  no doc da mensagem e um bloco de citação acima do texto na bolha. Encaixa
+  direto no que já existe — responder passaria a marcar a pessoa
+  automaticamente, reusando `mencoes`.
+- [ ] **Separador de "não lidas" + botão "pular pro fim"**: guardar
+  `ultimaLeituraChat` em `usuarios/{uid}` (ou por sala) e desenhar a faixa na
+  posição correspondente da lista invertida.
+- [ ] **Mensagens de sistema** (`tipo: 'sistema'`): "Fulano entrou com 5 cotas",
+  "aposta verificada", "sorteio em 2h". Bolha centralizada, sem avatar. Exige
+  decidir quem escreve — hoje só o client escreve no Firestore, então ou é a
+  própria tela que registra, ou vira o primeiro caso de uso real de Cloud
+  Function.
+- [ ] **Card de jogo no chat**: mandar os números escolhidos como card
+  (`tipo: 'jogo'` + `jogos: [{numeros}]`), reusando o widget da seleção de
+  jogos.
+- [ ] **Resultado do sorteio postado automaticamente**, com os acertos de cada
+  participante. Depende do item de histórico de bolões passados.
+- [ ] **Enquete no chat** ("qual dezena entra?"). O maior dos itens: tela nova,
+  coleção nova e regra de voto própria.
+
+Descartados de propósito, com o motivo:
+
+- **Indicador "está digitando"**: presença exige escrita no Firestore a cada
+  tecla (ou quase), e latência/custo de escrita é o gargalo desta app.
+- **GIF e upload de imagem**: puxa Firebase Storage, moderação de conteúdo e
+  peso no bundle — os três contra o que o projeto vem otimizando.
+
+---
+
 ## Animação de "chuva de dinheiro" (MoneyRain) — removida
 
 O widget `lib/widgets/money_rain.dart` (pilha de emojis de dinheiro que crescia

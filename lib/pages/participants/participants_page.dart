@@ -46,19 +46,26 @@ class _ParticipantsState extends State<Participants> {
   final SimuladorApostas _simulador = SimuladorApostas();
 
   // Aba ativa no mobile: 0 = Participantes, 1 = Chat, 2 = Minha Aposta
-  late int _abaAtiva = switch (widget.abaInicial) {
+  static int _abaDe(String? aba) => switch (aba) {
     'aposta' => 2,
     'chat' => 1,
     _ => 0,
   };
 
+  late int _abaAtiva = _abaDe(widget.abaInicial);
+
   // Controla se o chat está sobreposto ao grid no desktop (dispara a
   // animação de abrir/fechar).
-  bool _chatAbertoDesktop = false;
+  //
+  // Nasce aberto quando a navegação pediu o chat. No desktop não existe aba
+  // de Chat — o painel é sobreposto —, então o MESMO `?aba=chat` que escolhe
+  // a aba no mobile precisa abrir o painel aqui; sem isto, clicar em Chat no
+  // Drawer levava para Participantes e parava por aí.
+  late bool _chatAbertoDesktop = widget.abaInicial == 'chat';
 
   // Mantém o ChatSala montado durante a animação de fechamento; some da
   // árvore só quando a animação termina (evita "sumir" abrupto).
-  bool _chatVisivelDesktop = false;
+  late bool _chatVisivelDesktop = _chatAbertoDesktop;
 
   @override
   void initState() {
@@ -84,11 +91,12 @@ class _ParticipantsState extends State<Participants> {
     // em outro item do Drawer estando já na tela não troca de aba.
     if (widget.abaInicial != oldWidget.abaInicial) {
       setState(() {
-        _abaAtiva = switch (widget.abaInicial) {
-          'aposta' => 2,
-          'chat' => 1,
-          _ => 0,
-        };
+        _abaAtiva = _abaDe(widget.abaInicial);
+        // No desktop o mesmo parâmetro decide o painel sobreposto. Ir para
+        // "Participantes" ou "Minha Aposta" fecha o chat de propósito: o
+        // painel cobre parte do grid, e quem pediu a tabela quer ver a tabela.
+        _chatAbertoDesktop = widget.abaInicial == 'chat';
+        if (_chatAbertoDesktop) _chatVisivelDesktop = true;
       });
     }
   }
@@ -267,9 +275,7 @@ class _ParticipantsState extends State<Participants> {
       // estatísticas, tabela) fora do próprio painel do chat — que tem seu
       // próprio GestureDetector opaco para não propagar o clique até aqui.
       behavior: HitTestBehavior.translucent,
-      onTap: _chatAbertoDesktop
-          ? () => setState(() => _chatAbertoDesktop = false)
-          : null,
+      onTap: _chatAbertoDesktop ? _fecharChatDesktop : null,
       child: HeaderCard(
         text: 'Participantes',
         subtitle: 'Visualize quem está participando',
@@ -344,10 +350,35 @@ class _ParticipantsState extends State<Participants> {
   }
 
   void _alternarChatDesktop() {
+    if (_chatAbertoDesktop) {
+      _fecharChatDesktop();
+      return;
+    }
     setState(() {
-      _chatAbertoDesktop = !_chatAbertoDesktop;
-      if (_chatAbertoDesktop) _chatVisivelDesktop = true;
+      _chatAbertoDesktop = true;
+      _chatVisivelDesktop = true;
     });
+  }
+
+  /// Fecha o painel e apaga o `?aba=chat` da URL.
+  ///
+  /// Limpar a query é o que faz o item Chat do Drawer voltar a funcionar: sem
+  /// isso a URL continuaria dizendo "chat" depois de o usuário fechar o
+  /// painel, e clicar em Chat de novo não mudaria parâmetro nenhum — o
+  /// [didUpdateWidget] não veria diferença e o painel não reabriria.
+  ///
+  /// `replace` e não `go` porque isto não é navegação: fechar o painel não
+  /// pode empilhar uma entrada no histórico do navegador, senão o Voltar
+  /// passaria a desfazer cliques de chat em vez de sair da tela.
+  ///
+  /// O State sobrevive à troca de query nos dois casos — `state.pageKey` sai
+  /// do caminho da rota, não da query, e é o mesmo motivo pelo qual
+  /// [didUpdateWidget] existe aqui em vez de um State novo a cada `?aba=`.
+  void _fecharChatDesktop() {
+    setState(() => _chatAbertoDesktop = false);
+    // Só o `aba=chat` é assunto deste botão: fechar o chat não pode apagar um
+    // `aba=aposta` que veio de outro item do Drawer.
+    if (widget.abaInicial == 'chat') context.replace(AppRoutes.participants);
   }
 
   Widget _botaoChatDesktop() {

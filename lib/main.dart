@@ -5,6 +5,7 @@ import 'package:bolao_bolado/core/app_tema.dart';
 import 'package:bolao_bolado/core/tema_controller.dart';
 import 'package:bolao_bolado/core/ultima_rota_admin.dart';
 import 'package:bolao_bolado/pages/splash_screen.dart';
+import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/services/configuracoes/configuracoes_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -121,6 +122,21 @@ class _AppInitState extends State<_AppInit> {
     // função já descarta o cache em caso de falha, e quem realmente precisa
     // do valor trata o erro na própria tela.
     unawaited(buscarSalaPrincipal().then((_) {}, onError: (Object _) {}));
+
+    // Mesma ideia para o documento `usuarios/{uid}`: ele decide o avatar do
+    // drawer, o `isAdmin` (que acrescenta Cadastrar Sala, Consultar Salas e
+    // Painel ADM ao menu) e o nome que o card Minha Aposta preenche. Lido
+    // agora, chega pronto — sem isso a primeira abertura do menu mostrava os
+    // itens de participante e completava os de admin um instante depois.
+    //
+    // Só para usuário de verdade: anônimo não tem documento, e pedir por ele
+    // seria uma leitura garantidamente vazia em toda visita pública.
+    final logado = FirebaseAuth.instance.currentUser;
+    if (logado != null && !logado.isAnonymous) {
+      unawaited(
+        AuthService().perfil(logado.uid).then((_) {}, onError: (Object _) {}),
+      );
+    }
 
     // Mesmo padrão: assina sem esperar, os notifiers já nascem com o padrão
     // local (definido em debug_flags.dart) e passam a refletir o Firestore

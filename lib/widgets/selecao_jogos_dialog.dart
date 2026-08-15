@@ -75,6 +75,12 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
   // Null = tela da lista de jogos; preenchido = grade de números aberta.
   _JogoEmEdicao? _edicao;
 
+  // Sentido da última navegação entre as duas telas do modal, só para a
+  // transição saber para que lado deslizar: entrando na grade o conteúdo vem
+  // da direita, voltando para a lista vem da esquerda. Sem isso as duas
+  // viradas seriam iguais e o "voltar" não pareceria voltar.
+  bool _abrindoGrade = true;
+
   int get _tamanhoSimples => quantidadeNumerosPara(widget.sorteio);
   int get _numeroMaximo => numeroMaximoPara(widget.sorteio);
 
@@ -107,6 +113,7 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
 
   void _abrirGrade({int? indice}) {
     setState(() {
+      _abrindoGrade = true;
       final numeros = indice == null ? <int>[] : _jogos[indice];
       _edicao = _JogoEmEdicao(
         indice: indice,
@@ -166,6 +173,7 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
     final edicao = _edicao!;
     final numeros = edicao.numeros.toList()..sort();
     setState(() {
+      _abrindoGrade = false;
       if (edicao.indice == null) {
         _jogos.add(numeros);
       } else {
@@ -204,8 +212,55 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
         constraints: const BoxConstraints(maxWidth: 460, maxHeight: 620),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          child: _edicao == null ? _buildLista(cores) : _buildGrade(cores),
+          // As duas telas têm alturas bem diferentes (a lista vazia é curta, a
+          // grade da Lotofácil é alta). Sem o AnimatedSize o modal saltava de
+          // tamanho no mesmo frame da troca, e o salto chamava mais atenção do
+          // que o conteúdo novo.
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              // O padrão empilha os dois filhos CENTRALIZADOS, o que durante a
+              // troca desalinha o título da tela que entra. Alinhados pelo
+              // topo, os dois cabeçalhos ficam no mesmo lugar e só o corpo
+              // desliza.
+              layoutBuilder: (atual, anteriores) => Stack(
+                alignment: Alignment.topCenter,
+                children: [...anteriores, if (atual != null) atual],
+              ),
+              transitionBuilder: _transicaoEntreTelas,
+              child: KeyedSubtree(
+                key: ValueKey(_edicao == null ? 'lista' : 'grade'),
+                child: _edicao == null
+                    ? _buildLista(cores)
+                    : _buildGrade(cores),
+              ),
+            ),
+          ),
         ),
+      ),
+    );
+  }
+
+  /// Deslize horizontal curto (12% da largura) + fade entre a lista e a grade.
+  ///
+  /// Curto de propósito: é navegação DENTRO de um modal de 460px, então o
+  /// gesto de página cheia ficaria exagerado — o suficiente para o olho
+  /// entender que uma tela deu lugar à outra, e não que os textos trocaram.
+  Widget _transicaoEntreTelas(Widget child, Animation<double> animacao) {
+    final entrando = child.key == ValueKey(_edicao == null ? 'lista' : 'grade');
+    final sentido = _abrindoGrade ? 1.0 : -1.0;
+    final inicio = Offset(0.12 * sentido * (entrando ? 1 : -1), 0);
+
+    return FadeTransition(
+      opacity: animacao,
+      child: SlideTransition(
+        position: Tween(begin: inicio, end: Offset.zero).animate(animacao),
+        child: child,
       ),
     );
   }
@@ -230,25 +285,49 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
               : null,
           cores: cores,
         ),
-        if (excedente > 0) ...[
-          const SizedBox(height: 12),
-          _AvisoExcedente(cores: cores, excedente: excedente),
-        ],
+        // A faixa de excesso aparece e some conforme se adiciona ou remove
+        // jogo. Entrando de supetão ela empurrava a lista inteira para baixo
+        // no mesmo frame, e o usuário perdia de vista a linha que acabou de
+        // tocar.
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: excedente > 0
+              ? Padding(
+                  key: const ValueKey('aviso'),
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _AvisoExcedente(cores: cores, excedente: excedente),
+                )
+              : const SizedBox(
+                  key: ValueKey('sem-aviso'),
+                  width: double.infinity,
+                ),
+        ),
         const SizedBox(height: 12),
         Flexible(
-          child: _jogos.isEmpty
-              ? _VazioJogos(cores: cores)
-              : ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _jogos.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) => _LinhaJogo(
-                    posicao: i + 1,
-                    numeros: _jogos[i],
-                    onEditar: () => _abrirGrade(indice: i),
-                    onRemover: () => setState(() => _jogos.removeAt(i)),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: _jogos.isEmpty
+                ? _VazioJogos(key: const ValueKey('vazio'), cores: cores)
+                : ListView.separated(
+                    key: const ValueKey('lista-jogos'),
+                    shrinkWrap: true,
+                    itemCount: _jogos.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, i) => _EntradaSuave(
+                      // Escalonado: "Sortear resto" cria vários jogos de uma
+                      // vez, e eles entrando em cascata mostram QUANTOS foram
+                      // criados. Teto de 6 passos para que uma aposta de 20
+                      // jogos não vire meio segundo de espera.
+                      atraso: Duration(milliseconds: 35 * (i > 6 ? 6 : i)),
+                      child: _LinhaJogo(
+                        posicao: i + 1,
+                        numeros: _jogos[i],
+                        onEditar: () => _abrirGrade(indice: i),
+                        onRemover: () => setState(() => _jogos.removeAt(i)),
+                      ),
+                    ),
                   ),
-                ),
+          ),
         ),
         const SizedBox(height: 12),
         Row(
@@ -386,7 +465,10 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
           children: [
             const Spacer(),
             TextButton(
-              onPressed: () => setState(() => _edicao = null),
+              onPressed: () => setState(() {
+                _abrindoGrade = false;
+                _edicao = null;
+              }),
               child: Text('Voltar', style: TextStyle(color: cores.textoSuave)),
             ),
             const SizedBox(width: 8),
@@ -512,10 +594,79 @@ class _AvisoExcedente extends StatelessWidget {
   }
 }
 
+/// Entrada de um item que acabou de nascer na tela: sobe 10px enquanto
+/// aparece.
+///
+/// Existe porque a lista de jogos ganha linhas de duas maneiras muito
+/// diferentes — uma por vez (montada na mão) ou dez de uma vez ("Sortear
+/// resto") —, e no segundo caso o aparecimento instantâneo lia como a tela
+/// ter sido trocada, não preenchida.
+///
+/// Só a ENTRADA é animada. Remover continua imediato: quem toca no X quer a
+/// linha fora, e segurar o que foi descartado por 200ms é o tipo de enfeite
+/// que atrapalha.
+class _EntradaSuave extends StatefulWidget {
+  final Widget child;
+  final Duration atraso;
+
+  const _EntradaSuave({required this.child, this.atraso = Duration.zero});
+
+  @override
+  State<_EntradaSuave> createState() => _EntradaSuaveState();
+}
+
+class _EntradaSuaveState extends State<_EntradaSuave>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controlador = AnimationController(
+    duration: const Duration(milliseconds: 240),
+    vsync: this,
+  );
+
+  late final Animation<double> _curva = CurvedAnimation(
+    parent: _controlador,
+    curve: Curves.easeOutCubic,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.atraso == Duration.zero) {
+      _controlador.forward();
+    } else {
+      // O timer não é cancelado no dispose porque o próprio controlador é: um
+      // forward() em controlador descartado é ignorado, e guardar o Timer só
+      // para isso não pagaria o campo a mais.
+      Future.delayed(widget.atraso, () {
+        if (mounted) _controlador.forward();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controlador.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _curva,
+      child: SlideTransition(
+        position: Tween(
+          begin: const Offset(0, 0.18),
+          end: Offset.zero,
+        ).animate(_curva),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 class _VazioJogos extends StatelessWidget {
   final AppCores cores;
 
-  const _VazioJogos({required this.cores});
+  const _VazioJogos({super.key, required this.cores});
 
   @override
   Widget build(BuildContext context) {
@@ -755,7 +906,11 @@ class _ChipTamanho extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: AppRadii.circularMd,
-      child: Container(
+      // Trocar de tamanho reordena a cartela inteira embaixo; a cor do chip
+      // atravessando junto amarra as duas coisas como um movimento só.
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -765,13 +920,14 @@ class _ChipTamanho extends StatelessWidget {
             color: selecionado ? cores.acaoPrimaria : cores.bordaCampo,
           ),
         ),
-        child: Text(
-          '$tamanho números',
+        child: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 180),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: selecionado ? cores.textoSobreAcao : cores.textoSuave,
           ),
+          child: Text('$tamanho números'),
         ),
       ),
     );
@@ -835,7 +991,17 @@ class _BotaoSecundario extends StatelessWidget {
   }
 }
 
-class _BolaNumero extends StatelessWidget {
+/// Bola da grade — o alvo de toque que mais se repete no modal.
+///
+/// A marcação tem duas partes: a cor atravessa em 160ms (`AnimatedContainer`)
+/// e a bola dá um "pulinho" de 12% quando é MARCADA. O pulo só acontece ao
+/// marcar, nunca ao desmarcar: ele é a confirmação física do acerto, e dar o
+/// mesmo destaque para tirar um número faria a cartela pipocar inteira quando
+/// se troca de ideia.
+///
+/// É um estouro curto (200ms) e sem `elasticOut`: a grade tem 60 bolas, e uma
+/// curva elástica em algo que se toca seis vezes seguidas cansa depressa.
+class _BolaNumero extends StatefulWidget {
   final int numero;
   final bool selecionado;
   final VoidCallback onTap;
@@ -847,29 +1013,66 @@ class _BolaNumero extends StatelessWidget {
   });
 
   @override
+  State<_BolaNumero> createState() => _BolaNumeroState();
+}
+
+class _BolaNumeroState extends State<_BolaNumero>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controlador = AnimationController(
+    duration: const Duration(milliseconds: 200),
+    vsync: this,
+  );
+
+  late final Animation<double> _pulo = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.12), weight: 40),
+    TweenSequenceItem(tween: Tween(begin: 1.12, end: 1.0), weight: 60),
+  ]).animate(CurvedAnimation(parent: _controlador, curve: Curves.easeOut));
+
+  @override
+  void didUpdateWidget(_BolaNumero anterior) {
+    super.didUpdateWidget(anterior);
+    if (widget.selecionado && !anterior.selecionado) {
+      _controlador.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controlador.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
+    final selecionado = widget.selecionado;
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
       customBorder: const CircleBorder(),
-      child: Container(
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: selecionado ? cores.acaoPrimaria : cores.campo,
-          border: Border.all(
-            color: selecionado ? cores.acaoPrimaria : cores.bordaCampo,
-            width: 1.5,
+      child: ScaleTransition(
+        scale: _pulo,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: selecionado ? cores.acaoPrimaria : cores.campo,
+            border: Border.all(
+              color: selecionado ? cores.acaoPrimaria : cores.bordaCampo,
+              width: 1.5,
+            ),
           ),
-        ),
-        child: Text(
-          numero.toString(),
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: selecionado ? cores.textoSobreAcao : cores.texto,
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 160),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: selecionado ? cores.textoSobreAcao : cores.texto,
+            ),
+            child: Text(widget.numero.toString()),
           ),
         ),
       ),

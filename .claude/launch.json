@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-dev",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": [
+        "run",
+        "-d",
+        "web-server",
+        "--web-port",
+        "5599",
+        "--web-hostname",
+        "localhost",
+        "--dart-define-from-file=dev.env.json"
+      ],
+      "port": 5599
+    }
+  ]
+}

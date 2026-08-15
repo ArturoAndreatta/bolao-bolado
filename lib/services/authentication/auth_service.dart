@@ -64,41 +64,53 @@ class AuthService {
     // O memo é por uid, então outro usuário logando já teria chave própria —
     // limpar aqui é higiene: evita carregar a resposta de uma conta que saiu
     // por uma sessão que pode durar horas.
-    _isAdminPorUid.clear();
+    _perfilPorUid.clear();
+    _perfilResolvido.clear();
     await _auth.signOut();
     // App sempre mantém alguma sessão ativa (mesmo anônima) pra permitir
     // leitura de dados públicos sem forçar login imediato.
     await _auth.signInAnonymously();
   }
 
-  Future<Map<String, dynamic>?> getDadosUsuario(String uid) async {
-    final doc = await _firestore.collection('usuarios').doc(uid).get();
-    return doc.exists ? doc.data() : null;
-  }
-
-  /// Resposta de [isAdmin] memoizada por uid, pela sessão do app.
+  /// Documento `usuarios/{uid}` memoizado por sessão — o Future e, quando já
+  /// resolvido, o próprio valor.
   ///
-  /// `isAdmin` era consultado de quatro lugares numa navegação normal — o
-  /// drawer, a tela de Participantes, o card Minha Aposta (ao confirmar) e o
-  /// Painel ADM — e cada um pagava sua própria leitura do MESMO documento
-  /// `usuarios/{uid}`.
+  /// O MESMO documento era lido de cinco lugares numa navegação normal: o
+  /// drawer (avatar + isAdmin), a tela de Participantes, o card Minha Aposta
+  /// (nome, e de novo ao confirmar) e o Painel ADM. Pior: o drawer relia a
+  /// cada ABERTURA do menu, então era uma leitura cobrada por toque no
+  /// hambúrguer.
   ///
   /// Congelar por sessão é seguro pelo mesmo motivo de `buscarSalaPrincipal()`:
-  /// o campo só muda via console/admin SDK, porque as regras do Firestore
-  /// proíbem o próprio usuário de alterar o seu `isAdmin`. O app nunca escreve
-  /// nesse campo, então não existe caminho em que ele mude com o app aberto.
+  /// o que este documento guarda ou não muda com o app aberto (`isAdmin` só
+  /// muda via console/admin SDK — as regras proíbem o próprio usuário de
+  /// alterá-lo), ou muda pelo PRÓPRIO app, e nesses dois casos quem escreve
+  /// atualiza o cache junto (ver [mesclarNoCache]).
   ///
-  /// Guarda o *Future*, não o valor: as telas montam praticamente juntas, então
-  /// chamadas concorrentes compartilham a mesma leitura em vez de disparar
-  /// várias em paralelo.
-  static final Map<String, Future<bool>> _isAdminPorUid = {};
+  /// Guarda o *Future* para que chamadas concorrentes (as telas montam
+  /// praticamente juntas) compartilhem uma leitura só, e o *valor resolvido*
+  /// para que quem chegar depois possa ler SEM passar por um `await` — é o
+  /// await, e não a rede, que fazia o menu abrir com metade dos itens e
+  /// completar no frame seguinte.
+  static final Map<String, Future<Map<String, dynamic>?>> _perfilPorUid = {};
+  static final Map<String, Map<String, dynamic>?> _perfilResolvido = {};
 
-  Future<bool> isAdmin(String uid) {
-    final memoizado = _isAdminPorUid[uid];
+  /// Dados do usuário já em memória, ou null se ainda não foram lidos.
+  ///
+  /// Devolve `null` tanto para "não carregado" quanto para "usuário sem
+  /// documento". A diferença não importa a nenhum ponto de chamada: os dois
+  /// casos caem no mesmo comportamento (mostrar o padrão e esperar a leitura),
+  /// e distinguir exigiria um sentinela que só complicaria a leitura.
+  static Map<String, dynamic>? perfilConhecido(String uid) =>
+      _perfilResolvido[uid];
+
+  /// Lê `usuarios/{uid}` uma vez por sessão.
+  Future<Map<String, dynamic>?> perfil(String uid) {
+    final memoizado = _perfilPorUid[uid];
     if (memoizado != null) return memoizado;
 
-    final future = getDadosUsuario(uid).then((d) => d?['isAdmin'] == true);
-    _isAdminPorUid[uid] = future;
+    final future = getDadosUsuario(uid);
+    _perfilPorUid[uid] = future;
 
     // Falha de rede não pode ficar memoizada: sem isto um erro na primeira
     // tentativa deixaria o usuário sem acesso de admin até recarregar o app
@@ -106,16 +118,47 @@ class AuthService {
     // mais nova já em andamento.
     unawaited(
       future.then(
-        (_) {},
+        (dados) {
+          if (identical(_perfilPorUid[uid], future)) {
+            _perfilResolvido[uid] = dados;
+          }
+        },
         onError: (Object _) {
-          if (identical(_isAdminPorUid[uid], future)) {
-            _isAdminPorUid.remove(uid);
+          if (identical(_perfilPorUid[uid], future)) {
+            _perfilPorUid.remove(uid);
           }
         },
       ),
     );
 
     return future;
+  }
+
+  /// Atualiza o cache depois de uma escrita feita pelo próprio app (nome,
+  /// cor/emoji do avatar).
+  ///
+  /// Sem isto o cache de sessão passaria a mentir: trocar de avatar mostraria
+  /// o novo na hora e o antigo na próxima abertura do menu.
+  static void mesclarNoCache(String uid, Map<String, dynamic> campos) {
+    final atual = _perfilResolvido[uid];
+    if (atual == null) return;
+    final novo = {...atual, ...campos};
+    _perfilResolvido[uid] = novo;
+    _perfilPorUid[uid] = Future.value(novo);
+  }
+
+  Future<Map<String, dynamic>?> getDadosUsuario(String uid) async {
+    final doc = await _firestore.collection('usuarios').doc(uid).get();
+    return doc.exists ? doc.data() : null;
+  }
+
+  Future<bool> isAdmin(String uid) =>
+      perfil(uid).then((dados) => dados?['isAdmin'] == true);
+
+  /// `isAdmin` já conhecido, sem passar por `await`. Null = ainda não lido.
+  static bool? isAdminConhecido(String uid) {
+    final dados = perfilConhecido(uid);
+    return dados == null ? null : dados['isAdmin'] == true;
   }
 
   Future<void> atualizarNome(String novoNome) async {
@@ -126,6 +169,7 @@ class AuthService {
     await _firestore.collection('usuarios').doc(user.uid).update({
       'nome': novoNome,
     });
+    mesclarNoCache(user.uid, {'nome': novoNome});
   }
 
   Future<void> recuperarSenha(String email) async {

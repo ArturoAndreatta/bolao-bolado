@@ -187,6 +187,18 @@ class AppCores extends ThemeExtension<AppCores> {
   /// Texto dentro de [bolhaOutro].
   final Color bolhaOutroTexto;
 
+  /// Texto do token `@Nome` dentro de [bolhaOutro].
+  ///
+  /// Campo próprio, e não [textoAzul]: aquele é calibrado contra [fundoAzul],
+  /// e a menção vive sobre [mencaoFundo], que por sua vez precisa se destacar
+  /// da BOLHA (e não do card). São duas medidas diferentes — reaproveitar o
+  /// par de blocos de estado deixava a menção quase invisível nos temas
+  /// escuros, onde a bolha já é mais clara que o card.
+  final Color mencaoTexto;
+
+  /// Fundo tingido atrás do token `@Nome`, sobre [bolhaOutro].
+  final Color mencaoFundo;
+
   // ── Skeleton ─────────────────────────────────────────────────────────────
   /// Base dos blocos de skeleton.
   final Color skeletonBase;
@@ -274,6 +286,8 @@ class AppCores extends ThemeExtension<AppCores> {
     required this.larguraBarraEstado,
     required this.bolhaOutro,
     required this.bolhaOutroTexto,
+    required this.mencaoTexto,
+    required this.mencaoFundo,
     required this.skeletonBase,
     required this.skeletonBrilho,
     required this.drawerFundo,
@@ -334,6 +348,8 @@ class AppCores extends ThemeExtension<AppCores> {
     larguraBarraEstado: 0,
     bolhaOutro: Color(0xFFF1F3F5),
     bolhaOutroTexto: Color(0xFF1F2937),
+    mencaoTexto: Color(0xFF23548C),
+    mencaoFundo: Color(0xFFDEE9FA),
     skeletonBase: Color(0xFFE5E7EB),
     skeletonBrilho: Color(0xFFF3F4F6),
     drawerFundo: Color(0xFF1F2937),
@@ -501,6 +517,8 @@ class AppCores extends ThemeExtension<AppCores> {
     larguraBarraEstado: 3,
     bolhaOutro: Color(0xFF434E63),
     bolhaOutroTexto: Color(0xFFF5F8FC),
+    mencaoTexto: Color(0xFFD0E1FD),
+    mencaoFundo: Color(0xFF4E6289),
     skeletonBase: Color(0xFF3F4A5E),
     skeletonBrilho: Color(0xFF52607A),
     // Drawer mais escuro que qualquer superfície de conteúdo: é o que o
@@ -616,6 +634,8 @@ class AppCores extends ThemeExtension<AppCores> {
     larguraBarraEstado: 3,
     bolhaOutro: Color(0xFF32433E),
     bolhaOutroTexto: Color(0xFFEBF0ED),
+    mencaoTexto: Color(0xFFC3D6F8),
+    mencaoFundo: Color(0xFF3B4A5C),
     skeletonBase: Color(0xFF2E3E39),
     skeletonBrilho: Color(0xFF3C4E49),
     drawerFundo: Color(0xFF0C1311),
@@ -695,6 +715,8 @@ class AppCores extends ThemeExtension<AppCores> {
     larguraBarraEstado: 3,
     bolhaOutro: Color(0xFF2F446D),
     bolhaOutroTexto: Color(0xFFEDF2FB),
+    mencaoTexto: Color(0xFFC6DEFB),
+    mencaoFundo: Color(0xFF3A578F),
     skeletonBase: Color(0xFF2A3F6C),
     skeletonBrilho: Color(0xFF384F80),
     drawerFundo: Color(0xFF0B152C),
@@ -771,6 +793,8 @@ class AppCores extends ThemeExtension<AppCores> {
     larguraBarraEstado: 3,
     bolhaOutro: Color(0xFF473D5C),
     bolhaOutroTexto: Color(0xFFF2EDF8),
+    mencaoTexto: Color(0xFFC9CFFC),
+    mencaoFundo: Color(0xFF4E4A7E),
     skeletonBase: Color(0xFF423955),
     skeletonBrilho: Color(0xFF54486A),
     drawerFundo: Color(0xFF15111F),
@@ -845,6 +869,10 @@ class AppCores extends ThemeExtension<AppCores> {
     larguraBarraEstado: 0,
     bolhaOutro: Color(0xFFF0E8D8),
     bolhaOutroTexto: Color(0xFF3B3226),
+    // Azul de tinta esferográfica, o único frio que a caderneta admite: o
+    // token precisa se separar do texto marrom sem virar outra paleta.
+    mencaoTexto: Color(0xFF2F5A7D),
+    mencaoFundo: Color(0xFFE2E7EE),
     skeletonBase: Color(0xFFE6DCC7),
     skeletonBrilho: Color(0xFFF2EADB),
     // Drawer marrom-escuro em vez do cinza-azulado dos outros temas: dentro de
@@ -915,6 +943,8 @@ class AppCores extends ThemeExtension<AppCores> {
     larguraBarraEstado: 0,
     bolhaOutro: Color(0xFFF1EFE7),
     bolhaOutroTexto: Color(0xFF1D2B36),
+    mencaoTexto: Color(0xFF0F4A85),
+    mencaoFundo: Color(0xFFDCE9F6),
     skeletonBase: Color(0xFFE6E3D9),
     skeletonBrilho: Color(0xFFF4F1E9),
     drawerFundo: Color(0xFF12283A),
@@ -1004,6 +1034,8 @@ class AppCores extends ThemeExtension<AppCores> {
       )!,
       bolhaOutro: Color.lerp(bolhaOutro, outro.bolhaOutro, t)!,
       bolhaOutroTexto: Color.lerp(bolhaOutroTexto, outro.bolhaOutroTexto, t)!,
+      mencaoTexto: Color.lerp(mencaoTexto, outro.mencaoTexto, t)!,
+      mencaoFundo: Color.lerp(mencaoFundo, outro.mencaoFundo, t)!,
       skeletonBase: Color.lerp(skeletonBase, outro.skeletonBase, t)!,
       skeletonBrilho: Color.lerp(skeletonBrilho, outro.skeletonBrilho, t)!,
       drawerFundo: Color.lerp(drawerFundo, outro.drawerFundo, t)!,

@@ -41,7 +41,26 @@ class _AppDrawerState extends State<AppDrawer> {
   @override
   void initState() {
     super.initState();
-    _carregarPerfil();
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) return;
+
+    // O menu é DESMONTADO ao fechar, então este initState roda a cada
+    // abertura. Enquanto ele dependia de um `await` para saber o `isAdmin`, o
+    // drawer abria com os itens de participante e completava com Cadastrar
+    // Sala / Consultar Salas / Painel ADM um instante depois — o pisca que
+    // parecia recarregamento (e era: uma leitura cobrada por toque no menu).
+    //
+    // Com o perfil memoizado por sessão, da segunda abertura em diante o valor
+    // já está aqui e é aplicado ANTES do primeiro frame. Na primeira ele
+    // costuma vir pronto também, porque o main.dart adianta essa leitura logo
+    // depois do login.
+    final conhecido = AuthService.perfilConhecido(user.uid);
+    if (conhecido != null) {
+      _aplicarPerfil(user.uid, conhecido, primeiroFrame: true);
+      return;
+    }
+    _carregarPerfil(user.uid);
   }
 
   /// Cor do avatar, emoji e `isAdmin` numa LEITURA só.
@@ -49,31 +68,56 @@ class _AppDrawerState extends State<AppDrawer> {
   /// Eram três chamadas separadas (`buscarCor`, `buscarEmoji`, `isAdmin`) e as
   /// três liam o mesmo documento `usuarios/{uid}` — três leituras cobradas
   /// para abrir o menu. Estavam em paralelo, o que resolvia a latência mas não
-  /// o custo. Agora o documento é lido uma vez e os três valores saem dele.
-  Future<void> _carregarPerfil() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.isAnonymous) return;
-
-    final dados = await AuthService().getDadosUsuario(user.uid);
+  /// o custo. Agora o documento é lido uma vez, por sessão, e os três valores
+  /// saem dele (ver [AuthService.perfil]).
+  Future<void> _carregarPerfil(String uid) async {
+    final dados = await AuthService().perfil(uid);
     if (!mounted) return;
+    _aplicarPerfil(uid, dados, primeiroFrame: false);
+  }
 
+  /// [primeiroFrame] distingue o caminho síncrono (initState, antes de existir
+  /// árvore para reconstruir) do assíncrono, que precisa de `setState`.
+  void _aplicarPerfil(
+    String uid,
+    Map<String, dynamic>? dados, {
+    required bool primeiroFrame,
+  }) {
     final avatar = AvatarService.avatarDeDados(dados);
     final isAdmin = dados?['isAdmin'] == true;
 
-    setState(() {
+    void aplicar() {
       _corAvatarAtual = avatar.cor;
       _emojiAvatarAtual = avatar.emoji;
       _isAdmin = isAdmin;
       if (isAdmin) _apostasPendentesStream ??= streamApostasPendentes();
-    });
+    }
+
+    if (primeiroFrame) {
+      aplicar();
+    } else {
+      setState(aplicar);
+    }
 
     // Conta antiga, sem cor/emoji gravados: persiste o que foi sorteado agora,
     // fora do caminho da abertura do menu (a UI já está pintada com o valor).
     // Só faz sentido com documento existente — anônimo nem chega aqui.
     if (avatar.faltava && dados != null) {
+      // Guarda no cache o que acabou de ser sorteado: sem isto, a próxima
+      // abertura do menu chamaria `avatarDeDados` de novo sobre o mesmo
+      // documento sem cor e sortearia OUTRA — o avatar mudaria sozinho a cada
+      // toque no hambúrguer até a escrita chegar de volta.
+      AuthService.mesclarNoCache(uid, {
+        // As mesmas condições de persistirAvatar: só entra no cache o que de
+        // fato vai para o documento.
+        if (dados['avatarColor'] == null && dados['isAdmin'] != true)
+          'avatarColor': avatar.cor.toARGB32(),
+        if ((dados['avatarEmoji'] as String?)?.isNotEmpty != true)
+          'avatarEmoji': avatar.emoji,
+      });
       unawaited(
         AvatarService.persistirAvatar(
-          user.uid,
+          uid,
           dados: dados,
           cor: avatar.cor,
           emoji: avatar.emoji,
@@ -127,6 +171,13 @@ class _AppDrawerState extends State<AppDrawer> {
                                   setState(() {
                                     _emojiAvatarAtual = novoEmoji;
                                     _corAvatarAtual = novaCor;
+                                  });
+                                  // O perfil fica em cache pela sessão: sem
+                                  // atualizá-lo aqui, a próxima abertura do
+                                  // menu voltaria a mostrar o avatar antigo.
+                                  AuthService.mesclarNoCache(user.uid, {
+                                    'avatarColor': novaCor.toARGB32(),
+                                    'avatarEmoji': novoEmoji,
                                   });
                                   widget.onAvatarChanged?.call(novaCor);
                                 },

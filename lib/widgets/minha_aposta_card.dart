@@ -250,7 +250,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     // as duas leituras saem juntas em vez de uma esperar a outra. Só a busca
     // da aposta precisa vir depois (precisa do salaId).
     final (dadosUsuario, salaId) = await (
-      _authService.getDadosUsuario(user.uid),
+      _authService.perfil(user.uid),
       buscarSalaPrincipalId(),
     ).wait;
 
@@ -508,6 +508,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
             _DisplayInfo(
               titulo: 'Prêmio estimado',
               valor: Formatters.moeda.format(_meuPremio),
+              dinheiro: true,
             ),
             const SizedBox(height: 8),
             _DisplayInfo(titulo: 'Cotas', valor: _minhasCotas.toString()),
@@ -1046,11 +1047,30 @@ class _BotaoEscolherJogos extends StatelessWidget {
   }
 }
 
+/// Bloco de LEITURA (prêmio estimado, cotas) — o app não recebe nada por aqui.
+///
+/// Mesma caixa de sempre, com uma diferença que é o ponto todo: **não tem
+/// borda**. Neste app o que anuncia "dá para digitar aqui" é a borda de 1.5 do
+/// [CustomField] ao redor do fundo claro; sem ela, o mesmo retângulo passa a
+/// ler como painel embutido no card — o fundo continua sendo o do campo, mas
+/// nada nele promete um cursor.
+///
+/// O rótulo também encolheu (13.5 contra os 14 do campo) e o valor engrossou:
+/// num campo o texto grande é o que a PESSOA escreveu; aqui é o que o app
+/// respondeu.
 class _DisplayInfo extends StatelessWidget {
   final String titulo;
   final String valor;
 
-  const _DisplayInfo({required this.titulo, required this.valor});
+  /// Valor em dinheiro: ganha a cor do dinheiro do tema, a mesma da coluna de
+  /// prêmio na tabela de participantes.
+  final bool dinheiro;
+
+  const _DisplayInfo({
+    required this.titulo,
+    required this.valor,
+    this.dinheiro = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1060,9 +1080,6 @@ class _DisplayInfo extends StatelessWidget {
       decoration: BoxDecoration(
         color: cores.campo,
         borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
-        border: Border.fromBorderSide(
-          BorderSide(color: cores.bordaCampo, width: 1.5),
-        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1070,7 +1087,7 @@ class _DisplayInfo extends StatelessWidget {
           Text(
             titulo,
             softWrap: true,
-            style: TextStyle(fontSize: 14, color: cores.textoSuave),
+            style: TextStyle(fontSize: 13.5, color: cores.textoSuave),
           ),
           const SizedBox(width: 8),
           Flexible(
@@ -1080,8 +1097,12 @@ class _DisplayInfo extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: cores.texto,
+                fontWeight: FontWeight.w700,
+                color: dinheiro ? cores.verde : cores.texto,
+                // Números que mudam a cada tecla no campo de valor: sem
+                // dígitos tabulares, o valor "dança" de largura enquanto se
+                // digita.
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),

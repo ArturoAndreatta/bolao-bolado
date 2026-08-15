@@ -437,6 +437,10 @@ ficam no código — em release essas const ficam vazias e o bloco não roda. Co
 
 - **Idioma:** tudo em português — nomes de variáveis/funções/classes, comentários
   e mensagens de commit (ver histórico do git).
+- **Commit sem rodapé de coautoria.** NUNCA acrescente `Co-Authored-By:` (nem
+  qualquer outra assinatura de ferramenta/IA) à mensagem de commit, seja ao
+  commitar ou ao sugerir o comando para o usuário rodar. Vale também para
+  descrições de PR. A autoria do repositório é de quem commita, ponto.
 - **Lints:** além do `flutter_lints`, o `analysis_options.yaml` ativa regras
   extras — atenção especial a `use_build_context_synchronously` (não use
   `BuildContext` após `await` sem checar `mounted`), `unawaited_futures`,
