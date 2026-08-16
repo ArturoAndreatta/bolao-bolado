@@ -103,7 +103,7 @@ class DefaultLayout extends StatelessWidget {
                     // conteúdo, sem separar uma coisa da outra. Só quando há
                     // AppBar: sem barra, o conteúdo já começa no topo da tela
                     // e o recuo viraria uma faixa de gradiente sem motivo.
-                    padding: EdgeInsets.only(top: drawer != null ? 16 : 0),
+                    padding: EdgeInsets.only(top: drawer != null ? 8 : 0),
                     child: Center(child: Column(children: [child])),
                   ),
                 ],
