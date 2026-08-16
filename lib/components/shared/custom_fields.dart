@@ -29,6 +29,13 @@ class CustomField extends StatelessWidget {
   // o valor de aposta da Mega-Sena (múltiplo de R$6).
   final bool semCentavos;
   final FocusNode? focusNode;
+  // Dicas de preenchimento automático (gerenciador de senhas do navegador,
+  // Chaveiro do iCloud, Google Password Manager). Na web o engine do Flutter só
+  // cria o <input autocomplete="..."> de verdade no DOM quando o campo declara
+  // isso — sem a dica o gerenciador até mostra a lista, mas não tem onde
+  // escrever, e o clique na senha salva não faz nada. Precisa vir junto de um
+  // AutofillGroup em volta do formulário.
+  final Iterable<String>? autofillHints;
 
   const CustomField({
     super.key,
@@ -50,6 +57,7 @@ class CustomField extends StatelessWidget {
     this.autofocus = false,
     this.semCentavos = false,
     this.focusNode,
+    this.autofillHints,
   });
 
   String? _validate(String? value) {
@@ -82,6 +90,7 @@ class CustomField extends StatelessWidget {
         readOnly: readOnly!,
         keyboardType: keyboardType,
         textInputAction: textInputAction,
+        autofillHints: autofillHints,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         style: TextStyle(color: cores.texto, fontSize: 18),
         obscureText: obscure!,

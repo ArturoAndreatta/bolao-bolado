@@ -10,6 +10,7 @@ import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 class Register extends StatefulWidget {
@@ -58,94 +59,108 @@ class _RegisterState extends State<Register> {
               ),
               Form(
                 key: _formKey,
-                child: CustomCard(
-                  isChild: true,
-                  children: [
-                    const SizedBox(height: 20),
-                    CustomField(
-                      hint: 'Nome',
-                      isRequired: true,
-                      icon: Icons.person_outline,
-                      controller: nomeController,
-                      textInputAction: TextInputAction.next,
-                      maxWidth: 480,
-                      autofocus: true,
-                    ),
-                    const SizedBox(height: 15),
-                    CustomField(
-                      hint: 'E-mail',
-                      isRequired: true,
-                      icon: Icons.alternate_email,
-                      keyboardType: TextInputType.emailAddress,
-                      controller: emailController,
-                      textInputAction: TextInputAction.next,
-                      maxWidth: 480,
-                    ),
-                    const SizedBox(height: 15),
-                    CustomField(
-                      hint: 'Senha',
-                      isRequired: true,
-                      icon: Icons.lock_outline,
-                      controller: senhaController,
-                      textInputAction: TextInputAction.next,
-                      maxWidth: 480,
-                      obscure: _obscureSenha,
-                      suffix: IconButton(
-                        focusNode: FocusNode(skipTraversal: true),
-                        onPressed: () =>
-                            setState(() => _obscureSenha = !_obscureSenha),
-                        icon: Icon(
-                          _obscureSenha
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
+                // Mesmo grupo de autofill do login: é o que faz o navegador
+                // oferecer pra salvar o par e-mail/senha ao criar a conta.
+                child: AutofillGroup(
+                  child: CustomCard(
+                    isChild: true,
+                    children: [
+                      const SizedBox(height: 20),
+                      CustomField(
+                        hint: 'Nome',
+                        isRequired: true,
+                        icon: Icons.person_outline,
+                        controller: nomeController,
+                        textInputAction: TextInputAction.next,
+                        maxWidth: 480,
+                        autofocus: true,
+                        autofillHints: const [AutofillHints.name],
                       ),
-                    ),
-                    const SizedBox(height: 15),
-                    CustomField(
-                      hint: 'Confirmar senha',
-                      isRequired: true,
-                      icon: Icons.lock_outline,
-                      controller: confirmarSenhaController,
-                      textInputAction: TextInputAction.done,
-                      maxWidth: 480,
-                      obscure: _obscureConfirmar,
-                      suffix: IconButton(
-                        focusNode: FocusNode(skipTraversal: true),
-                        onPressed: () => setState(
-                          () => _obscureConfirmar = !_obscureConfirmar,
-                        ),
-                        icon: Icon(
-                          _obscureConfirmar
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
+                      const SizedBox(height: 15),
+                      CustomField(
+                        hint: 'E-mail',
+                        isRequired: true,
+                        icon: Icons.alternate_email,
+                        keyboardType: TextInputType.emailAddress,
+                        controller: emailController,
+                        textInputAction: TextInputAction.next,
+                        maxWidth: 480,
+                        autofillHints: const [
+                          AutofillHints.username,
+                          AutofillHints.email,
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    isMobile
-                        ? Column(
-                            children: [
-                              PrimaryButton(
-                                text: 'Cadastrar',
-                                onTap: _cadastrar,
-                                loading: _loading,
-                              ),
-                            ],
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              PrimaryButton(
-                                text: 'Cadastrar',
-                                width: 233,
-                                onTap: _cadastrar,
-                                loading: _loading,
-                              ),
-                            ],
+                      const SizedBox(height: 15),
+                      CustomField(
+                        hint: 'Senha',
+                        isRequired: true,
+                        icon: Icons.lock_outline,
+                        controller: senhaController,
+                        textInputAction: TextInputAction.next,
+                        maxWidth: 480,
+                        obscure: _obscureSenha,
+                        // 'newPassword' e não 'password': avisa o gerenciador que
+                        // é conta nova, então ele sugere gerar uma senha em vez
+                        // de tentar preencher uma já salva.
+                        autofillHints: const [AutofillHints.newPassword],
+                        suffix: IconButton(
+                          focusNode: FocusNode(skipTraversal: true),
+                          onPressed: () =>
+                              setState(() => _obscureSenha = !_obscureSenha),
+                          icon: Icon(
+                            _obscureSenha
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
                           ),
-                    const SizedBox(height: 20),
-                  ],
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      CustomField(
+                        hint: 'Confirmar senha',
+                        isRequired: true,
+                        icon: Icons.lock_outline,
+                        controller: confirmarSenhaController,
+                        textInputAction: TextInputAction.done,
+                        maxWidth: 480,
+                        obscure: _obscureConfirmar,
+                        autofillHints: const [AutofillHints.newPassword],
+                        suffix: IconButton(
+                          focusNode: FocusNode(skipTraversal: true),
+                          onPressed: () => setState(
+                            () => _obscureConfirmar = !_obscureConfirmar,
+                          ),
+                          icon: Icon(
+                            _obscureConfirmar
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      isMobile
+                          ? Column(
+                              children: [
+                                PrimaryButton(
+                                  text: 'Cadastrar',
+                                  onTap: _cadastrar,
+                                  loading: _loading,
+                                ),
+                              ],
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                PrimaryButton(
+                                  text: 'Cadastrar',
+                                  width: 233,
+                                  onTap: _cadastrar,
+                                  loading: _loading,
+                                ),
+                              ],
+                            ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -174,6 +189,10 @@ class _RegisterState extends State<Register> {
         senha: senhaController.text,
         nome: nomeController.text.trim(),
       );
+
+      // Só depois da conta existir de verdade é que faz sentido o navegador
+      // guardar a credencial.
+      TextInput.finishAutofillContext();
 
       if (mounted) {
         // Cadastro novo → vai direto pra tela de participantes (onde fica o

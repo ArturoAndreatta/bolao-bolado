@@ -93,6 +93,10 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
                         textInputAction: TextInputAction.done,
                         maxWidth: 480,
                         autofocus: true,
+                        autofillHints: const [
+                          AutofillHints.username,
+                          AutofillHints.email,
+                        ],
                       ),
                       const SizedBox(height: 20),
                       PrimaryButton(
