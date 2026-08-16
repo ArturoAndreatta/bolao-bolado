@@ -38,6 +38,10 @@ Future<List<List<int>>?> mostrarSelecaoJogos(
   );
 }
 
+/// Teto do modal. Vale como limite das duas telas e também como altura solta
+/// da tela que sai durante a troca (ver o `layoutBuilder` do AnimatedSwitcher).
+const double _alturaMaxima = 620;
+
 class _SelecaoJogosDialog extends StatefulWidget {
   final String? sorteio;
   final int cotasDisponiveis;
@@ -71,6 +75,19 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
   late final List<List<int>> _jogos = widget.jogosIniciais
       .map((jogo) => [...jogo])
       .toList();
+
+  /// Jogos que ainda devem ENTRAR animados na lista.
+  ///
+  /// Sem isto, toda volta da grade para a lista reconstruía o subárvore inteiro
+  /// e as linhas ANTIGAS repipocavam em cascata junto com a nova — salvar um
+  /// jogo parecia ter recriado a lista toda, em vez de acrescentado uma linha.
+  ///
+  /// Identidade por objeto (`Set.identity`), não por conteúdo: dois jogos com
+  /// os mesmos números são linhas diferentes e não podem compartilhar estado.
+  /// Sai do conjunto quando a entrada termina, então cada jogo anima uma vez
+  /// só na vida do modal.
+  late final Set<List<int>> _paraAnimar = Set<List<int>>.identity()
+    ..addAll(_jogos);
 
   // Null = tela da lista de jogos; preenchido = grade de números aberta.
   _JogoEmEdicao? _edicao;
@@ -109,6 +126,16 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
       for (var t = _tamanhoSimples; t <= kTamanhoMaximoJogo; t++)
         if (cotasDoJogo(t, widget.sorteio) <= orcamento) t,
     ];
+  }
+
+  /// Posição do jogo [indice] entre os que estão entrando agora — é o passo
+  /// da cascata. Quem não está entrando não usa o valor.
+  int _ordemDeEntrada(int indice) {
+    var ordem = 0;
+    for (var i = 0; i < indice; i++) {
+      if (_paraAnimar.contains(_jogos[i])) ordem++;
+    }
+    return ordem;
   }
 
   void _abrirGrade({int? indice}) {
@@ -179,6 +206,9 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
       } else {
         _jogos[edicao.indice!] = numeros;
       }
+      // Vale também para EDIÇÃO: `numeros` é objeto novo, e a linha que mudou
+      // reentrar é o retorno visual de que a alteração pegou.
+      _paraAnimar.add(numeros);
       _edicao = null;
     });
   }
@@ -191,6 +221,11 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
         sorteio: widget.sorteio,
         estilo: estilo,
       );
+      // Só os jogos RECÉM-criados entram animados — é a cascata deles que
+      // mostra quantos foram gerados. Os que já estavam na lista continuam
+      // parados, senão a tela inteira pipoca e o ganho some no meio.
+      final jaExistiam = Set<List<int>>.identity()..addAll(_jogos);
+      _paraAnimar.addAll(completos.where((j) => !jaExistiam.contains(j)));
       _jogos
         ..clear()
         ..addAll(completos);
@@ -209,7 +244,10 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
         side: BorderSide(color: cores.borda, width: 1),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460, maxHeight: 620),
+        constraints: const BoxConstraints(
+          maxWidth: 460,
+          maxHeight: _alturaMaxima,
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
           // As duas telas têm alturas bem diferentes (a lista vazia é curta, a
@@ -224,13 +262,45 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
               duration: const Duration(milliseconds: 220),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
-              // O padrão empilha os dois filhos CENTRALIZADOS, o que durante a
-              // troca desalinha o título da tela que entra. Alinhados pelo
-              // topo, os dois cabeçalhos ficam no mesmo lugar e só o corpo
-              // desliza.
+              // Duas correções ao layout padrão:
+              //
+              // 1. O padrão empilha os filhos CENTRALIZADOS, o que durante a
+              //    troca desalinha o título da tela que entra. Alinhados pelo
+              //    topo, os dois cabeçalhos ficam no mesmo lugar e só o corpo
+              //    desliza.
+              // 2. Só a tela que ENTRA dita o tamanho da pilha. No padrão as
+              //    duas dimensionam o Stack, que então reporta sempre a MAIOR
+              //    das alturas: ABRIR a grade já dava a altura final no
+              //    primeiro frame e o AnimatedSize crescia junto com o
+              //    deslize, mas VOLTAR mantinha a caixa alta pelos 220ms da
+              //    troca e só encolhia depois — o mesmo movimento em ordens
+              //    diferentes, e o fechamento lia como uma segunda animação
+              //    em vez do inverso da abertura. Fora do fluxo, o alvo do
+              //    AnimatedSize muda no frame do toque nos dois sentidos.
+              //
+              // O `OverflowBox` existe porque `Positioned.fill` sozinho impõe
+              // à tela que sai a altura da que entra: esticada (indo para a
+              // grade) o rodapé de botões da lista desceria até o fim da tela
+              // nova, e espremida (voltando) a grade estoura em RenderFlex —
+              // os pedaços fixos dela (título, chips, dois rodapés) não cabem
+              // na altura da lista. Solto até `_alturaMaxima` e preso ao topo,
+              // ele mantém a altura natural; quem recorta o excedente é o
+              // `clipBehavior` do próprio AnimatedSize, e nesse ponto a tela
+              // que sai já está quase invisível.
               layoutBuilder: (atual, anteriores) => Stack(
                 alignment: Alignment.topCenter,
-                children: [...anteriores, if (atual != null) atual],
+                children: [
+                  for (final anterior in anteriores)
+                    Positioned.fill(
+                      child: OverflowBox(
+                        alignment: Alignment.topCenter,
+                        minHeight: 0,
+                        maxHeight: _alturaMaxima,
+                        child: anterior,
+                      ),
+                    ),
+                  if (atual != null) atual,
+                ],
               ),
               transitionBuilder: _transicaoEntreTelas,
               child: KeyedSubtree(
@@ -257,7 +327,15 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
     final inicio = Offset(0.12 * sentido * (entrando ? 1 : -1), 0);
 
     return FadeTransition(
-      opacity: animacao,
+      // Fade em DOIS TEMPOS, e não cruzado: a tela que sai some antes de a que
+      // entra aparecer. Cruzando as duas, as linhas de jogo — que têm fundo
+      // próprio (`cores.campo`) — continuavam pintadas ATRÁS da grade durante
+      // os 220ms, e liam como uma caixa cinza atravessada nos números, que
+      // some sozinha. Com o intervalo, quem sai zera antes de o outro nascer.
+      //
+      // `drive` e não CurvedAnimation: isto roda a cada build da transição, e
+      // uma CurvedAnimation por build precisaria ser descartada uma a uma.
+      opacity: animacao.drive(CurveTween(curve: const Interval(0.55, 1))),
       child: SlideTransition(
         position: Tween(begin: inicio, end: Offset.zero).animate(animacao),
         child: child,
@@ -313,19 +391,32 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
                     shrinkWrap: true,
                     itemCount: _jogos.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) => _EntradaSuave(
-                      // Escalonado: "Sortear resto" cria vários jogos de uma
-                      // vez, e eles entrando em cascata mostram QUANTOS foram
-                      // criados. Teto de 6 passos para que uma aposta de 20
-                      // jogos não vire meio segundo de espera.
-                      atraso: Duration(milliseconds: 35 * (i > 6 ? 6 : i)),
-                      child: _LinhaJogo(
-                        posicao: i + 1,
-                        numeros: _jogos[i],
-                        onEditar: () => _abrirGrade(indice: i),
-                        onRemover: () => setState(() => _jogos.removeAt(i)),
-                      ),
-                    ),
+                    itemBuilder: (context, i) {
+                      final jogo = _jogos[i];
+                      final novo = _paraAnimar.contains(jogo);
+                      return _EntradaSuave(
+                        // Chave pela IDENTIDADE do jogo, não pelo índice:
+                        // remover uma linha do meio desloca todas as de baixo,
+                        // e com chave por índice o estado de animação de uma
+                        // linha passaria para a vizinha.
+                        key: ValueKey(identityHashCode(jogo)),
+                        animar: novo,
+                        // Escalonado entre os NOVOS: "Sortear resto" cria
+                        // vários de uma vez, e a cascata mostra quantos foram
+                        // criados. Conta só os que animam — com o índice cru,
+                        // salvar o 8º jogo daria a ele 210ms de espera parado.
+                        atraso: Duration(
+                          milliseconds: 35 * _ordemDeEntrada(i).clamp(0, 6),
+                        ),
+                        onEntrou: () => _paraAnimar.remove(jogo),
+                        child: _LinhaJogo(
+                          posicao: i + 1,
+                          numeros: jogo,
+                          onEditar: () => _abrirGrade(indice: i),
+                          onRemover: () => setState(() => _jogos.removeAt(i)),
+                        ),
+                      );
+                    },
                   ),
           ),
         ),
@@ -609,7 +700,20 @@ class _EntradaSuave extends StatefulWidget {
   final Widget child;
   final Duration atraso;
 
-  const _EntradaSuave({required this.child, this.atraso = Duration.zero});
+  /// Falso = já está na tela desde antes; aparece pronto, sem animar.
+  final bool animar;
+
+  /// Chamado quando a entrada termina, para o dono marcar o jogo como já
+  /// mostrado — é o que impede a linha de reanimar na próxima volta da grade.
+  final VoidCallback? onEntrou;
+
+  const _EntradaSuave({
+    required super.key,
+    required this.child,
+    this.atraso = Duration.zero,
+    this.animar = true,
+    this.onEntrou,
+  });
 
   @override
   State<_EntradaSuave> createState() => _EntradaSuaveState();
@@ -622,7 +726,7 @@ class _EntradaSuaveState extends State<_EntradaSuave>
     vsync: this,
   );
 
-  late final Animation<double> _curva = CurvedAnimation(
+  late final CurvedAnimation _curva = CurvedAnimation(
     parent: _controlador,
     curve: Curves.easeOutCubic,
   );
@@ -630,20 +734,33 @@ class _EntradaSuaveState extends State<_EntradaSuave>
   @override
   void initState() {
     super.initState();
+    if (!widget.animar) {
+      _controlador.value = 1;
+      return;
+    }
     if (widget.atraso == Duration.zero) {
-      _controlador.forward();
+      _iniciar();
     } else {
-      // O timer não é cancelado no dispose porque o próprio controlador é: um
-      // forward() em controlador descartado é ignorado, e guardar o Timer só
-      // para isso não pagaria o campo a mais.
+      // O timer não é cancelado no dispose porque `mounted` já barra o
+      // forward() depois que o State sai — guardar o Timer só para isso não
+      // pagaria o campo a mais.
       Future.delayed(widget.atraso, () {
-        if (mounted) _controlador.forward();
+        if (mounted) _iniciar();
       });
     }
   }
 
+  void _iniciar() {
+    _controlador.forward().whenCompleteOrCancel(() {
+      if (mounted && _controlador.status == AnimationStatus.completed) {
+        widget.onEntrou?.call();
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _curva.dispose();
     _controlador.dispose();
     super.dispose();
   }
@@ -1023,10 +1140,15 @@ class _BolaNumeroState extends State<_BolaNumero>
     vsync: this,
   );
 
+  late final CurvedAnimation _curva = CurvedAnimation(
+    parent: _controlador,
+    curve: Curves.easeOut,
+  );
+
   late final Animation<double> _pulo = TweenSequence<double>([
     TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.12), weight: 40),
     TweenSequenceItem(tween: Tween(begin: 1.12, end: 1.0), weight: 60),
-  ]).animate(CurvedAnimation(parent: _controlador, curve: Curves.easeOut));
+  ]).animate(_curva);
 
   @override
   void didUpdateWidget(_BolaNumero anterior) {
@@ -1038,6 +1160,7 @@ class _BolaNumeroState extends State<_BolaNumero>
 
   @override
   void dispose() {
+    _curva.dispose();
     _controlador.dispose();
     super.dispose();
   }

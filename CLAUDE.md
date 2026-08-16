@@ -433,14 +433,55 @@ Firestore permitir leitura pública antes do login real.
 ficam no código — em release essas const ficam vazias e o bloco não roda. Copie
 `dev.env.json.example` para `dev.env.json` (git-ignored) para usar.
 
+## Mensagem de commit
+
+**Ao terminar qualquer tarefa, encerre a resposta com a mensagem de commit do
+que foi feito na sessão, junto do comando pronto para rodar.** Sem esperar o
+usuário pedir. Se nada em `lib/`, `test/`, `tool/` ou na config do projeto
+mudou (só leitura, dúvida respondida), não há o que commitar e o bloco não
+entra.
+
+Formato da mensagem:
+
+- **Assunto:** uma linha curta em português, no que muda na prática — não no
+  mecanismo. Sem prefixo de tipo (`feat:`/`fix:`), o histórico não usa.
+- **Corpo em tópicos com `-`**, verbo no **particípio** abrindo cada um:
+  Corrigido, Adicionado, Implementado, Atualizado, Removido, Editado.
+- **Um tópico por ASSUNTO, não por arquivo ou por decisão técnica.** Mudança de
+  uma coisa só = um tópico só, mesmo que tenha mexido em vários arquivos e
+  incluído teste. Vários tópicos só quando a sessão tratou de assuntos
+  independentes.
+- **Linguagem normal, não técnica.** Descreva o que o usuário vê acontecer, na
+  tela e no fluxo dele. Nome de classe, de widget e de API (`AnimatedSwitcher`,
+  `Positioned.fill`), número de milissegundo, texto exato de erro — nada disso
+  entra: esse detalhe é dos comentários no código, que é onde ele se sustenta.
+- **Nunca acrescente `Co-Authored-By:`** nem qualquer outra assinatura de
+  ferramenta/IA — nem ao commitar, nem no comando sugerido, nem em descrição de
+  PR. A autoria do repositório é de quem commita, ponto.
+
+Formato do comando: o usuário roda no **PowerShell**, onde `$(cat <<'EOF' ...)`
+é erro de parse (`Operador '<' reservado para uso futuro`). Use here-string do
+PowerShell, com o `'@` de fechamento **na coluna 0**, sem indentação nenhuma:
+
+```powershell
+git add lib/exemplo.dart test/exemplo_test.dart
+git commit -m @'
+Assunto do commit aqui
+
+- Corrigido tal coisa, que fazia tal efeito na tela
+'@
+```
+
+`@'...'@` (aspas simples) e não `@"..."@`: no de aspas duplas o PowerShell
+expande `$` e crase dentro da mensagem.
+
+Arquivo a arquivo no `git add`, nunca `git add .` — `.firebase/hosting.*.cache`
+é sobra de deploy e vive modificado na árvore.
+
 ## Convenções
 
 - **Idioma:** tudo em português — nomes de variáveis/funções/classes, comentários
   e mensagens de commit (ver histórico do git).
-- **Commit sem rodapé de coautoria.** NUNCA acrescente `Co-Authored-By:` (nem
-  qualquer outra assinatura de ferramenta/IA) à mensagem de commit, seja ao
-  commitar ou ao sugerir o comando para o usuário rodar. Vale também para
-  descrições de PR. A autoria do repositório é de quem commita, ponto.
 - **Lints:** além do `flutter_lints`, o `analysis_options.yaml` ativa regras
   extras — atenção especial a `use_build_context_synchronously` (não use
   `BuildContext` após `await` sem checar `mounted`), `unawaited_futures`,

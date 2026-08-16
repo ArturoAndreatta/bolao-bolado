@@ -288,4 +288,147 @@ void main() {
 
     expect(resultado(), isNull);
   });
+
+  group('transições', () {
+    /// Quanto do widget aparece de fato: os FadeTransition aninhados
+    /// multiplicam, então o produto é a opacidade que chega na tela.
+    double visibilidade(WidgetTester tester, String texto) {
+      if (find.textContaining(texto).evaluate().isEmpty) return 0;
+      return tester
+          .widgetList<FadeTransition>(
+            find.ancestor(
+              of: find.textContaining(texto),
+              matching: find.byType(FadeTransition),
+            ),
+          )
+          .fold<double>(1, (acumulado, f) => acumulado * f.opacity.value);
+    }
+
+    testWidgets('lista e grade nunca aparecem juntas na troca de tela', (
+      tester,
+    ) async {
+      // Regressão: o fade era CRUZADO, então por ~150ms a lista continuava
+      // pintada atrás da grade. Como a linha de jogo tem fundo próprio, ela
+      // lia como uma caixa cinza atravessada nos números, que sumia sozinha.
+      await abrir(
+        tester,
+        cotas: 20,
+        jogosIniciais: const [
+          [1, 2, 3, 4, 5, 6],
+        ],
+      );
+
+      await tester.tap(find.text('Jogo'));
+      for (var t = 0; t < 8; t++) {
+        await tester.pump(const Duration(milliseconds: 30));
+        final lista = visibilidade(tester, 'Jogo 1');
+        final grade = visibilidade(tester, 'Novo jogo');
+        expect(
+          lista > 0.05 && grade > 0.05,
+          isFalse,
+          reason:
+              'as duas telas visíveis ao mesmo tempo '
+              '(lista=$lista, grade=$grade)',
+        );
+      }
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a caixa cresce e encolhe no mesmo ritmo', (tester) async {
+      // Regressão: com as duas telas dimensionando o Stack, ele reportava
+      // sempre a MAIOR altura. Abrir a grade animava o tamanho junto com o
+      // deslize, mas voltar segurava a caixa alta pelos 220ms da troca e só
+      // depois encolhia — o fechamento não era o inverso da abertura.
+      double altura() => tester.getSize(find.byType(AnimatedSize)).height;
+
+      await abrir(
+        tester,
+        cotas: 20,
+        jogosIniciais: const [
+          [1, 2, 3, 4, 5, 6],
+        ],
+      );
+      final naLista = altura();
+
+      await tester.tap(find.text('Jogo'));
+      // Um frame para o AnimatedSize medir o tamanho novo e disparar; só o
+      // seguinte é que anda no tempo.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 110));
+      final crescendo = altura();
+      await tester.pumpAndSettle();
+      final naGrade = altura();
+      expect(naGrade, greaterThan(naLista), reason: 'a grade é mais alta');
+      expect(crescendo, greaterThan(naLista));
+      expect(crescendo, lessThan(naGrade));
+
+      await tester.tap(find.text('Voltar'));
+      // Um frame para o AnimatedSize medir o tamanho novo e disparar; só o
+      // seguinte é que anda no tempo.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 110));
+      final encolhendo = altura();
+      expect(
+        encolhendo,
+        lessThan(naGrade),
+        reason: 'a caixa tem de encolher DURANTE a troca, não depois dela',
+      );
+      expect(encolhendo, greaterThan(naLista));
+      await tester.pumpAndSettle();
+      expect(altura(), naLista);
+    });
+
+    /// Só a animação da PRÓPRIA linha (o FadeTransition mais interno), sem o
+    /// fade da troca de tela que envolve a lista inteira.
+    double opacidadeDaLinha(WidgetTester tester, String texto) => tester
+        .widgetList<FadeTransition>(
+          find.ancestor(
+            of: find.textContaining(texto),
+            matching: find.byType(FadeTransition),
+          ),
+        )
+        .first
+        .opacity
+        .value;
+
+    testWidgets('voltar da grade não faz as linhas antigas reanimarem', (
+      tester,
+    ) async {
+      // Regressão: o subárvore da lista é reconstruído a cada volta, e todas
+      // as linhas repipocavam em cascata — salvar UM jogo parecia ter
+      // recriado a lista inteira.
+      await abrir(
+        tester,
+        cotas: 20,
+        jogosIniciais: const [
+          [1, 2, 3, 4, 5, 6],
+        ],
+      );
+
+      await tester.tap(find.text('Jogo'));
+      await tester.pumpAndSettle();
+      for (var n = 20; n <= 25; n++) {
+        await tester.tap(find.text('$n'));
+        await tester.pump();
+      }
+      await tester.tap(find.text('Salvar jogo'));
+      await tester.pump();
+
+      var novoAnimou = false;
+      for (var t = 0; t < 6; t++) {
+        await tester.pump(const Duration(milliseconds: 40));
+        expect(
+          opacidadeDaLinha(tester, 'Jogo 1'),
+          1.0,
+          reason: 'a linha que já existia não pode reanimar',
+        );
+        if (opacidadeDaLinha(tester, 'Jogo 2') < 1.0) novoAnimou = true;
+      }
+
+      // E a linha NOVA continua entrando animada — a correção não pode ter
+      // simplesmente desligado a animação.
+      expect(novoAnimou, isTrue);
+      await tester.pumpAndSettle();
+    });
+  });
 }
