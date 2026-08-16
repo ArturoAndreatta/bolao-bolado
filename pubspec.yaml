@@ -88,6 +88,10 @@ flutter:
   # do app, competindo com as próprias leituras do Firestore.
   #
   # Ao adicionar uma imagem nova, lembre de listá-la aqui.
+  #
+  # `images/2.0x/logo_appbar.png` e `images/3.0x/logo_appbar.png` NÃO entram na
+  # lista de propósito: variante de resolução é achada sozinha a partir do
+  # arquivo principal já declarado. Listá-las à mão duplicaria as entradas.
   assets:
     - images/logo.png
     - images/logo4.png
