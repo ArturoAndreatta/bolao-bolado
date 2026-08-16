@@ -360,8 +360,13 @@ class _AppDrawerState extends State<AppDrawer> {
                         // "mounted") pode não navegar mais.
                         final router = GoRouter.of(context);
                         Navigator.of(context).pop();
-                        router.go(AppRoutes.home);
+                        // Navegar SÓ depois do logout: o redirect do router lê
+                        // o usuário atual, e enquanto ele ainda estiver logado
+                        // `/home` é rota guest-only — ir pra lá antes rebatia
+                        // de volta pra Participantes/Painel ADM, e o
+                        // GoRouter não reavalia o redirect quando o Auth muda.
                         await AuthService().logout();
+                        router.go(AppRoutes.home);
                       },
                     )
                   else

@@ -69,7 +69,25 @@ class AuthService {
     await _auth.signOut();
     // App sempre mantém alguma sessão ativa (mesmo anônima) pra permitir
     // leitura de dados públicos sem forçar login imediato.
-    await _auth.signInAnonymously();
+    //
+    // Sem await de propósito: o `signOut` é local e imediato, mas o login
+    // anônimo é um round-trip de rede. Quem chama sai da tela privada assim
+    // que o `signOut` volta, e esperar o anônimo deixava a tela antiga
+    // visível se atualizando para o estado de deslogado (o card de aposta
+    // sumindo) antes de o app enfim navegar.
+    unawaited(_reentrarAnonimo());
+  }
+
+  /// Restabelece a sessão anônima em segundo plano depois do logout.
+  ///
+  /// Erro é engolido: o usuário já está deslogado de qualquer forma, e
+  /// estourar aqui só derrubaria um future sem dono. As telas públicas
+  /// voltam a ler na próxima sessão anônima (o `main.dart` garante uma na
+  /// abertura do app).
+  Future<void> _reentrarAnonimo() async {
+    try {
+      await _auth.signInAnonymously();
+    } catch (_) {}
   }
 
   /// Documento `usuarios/{uid}` memoizado por sessão — o Future e, quando já
