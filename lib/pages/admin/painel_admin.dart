@@ -200,8 +200,18 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
     // o Flutter web engole, deixando a tela em branco sem aviso (já
     // aconteceu duas vezes nesta página). Por isso aqui a altura é sempre
     // um SizedBox com valor numérico explícito, nunca Expanded/esticarAltura.
-    final alturaCard = (MediaQuery.sizeOf(context).height - kToolbarHeight - 40)
-        .clamp(560.0, 819.0);
+    //
+    // O desconto vem de DefaultLayout.alturaAppBar e NÃO de kToolbarHeight:
+    // no desktop a barra tem 74px para caber o logo, e descontar os 56 do
+    // padrão do Material deixava 18px de card para fora da janela — a página
+    // inteira ganhava scroll por causa disso, não por causa do tamanho do
+    // logo. Os 40 restantes cobrem os paddings do CustomCard em volta (30) e
+    // deixam 10px de respiro.
+    final alturaCard =
+        (MediaQuery.sizeOf(context).height -
+                DefaultLayout.alturaAppBar(context) -
+                40)
+            .clamp(560.0, 819.0);
     // Área de conteúdo do card interno: altura do card menos o espaço do
     // cabeçalho colorido do CustomCard pai (HeaderPaginas + paddings).
     const alturaCabecalho = 90.0;

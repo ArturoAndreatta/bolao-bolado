@@ -81,8 +81,11 @@ void main() {
     expect(alturaDaCaixaDoLogo(tester), 72);
     expect(
       appBar.toolbarHeight,
-      80,
-      reason: 'barra menor que o logo recorta o logo em cima e embaixo',
+      74,
+      reason:
+          'barra menor que o logo (72) recorta o logo em cima e embaixo; a '
+          'folga fica em 2px porque o excedente empurrava o conteudo da '
+          'pagina ate nascer scroll',
     );
   });
 
@@ -96,5 +99,45 @@ void main() {
           'null é o que deixa a AppBar no padrão (56) do Material; qualquer '
           'valor aqui engorda a barra do celular sem o logo crescer',
     );
+  });
+
+  // Telas que travam a altura do conteúdo na janela (o painel admin faz isso)
+  // descontam a AppBar por DefaultLayout.alturaAppBar. Enquanto esse desconto
+  // era kToolbarHeight (56) e a barra do desktop já valia 74, os 18px de
+  // diferença sobravam para fora da janela e a página ganhava scroll — sem
+  // que nada no logo tivesse mudado. Este teste amarra as duas pontas: o
+  // número que a barra mede e o número que as telas descontam.
+  testWidgets('alturaAppBar bate com a barra que o layout monta', (
+    tester,
+  ) async {
+    for (final largura in <double>[500, 1440]) {
+      late double descontada;
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = Size(largura, 900);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              descontada = DefaultLayout.alturaAppBar(context);
+              return DefaultLayout(
+                drawer: const Drawer(),
+                child: const SizedBox(),
+              );
+            },
+          ),
+        ),
+      );
+
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
+      expect(
+        appBar.toolbarHeight ?? kToolbarHeight,
+        descontada,
+        reason:
+            'em $largura de largura a barra montada e o valor que as telas '
+            'descontam da janela divergem — a diferença vira scroll',
+      );
+    }
   });
 }
