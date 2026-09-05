@@ -475,6 +475,14 @@ Assunto do commit aqui
 `@'...'@` (aspas simples) e não `@"..."@`: no de aspas duplas o PowerShell
 expande `$` e crase dentro da mensagem.
 
+**E nada de aspas duplas DENTRO do texto da mensagem** — nem em volta do nome
+de um botão, nem citando o que aparece na tela. O here-string as guarda
+direito, mas na hora de repassar o argumento para o `git.exe` o PowerShell
+volta a tratá-las como delimitador e parte a mensagem em vários argumentos;
+o que se vê é `error: pathspec 'com' did not match any file(s) known to git`,
+que não parece ter nada a ver. Escreva o nome sem aspas (Continuar com o
+Google) ou entre aspas simples.
+
 Arquivo a arquivo no `git add`, nunca `git add .` — `.firebase/hosting.*.cache`
 é sobra de deploy e vive modificado na árvore.
 
