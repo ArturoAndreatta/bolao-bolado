@@ -51,3 +51,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Cache do Firebase CLI: regravado a cada deploy, nunca é código.
+/.firebase/
