@@ -79,6 +79,22 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
   // iCloud é outra janela), então preencher de uma vez fazia o texto surgir do
   // nada; entrando, dá para ver que veio de fora e qual campo foi preenchido.
   void _preencherDigitando(String? email, String? senha) {
+    // Descarta o que é ECO DA PRÓPRIA DIGITAÇÃO.
+    //
+    // A vigia lê os inputs do DOM de 200 em 200ms e não tem como saber quem
+    // escreveu neles. No celular o Flutter web espelha cada tecla nesses
+    // mesmos inputs, então cada letra digitada chegava aqui como se fosse um
+    // preenchimento novo: o campo era limpo e reescrito letra por letra por
+    // cima de quem estava digitando.
+    //
+    // O que separa um caso do outro é a DIREÇÃO. Digitação (ou o espelho
+    // atrasado dela) só produz valor igual ao que o campo já tem, ou um
+    // pedaço dele — por isso `startsWith`, que cobre os dois. Preenchimento
+    // de verdade vem do outro lado: o campo tem "" (ou "art") e chega
+    // "arturo@exemplo.com", que NÃO é começo do que está lá. Assim continua
+    // funcionando o caso comum de digitar três letras e tocar na sugestão.
+    if (email != null && emailController.text.startsWith(email)) email = null;
+    if (senha != null && senhaController.text.startsWith(senha)) senha = null;
     if (email == null && senha == null) return;
 
     // O Flutter espelha o texto dos campos de volta nos inputs do DOM que a
