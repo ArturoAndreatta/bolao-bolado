@@ -171,13 +171,15 @@ class AdminStatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cores = AdminCores.de(context);
-    // preencherAltura hoje só é usado nas células (altas) do bento grid da
-    // Visão geral — nesse contexto o tile ganha texto/ícone maiores, senão o
-    // conteúdo fica pequeno e centralizado sobrando bastante espaço vazio
-    // acima e abaixo dele.
-    final tamanhoIcone = preencherAltura ? 30.0 : 20.0;
-    final tamanhoValor = preencherAltura ? 26.0 : 17.0;
-    final tamanhoLabel = preencherAltura ? 14.0 : 12.0;
+    // preencherAltura hoje só é usado nas células do bento grid da Visão
+    // geral, onde o tile estica para a altura da célula. A diferença de
+    // tamanho é pequena de propósito: ela existe para o conteúdo não ficar
+    // perdido no meio da célula, não para preencher a célula. Enquanto a
+    // Visão geral reservava 560px, esses números eram 30/26/14 e o bloco
+    // inteiro parecia inflado — o excesso era a altura, não a fonte.
+    final tamanhoIcone = preencherAltura ? 22.0 : 20.0;
+    final tamanhoValor = preencherAltura ? 19.0 : 17.0;
+    final tamanhoLabel = preencherAltura ? 12.0 : 12.0;
     final conteudo = Container(
       width: preencherAltura ? double.infinity : null,
       height: preencherAltura ? double.infinity : null,
@@ -193,7 +195,7 @@ class AdminStatTile extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(preencherAltura ? 10 : 8),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
               borderRadius: AppRadii.circularSmd,
@@ -201,28 +203,48 @@ class AdminStatTile extends StatelessWidget {
             child: Icon(icon, color: color, size: tamanhoIcone),
           ),
           const SizedBox(width: 12),
+          // Valor e rótulo na MESMA linha, não empilhados. O tile é largo e
+          // baixo: empilhado, ele gastava altura para deixar meia linha de
+          // texto sobrando na largura, e a leitura saía em dois tempos ("4",
+          // depois "Participantes"). Lado a lado ele lê como uma frase.
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
+              // Pelo BASELINE, não pelo centro: as duas fontes têm tamanhos
+              // bem diferentes, e centralizadas o rótulo flutua acima da
+              // base do número. Precisa ficar num Row separado do ícone —
+              // o chip é um Container, não tem baseline, e alinhar por
+              // baseline com ele dentro estoura em tempo de layout.
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
+                // `height` explícito nos dois: sem ele a entrelinha vem do
+                // tema (~1.43), e o tile fica mais alto do que a soma das
+                // fontes sugere. Numa célula de altura fixa como a do bento
+                // grid da Visão geral isso é a diferença entre caber e
+                // estourar — já custou um overflow de 1.6px ali. Com o valor
+                // fixo aqui, a conta documentada em kAlturaVisaoGeral é a
+                // conta de verdade.
                 Text(
                   value,
-                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: tamanhoValor,
                     fontWeight: FontWeight.w700,
                     color: color,
+                    height: 1.15,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: tamanhoLabel,
-                    color: cores.textoSuave,
+                const SizedBox(width: 8),
+                // Só o rótulo encolhe quando falta espaço: o número é o dado,
+                // e cortá-lo com reticências entregaria uma quantia errada.
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: tamanhoLabel,
+                      color: cores.textoSuave,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ],
@@ -277,16 +299,17 @@ class AdminStatDestaque extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cores = AdminCores.de(context);
-    // Numa célula alta do bento grid (ver AdminStatTile.preencherAltura),
-    // ícone/valor crescem bastante em vez de ficar pequenos e centralizados
-    // sobrando espaço vazio acima e abaixo.
-    final tamanhoIcone = preencherAltura ? 52.0 : 28.0;
-    final tamanhoValor = preencherAltura ? 46.0 : 26.0;
-    final tamanhoLabel = preencherAltura ? 17.0 : 13.0;
+    // Ver AdminStatTile.preencherAltura. O valor continua bem acima do dos
+    // tiles normais — é essa assimetria que sinaliza qual número manda na
+    // tela —, mas sem os 46pt de antes, que existiam só para tapar a altura
+    // de 560px que a seção reservava.
+    final tamanhoIcone = preencherAltura ? 32.0 : 28.0;
+    final tamanhoValor = preencherAltura ? 30.0 : 26.0;
+    final tamanhoLabel = preencherAltura ? 14.0 : 13.0;
     return Container(
       width: double.infinity,
       height: preencherAltura ? double.infinity : null,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: AppRadii.circularLg,
@@ -295,7 +318,7 @@ class AdminStatDestaque extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(preencherAltura ? 16 : 12),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.18),
               borderRadius: AppRadii.circularMd,
@@ -327,7 +350,7 @@ class AdminStatDestaque extends StatelessWidget {
                   ),
                 ),
                 if (sublabel != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
                   Text(
                     sublabel!,
                     style: TextStyle(

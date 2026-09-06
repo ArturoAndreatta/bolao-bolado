@@ -155,19 +155,51 @@ class SkeletonStatTile extends StatelessWidget {
 class SkeletonDashboardStats extends StatelessWidget {
   const SkeletonDashboardStats({super.key});
 
+  /// Alturas dos blocos, espelhando o bento grid da Visão geral (ver
+  /// `kAlturaVisaoGeral`): a linha de cima é o par prêmio/verificado, a de
+  /// baixo são os quatro tiles em duas fileiras.
+  ///
+  /// Eram quatro tiles empilhados, que somavam ~332 e cabiam porque a seção
+  /// reservava 560px. Com a seção em 280 aquilo estourava a célula — e no
+  /// Flutter web estouro de layout não aparece na tela, só deixa a área em
+  /// branco enquanto carrega, que é o pior momento para sumir com tudo.
+  static const double _alturaDestaque = 104;
+  static const double _alturaTile = 46;
+  static const double _respiro = 12;
+
   @override
   Widget build(BuildContext context) {
+    Widget faixa(double altura, {int flexEsquerda = 1}) => Row(
+      children: [
+        Expanded(
+          flex: flexEsquerda,
+          child: SkeletonBox(
+            width: double.infinity,
+            height: altura,
+            radius: 12,
+          ),
+        ),
+        const SizedBox(width: _respiro),
+        Expanded(
+          child: SkeletonBox(
+            width: double.infinity,
+            height: altura,
+            radius: 12,
+          ),
+        ),
+      ],
+    );
+
     return Shimmer(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: const [
-          SkeletonStatTile(),
-          SizedBox(height: 12),
-          SkeletonStatTile(),
-          SizedBox(height: 12),
-          SkeletonStatTile(),
-          SizedBox(height: 12),
-          SkeletonStatTile(),
+        children: [
+          faixa(_alturaDestaque, flexEsquerda: 2),
+          const SizedBox(height: _respiro),
+          faixa(_alturaTile),
+          const SizedBox(height: _respiro),
+          faixa(_alturaTile),
         ],
       ),
     );

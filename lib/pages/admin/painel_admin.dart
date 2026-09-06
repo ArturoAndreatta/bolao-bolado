@@ -325,6 +325,9 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
                     icone: Icons.dashboard_outlined,
                   ),
                   cor: admin.azul,
+                  // Ver [_CardSecao.alturaCorpo]: aqui são seis números e uma
+                  // barra de progresso, não uma lista paginada.
+                  alturaCorpo: kAlturaVisaoGeral,
                   child: conteudoStats(pendentesSnapshot),
                 ),
                 const SizedBox(height: espacamento),
@@ -357,10 +360,20 @@ class _CardSecao extends StatefulWidget {
   final Color cor;
   final Widget child;
 
+  /// Altura do corpo, quando esta seção não quer a padrão.
+  ///
+  /// Só a Visão geral usa: ela é a faixa de largura inteira ACIMA da grade,
+  /// então a altura dela não precisa casar com a de ninguém — o motivo de
+  /// [_alturaCorpoPadrao] existir vale para os três cards lado a lado do
+  /// Wrap, que ficariam desencontrados. Reservar 560px para seis números
+  /// obrigava o bento grid a inflar ícone e valor só para não sobrar vazio.
+  final double? alturaCorpo;
+
   const _CardSecao({
     required this.meta,
     required this.cor,
     required this.child,
+    this.alturaCorpo,
   });
 
   @override
@@ -444,7 +457,7 @@ class _CardSecaoState extends State<_CardSecao> {
           AnimatedCrossFade(
             firstChild: const SizedBox(width: double.infinity),
             secondChild: SizedBox(
-              height: _alturaCorpoPadrao,
+              height: widget.alturaCorpo ?? _alturaCorpoPadrao,
               child: widget.child,
             ),
             crossFadeState: _recolhido

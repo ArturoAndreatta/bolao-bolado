@@ -71,6 +71,26 @@ const List<AbaAdminMeta> kAbasAdmin = [
   ),
 ];
 
+/// Altura do corpo da seção Visão geral no layout desktop.
+///
+/// Vive aqui, e não no `_CardSecao`, porque quem sabe de quanto precisa é o
+/// conteúdo. A conta: 280 menos o padding de 16 em volta deixa 248, menos o
+/// respiro de 12 entre as linhas dá 236, que o Expanded reparte em 5 e 4 —
+/// 131 para a linha do prêmio (o módulo mais alto pede ~119) e 105 para a dos
+/// quatro tiles, que ali viram duas fileiras de ~46 (o tile pede ~40).
+///
+/// **Ao mexer nos tamanhos de AdminStatTile/AdminStatDestaque, refaça essa
+/// conta**, e some as fontes pela entrelinha REAL. Esta conta já saiu errada
+/// uma vez por isso: somada a 1.2, ela dava folga; o tema aplica ~1.43 e os
+/// tiles estouravam por 1.6px. Hoje os textos do tile fixam `height`
+/// justamente para a conta ser previsível — se algum voltar a herdar a
+/// entrelinha do tema, ela deixa de valer.
+///
+/// Já foi a altura padrão de todos os cards da grade (560px), e era o motivo
+/// de tudo aqui parecer inflado: para seis números e uma barra de progresso,
+/// o bento grid precisava de ícone 52 e valor 46 só para não sobrar vazio.
+const double kAlturaVisaoGeral = 280;
+
 // =============================================================================
 // Visão geral: card de estatísticas (compacto) + card de pendentes (altura
 // fixa própria, com scroll interno) — dois cards separados no dashboard em
@@ -321,13 +341,13 @@ class AdminCardStats extends StatelessWidget {
   }
 }
 
-/// Módulo alto de "verificado" do bento grid da Visão geral — ao lado do
-/// destaque de prêmio, mesma altura. Sempre mostra o valor arrecadado das
-/// apostas verificadas (cor/ícone fixos, sem alternar pra vermelho): antes
-/// o módulo virava "N Pendente(s)" assim que havia 1 pendência sequer,
-/// escondendo o número que o admin queria ver. Pendência agora é só um
-/// badge pequeno no canto superior direito — visível, mas sem tomar o
-/// lugar do dado principal.
+/// Módulo de "verificado" do bento grid da Visão geral — ao lado do destaque
+/// de prêmio, mesma altura e mesmo desenho deitado. Sempre mostra o valor
+/// arrecadado das apostas verificadas (cor/ícone fixos, sem alternar pra
+/// vermelho): antes o módulo virava "N Pendente(s)" assim que havia 1
+/// pendência sequer, escondendo o número que o admin queria ver. Pendência
+/// hoje é um badge pequeno no fim da linha do valor — visível, mas sem tomar
+/// o lugar do dado principal nem empurrar o resto do módulo para baixo.
 class _ModuloPendencias extends StatelessWidget {
   final Color cor;
   final IconData icon;
@@ -366,86 +386,106 @@ class _ModuloPendencias extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: preencherAltura ? double.infinity : null,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: cor.withValues(alpha: 0.1),
         borderRadius: AppRadii.circularLg,
         border: Border.all(color: cor.withValues(alpha: 0.3)),
       ),
+      // Deitado, como o destaque de prêmio ao lado, e não mais empilhado e
+      // centralizado: era a pilha (ícone grande, valor grande, rótulo, barra)
+      // que sozinha definia a altura do bloco inteiro. Na horizontal o mesmo
+      // conteúdo cabe em pouco mais da metade da altura, e os dois módulos da
+      // linha de cima passam a ler como um par.
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: preencherAltura ? MainAxisSize.max : MainAxisSize.min,
-        // stretch (não o center padrão): sem isso o Align do badge abaixo
-        // encolhe pra própria largura mínima e "topRight" não tem espaço
-        // sobrando pra empurrar o badge de verdade — os textos internos já
-        // usam TextAlign.center, então esticar a Column não muda como eles
-        // aparecem.
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (temPendencia)
-            Align(
-              alignment: Alignment.topRight,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  // Mesma razão da barra de seção: o vermelho é claro no tema
-                  // escuro e o branco por cima dele sumia.
-                  color: cores.barraDeSecao(cores.vermelho),
-                  borderRadius: AppRadii.circularPill,
+                  color: cor.withValues(alpha: 0.18),
+                  borderRadius: AppRadii.circularSmd,
                 ),
-                child: Text(
-                  totalPendentes == 1
-                      ? '1 pendente'
-                      : '$totalPendentes pendentes',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+                child: Icon(icon, color: cor, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      valor,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: cor,
+                        height: 1.1,
+                      ),
+                    ),
+                    Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: cores.textoSuave,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          if (temPendencia) const SizedBox(height: 10),
-          Icon(icon, color: cor, size: 52),
-          const SizedBox(height: 14),
-          Text(
-            valor,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 38,
-              fontWeight: FontWeight.w800,
-              color: cor,
-              height: 1.0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: cores.texto,
-            ),
+              // O badge sai da pilha e vira o fim da linha: ele avisa, não
+              // compete. Empilhado ele empurrava todo o resto para baixo, e
+              // com pendência o módulo ficava mais alto do que sem.
+              if (temPendencia) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    // Mesma razão da barra de seção: o vermelho é claro no
+                    // tema escuro e o branco por cima dele sumia.
+                    color: cores.barraDeSecao(cores.vermelho),
+                    borderRadius: AppRadii.circularPill,
+                  ),
+                  child: Text(
+                    totalPendentes == 1
+                        ? '1 pendente'
+                        : '$totalPendentes pendentes',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           if (fracaoVerificado != null) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
             ClipRRect(
               borderRadius: AppRadii.circularPill,
               child: LinearProgressIndicator(
                 value: fracaoVerificado!.clamp(0.0, 1.0),
-                minHeight: 8,
+                minHeight: 6,
                 backgroundColor: cor.withValues(alpha: 0.15),
                 valueColor: AlwaysStoppedAnimation(cor),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 5),
             Text(
               '${(fracaoVerificado! * 100).round()}% da fila verificada',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: cores.textoSuave,
               ),
