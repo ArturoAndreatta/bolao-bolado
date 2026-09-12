@@ -40,6 +40,11 @@ dependencies:
   firebase_core: ^4.3.0
   cloud_firestore: ^6.1.1
   firebase_auth: ^6.1.4
+  # Chama o backend próprio de e-mail transacional (repo separado
+  # bolao-bolado-email-api) no fluxo de recuperação de senha, no lugar do
+  # `sendPasswordResetEmail` padrão do Firebase — cujo e-mail sai sem a cara
+  # do app e cuja customização está quebrada neste projeto Firebase.
+  http: ^1.6.0
   go_router: ^17.3.0
   qr_flutter: ^4.1.0
   # Abre os links que aparecem no chat. Não há como fazer isso sem plugin:
