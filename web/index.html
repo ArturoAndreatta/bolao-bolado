@@ -54,6 +54,45 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="assets/images/icone.png" />
 
+  <!--
+    Prévia do link (Discord, WhatsApp, Telegram, X). Sem estas tags o Discord
+    monta o cartão só com <title> + description e não mostra imagem nenhuma:
+    ele lê o HTML servido pelo Hosting e NÃO executa JavaScript, então nada do
+    que o Flutter pinta depois entra na prévia — o cartão precisa estar pronto
+    aqui no index.html.
+
+    As URLs de imagem têm que ser ABSOLUTAS: o robô do Discord não resolve
+    caminho relativo. `banner.jpg` fica em web/ (copiado tal e qual para
+    build/web), 1200x630, o tamanho que o `summary_large_image` espera — é o
+    que faz o embed virar banner largo em vez de miniatura no canto.
+
+    O `?v=1` existe para furar cache: Discord e WhatsApp guardam a prévia por
+    URL durante horas. Ao trocar a arte, suba o número, senão o cartão antigo
+    continua aparecendo.
+  -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Bolão Bolado">
+  <meta property="og:title" content="Bolão Bolado">
+  <meta property="og:description" content="Organize e participe de bolões com seus amigos de forma simples e divertida.">
+  <meta property="og:url" content="https://bolaobolado-app.web.app/">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:image" content="https://bolaobolado-app.web.app/banner.jpg?v=1">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Logo do Bolão Bolado sobre fundo escuro">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Bolão Bolado">
+  <meta name="twitter:description" content="Organize e participe de bolões com seus amigos de forma simples e divertida.">
+  <meta name="twitter:image" content="https://bolaobolado-app.web.app/banner.jpg?v=1">
+
+  <!--
+    O Discord pinta a listra lateral do cartão com esta cor. Vale também para
+    a barra do navegador no mobile, por isso é o dourado do CTA do tema
+    escuro, e não uma cor solta.
+  -->
+  <meta name="theme-color" content="#E8B93A">
+
   <title>Bolão Bolado</title>
   <link rel="manifest" href="manifest.json">
 </head>
