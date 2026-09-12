@@ -5,11 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// MAIOR caixa do logo na AppBar, em pixels de layout — a do desktop, o mesmo
-/// número de `DefaultLayout` (no celular a caixa é 54, que é menos exigente).
-/// Multiplicada pelo devicePixelRatio, é quantos pixels REAIS a arte precisa
-/// ter pra sair nítida.
-const double _alturaCaixa = 72;
+/// MAIOR caixa do logo na AppBar, em pixels de layout — a do desktop (a do
+/// celular é menor, e portanto menos exigente). Multiplicada pelo
+/// devicePixelRatio, é quantos pixels REAIS a arte precisa ter pra sair
+/// nítida.
+///
+/// Sai da constante do layout, e não de um número escrito aqui: encolher o
+/// logo é mudança legítima, e o que não pode acontecer junto é a arte deixar
+/// de cobrir a caixa nova. Repetir o valor à mão fazia o teste quebrar por
+/// estar desatualizado, e não por ter achado o problema.
+const double _alturaCaixa = DefaultLayout.alturaLogoDesktop;
 
 /// O logo da AppBar já saiu borrado no desktop uma vez: existia um arquivo só,
 /// de 160px de altura, feito pro celular (onde o DPR 3 rende 162). Num monitor
@@ -54,7 +59,7 @@ void main() {
   }
 
   // A caixa maior é só do desktop. Quando ela passou a valer no celular
-  // também, o logo continuou do mesmo tamanho (54) mas a barra engordou de 56
+  // também, o logo continuou do mesmo tamanho mas a barra engordou de 56
   // pra 66, e a tela toda desceu — regressão silenciosa, que só apareceu
   // porque o usuário reparou. Daí os dois casos abaixo.
   Future<AppBar> appBarEm(WidgetTester tester, double largura) async {
@@ -76,22 +81,39 @@ void main() {
     return tester.widget<SizedBox>(caixa).height!;
   }
 
-  testWidgets('no desktop a barra cresce junto com o logo', (tester) async {
+  testWidgets('no desktop a barra acomoda o logo sem crescer', (tester) async {
     final appBar = await appBarEm(tester, 1440);
-    expect(alturaDaCaixaDoLogo(tester), 72);
+    expect(alturaDaCaixaDoLogo(tester), DefaultLayout.alturaLogoDesktop);
     expect(
       appBar.toolbarHeight,
-      74,
+      greaterThan(DefaultLayout.alturaLogoDesktop),
+      reason: 'barra menor que o logo recorta o logo em cima e embaixo',
+    );
+    // 74 é escrito à mão de propósito, e é o único número deste arquivo que
+    // não vem do layout: ele não descreve o logo, descreve o quanto a barra
+    // pode ocupar da janela. Encolher o logo e deixar a barra encolher junto
+    // não quebra nada visualmente, mas AUMENTAR aqui empurra o conteudo e faz
+    // nascer o scroll de poucos pixels que ja apareceu em tela de notebook —
+    // que e a regressao que este numero existe pra travar.
+    expect(
+      appBar.toolbarHeight,
+      lessThanOrEqualTo(74),
       reason:
-          'barra menor que o logo (72) recorta o logo em cima e embaixo; a '
-          'folga fica em 2px porque o excedente empurrava o conteudo da '
-          'pagina ate nascer scroll',
+          'a barra do desktop passou de 74px: o excedente empurra o conteudo '
+          'da pagina ate nascer scroll em tela de notebook',
     );
   });
 
   testWidgets('no celular a barra fica na altura padrão', (tester) async {
     final appBar = await appBarEm(tester, 500);
-    expect(alturaDaCaixaDoLogo(tester), 54);
+    expect(alturaDaCaixaDoLogo(tester), DefaultLayout.alturaLogoCompacto);
+    expect(
+      DefaultLayout.alturaLogoCompacto,
+      lessThanOrEqualTo(kToolbarHeight),
+      reason:
+          'logo maior que o padrão do Material sai recortado, porque no '
+          'celular a barra não recebe altura própria',
+    );
     expect(
       appBar.toolbarHeight,
       isNull,

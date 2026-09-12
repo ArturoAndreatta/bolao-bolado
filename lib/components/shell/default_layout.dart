@@ -23,18 +23,26 @@ class DefaultLayout extends StatelessWidget {
     this.esticarLarguraCompact = false,
   });
 
-  // A arte do logo tem 72px de altura EXATOS (images/logo_appbar.png, com as
-  // variantes 2.0x/3.0x geradas em cima disso). Caixa menor que 72 faz o
+  // A arte do logo tem 52px de altura EXATOS (images/logo_appbar.png, com as
+  // variantes 2.0x/3.0x geradas em cima disso). Caixa menor que 52 faz o
   // Flutter reduzir a imagem na hora de desenhar, e o traço fino do "7", do
-  // "13" e do trevo volta a borrar — que é o problema que esta altura
-  // resolveu. Mexer aqui obriga a regerar as três variantes.
-  static const double alturaLogoDesktop = 72;
-  static const double alturaLogoCompacto = 54;
+  // "13" e do trevo volta a borrar — que é o problema que este par
+  // altura-da-caixa + variantes resolve. Mexer aqui obriga a regerar as três.
+  //
+  // Foi 72 até aqui, e encolher a arte SEM regerar as variantes é justamente
+  // o que traria o borrão de volta: a nitidez vem de a caixa bater com o
+  // tamanho do arquivo, não de filtro.
+  static const double alturaLogoDesktop = 52;
+  static const double alturaLogoCompacto = 44;
 
-  // Folga vertical entre o logo e as bordas da barra, no desktop. Fica no
-  // mínimo de propósito: cada pixel aqui é um pixel a mais de página, e a
-  // soma barra + card estoura a janela por muito pouco.
-  static const double folgaVerticalLogo = 2;
+  // Folga vertical entre o logo e as bordas da barra, no desktop.
+  //
+  // Ela é o SALDO de encolher a arte, não margem nova: a barra continua com
+  // a mesma altura total de antes (alturaLogoDesktop + folgaVerticalLogo),
+  // então a página não cresce um pixel e o scroll de poucos pixels que já
+  // apareceu em tela de notebook não volta. Ao mexer no logo, mexa aqui na
+  // direção contrária para manter a soma.
+  static const double folgaVerticalLogo = 22;
 
   /// Altura REAL da AppBar montada por este layout, na faixa de tela atual.
   ///
@@ -54,9 +62,9 @@ class DefaultLayout extends StatelessWidget {
     final cores = AppCores.de(context);
 
     // Nitidez de arte bitmap é orçamento de pixel, não filtro: o que chega na
-    // tela é `altura × devicePixelRatio`. No celular o DPR 3 rende 162 pixels
-    // reais a partir de 54 e a arte aparece inteira; num monitor comum (DPR 1)
-    // os mesmos 54 viram 54, e o "7", o "13" e o trevo borram. Era o sintoma
+    // tela é `altura × devicePixelRatio`. No celular o DPR 3 rende 132 pixels
+    // reais a partir de 44 e a arte aparece inteira; num monitor comum (DPR 1)
+    // os mesmos 44 viram 44, e o "7", o "13" e o trevo borram. Era o sintoma
     // relatado — nítido no celular e no emulador de dispositivo do Chrome (que
     // força DPR alto), borrado no desktop. Filtro nenhum resolve, só altura, e
     // por isso a caixa cresce onde há espaço.
@@ -82,7 +90,7 @@ class DefaultLayout extends StatelessWidget {
                 centerTitle: true,
                 // O título é posicionado DENTRO do toolbarHeight, então uma
                 // caixa maior que ele sai recortada em cima e embaixo. No
-                // celular fica `null` de propósito: 54 cabe no padrão (56), e
+                // celular fica `null` de propósito: 44 cabe no padrão (56), e
                 // passar altura ali engordava a barra do celular à toa.
                 //
                 // O valor sai de `alturaAppBar` e não de uma conta local: é o
@@ -104,7 +112,7 @@ class DefaultLayout extends StatelessWidget {
                           // redução e offline dá pra escolher filtro melhor.
                           //
                           // Ao mexer em `alturaLogo` ou na arte, regere as
-                          // três: a de baixo tem a altura da MAIOR caixa (72,
+                          // três: a de baixo tem a altura da MAIOR caixa (52,
                           // do desktop), as outras 2× e 3× isso. Menos que
                           // isso e o Flutter amplia a arte no desktop.
                           'images/logo_appbar.png',
