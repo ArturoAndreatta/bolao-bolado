@@ -5,6 +5,8 @@ import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
+import 'package:bolao_bolado/components/shared/google_sign_in_button.dart';
+import 'package:bolao_bolado/components/shared/ou_divider.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
@@ -28,6 +30,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
   final senhaController = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
+  bool _carregandoGoogle = false;
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
   late final VigiaAutofill _vigiaAutofill;
@@ -267,6 +270,17 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                               ],
                             ),
                       const SizedBox(height: 20),
+                      const OuDivider(),
+                      const SizedBox(height: 20),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: GoogleSignInButton(
+                          isLoading: _carregandoGoogle,
+                          expanded: true,
+                          onPressed: _entrarComGoogle,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -309,6 +323,30 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     }
   }
 
+  void _entrarComGoogle() async {
+    setState(() => _carregandoGoogle = true);
+
+    try {
+      final credencial = await _authService.entrarComGoogle();
+      // Fecha o contexto de autofill mesmo aqui: mantê-lo aberto depois de um
+      // login bem-sucedido por outro caminho podia deixar o navegador
+      // sugerindo salvar um par e-mail/senha vazio.
+      TextInput.finishAutofillContext();
+
+      // Nulo = a pessoa fechou a janela do Google antes de escolher a conta.
+      // Não é erro, então nem diálogo nem navegação.
+      if (credencial == null) return;
+
+      if (mounted) context.go(AppRoutes.participants);
+    } catch (e) {
+      if (mounted) {
+        CustomShowDialog.show(context, _traduzirErro(e.toString()));
+      }
+    } finally {
+      if (mounted) setState(() => _carregandoGoogle = false);
+    }
+  }
+
   void _irParaCadastro() {
     context.go(
       Uri(
@@ -337,6 +375,12 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       return 'Conta desativada. Entre em contato com o suporte.';
     } else if (erro.contains('too-many-requests')) {
       return 'Muitas tentativas. Tente novamente mais tarde.';
+    } else if (erro.contains('account-exists-with-different-credential')) {
+      return 'Este e-mail já tem conta com senha. Entre com e-mail e senha.';
+    } else if (erro.contains('popup-blocked')) {
+      return 'O navegador bloqueou a janela do Google. Libere e tente de novo.';
+    } else if (erro.contains('network-request-failed')) {
+      return 'Sem conexão. Verifique a internet e tente de novo.';
     }
     return 'Erro ao fazer login. Tente novamente.';
   }

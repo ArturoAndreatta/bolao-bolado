@@ -1065,3 +1065,32 @@ class AppCores extends ThemeExtension<AppCores> {
   static List<double> _lerpDoubles(List<double> a, List<double> b, double t) =>
       [for (var i = 0; i < a.length; i++) lerpDouble(a[i], b[i], t)!];
 }
+
+/// Cores de marca de terceiros.
+///
+/// Não são um papel de [AppCores] e não mudam com o tema (além do par
+/// claro/escuro que a própria diretriz do Google define): são a identidade de
+/// outra empresa, e o glifo só é reconhecido nas cores dele. Moram aqui
+/// porque este é o único arquivo do app onde cor literal pode existir — não
+/// porque alguma tela deva usá-las para pintar qualquer outra coisa. Ver
+/// [GoogleSignInButton](../components/shared/google_sign_in_button.dart).
+class AppBrandColors {
+  const AppBrandColors._();
+
+  static const Color googleBlue = Color(0xFF4285F4);
+  static const Color googleRed = Color(0xFFEA4335);
+  static const Color googleYellow = Color(0xFFFBBC05);
+  static const Color googleGreen = Color(0xFF34A853);
+
+  // As cores do botão "Continuar com o Google", como a diretriz do Google as
+  // define. **Não seguem a paleta do app**: o botão é reconhecido pela cor
+  // neutra e pelo G, e pintá-lo de dourado/azul o transformaria em mais um
+  // CTA do bolão — que é justamente o que ele não pode ser.
+  static const Color googleLightFill = Color(0xFFFFFFFF);
+  static const Color googleLightOutline = Color(0xFF747775);
+  static const Color googleLightLabel = Color(0xFF1F1F1F);
+
+  static const Color googleDarkFill = Color(0xFF131314);
+  static const Color googleDarkOutline = Color(0xFF8E918F);
+  static const Color googleDarkLabel = Color(0xFFE3E3E3);
+}

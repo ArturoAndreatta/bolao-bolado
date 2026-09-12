@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 
@@ -76,6 +77,71 @@ class AuthService {
     }
 
     return _auth.signInWithEmailAndPassword(email: email, password: senha);
+  }
+
+  /// Login/cadastro com conta Google, num toque só.
+  ///
+  /// Não usa o pacote `google_sign_in`: `signInWithProvider`/`signInWithPopup`
+  /// do próprio `firebase_auth` bastam para web e mobile, e evitam registrar a
+  /// impressão SHA-1 de cada chave de assinatura no console do Firebase — o
+  /// app hoje só é assinado com a chave de depuração, e essa dependência
+  /// quebraria calado no dia em que a chave de verdade entrasse.
+  ///
+  /// Devolve `null` quando o usuário desistiu (fechou a janela do Google) —
+  /// isso não é erro, é a pessoa mudando de ideia, e não deve acender um
+  /// diálogo vermelho na tela de login.
+  Future<UserCredential?> entrarComGoogle() async {
+    if (_auth.currentUser != null && _auth.currentUser!.isAnonymous) {
+      unawaited(_auth.currentUser!.delete().catchError((_) {}));
+    }
+
+    // Só e-mail e nome interessam — contatos, agenda e o resto do catálogo do
+    // Google não têm o que fazer num app de bolão, e cada escopo a mais é uma
+    // linha a mais na tela de permissão que a pessoa lê antes de confiar.
+    final provider = GoogleAuthProvider()
+      ..addScope('email')
+      ..addScope('profile');
+
+    UserCredential credential;
+    try {
+      // Dois caminhos porque o Firebase oferece dois. Na web, a janela
+      // suspensa devolve a sessão sem sair da página — recarregar o app no
+      // meio do login perderia o estado do formulário.
+      credential = kIsWeb
+          ? await _auth.signInWithPopup(provider)
+          : await _auth.signInWithProvider(provider);
+    } on FirebaseAuthException catch (e) {
+      if (_desistiuDoLogin(e.code)) return null;
+      rethrow;
+    }
+
+    // Primeira vez desta conta Google no app: sorteia avatar e cria o
+    // documento em `usuarios/{uid}`, igual ao fluxo de `cadastrar`.
+    if (credential.additionalUserInfo?.isNewUser ?? false) {
+      final corAleatoria = AvatarService.sortearCorAleatoria();
+      final emojiAleatorio = AvatarService.sortearEmojiAleatorio();
+
+      await _firestore.collection('usuarios').doc(credential.user!.uid).set({
+        'nome': credential.user!.displayName ?? 'Usuário',
+        'email': credential.user!.email,
+        'avatarColor': corAleatoria,
+        'avatarEmoji': emojiAleatorio,
+        'criadoEm': FieldValue.serverTimestamp(),
+      });
+    }
+
+    return credential;
+  }
+
+  /// Códigos que significam "mudei de ideia", não "deu errado" — fechar a
+  /// janela do Google é um gesto comum (abrir, ver a conta errada, fechar), e
+  /// tratar isso como erro deixaria um aviso vermelho na tela por algo que a
+  /// pessoa fez de propósito.
+  bool _desistiuDoLogin(String codigo) {
+    return codigo == 'popup-closed-by-user' ||
+        codigo == 'cancelled-popup-request' ||
+        codigo == 'user-cancelled' ||
+        codigo == 'web-context-canceled';
   }
 
   Future<void> logout() async {

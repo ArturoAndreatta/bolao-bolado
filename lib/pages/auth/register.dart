@@ -3,6 +3,8 @@ import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
+import 'package:bolao_bolado/components/shared/google_sign_in_button.dart';
+import 'package:bolao_bolado/components/shared/ou_divider.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/core/responsive.dart';
@@ -29,6 +31,7 @@ class _RegisterState extends State<Register> {
   bool _obscureSenha = true;
   bool _obscureConfirmar = true;
   bool _loading = false;
+  bool _carregandoGoogle = false;
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
 
@@ -159,6 +162,17 @@ class _RegisterState extends State<Register> {
                               ],
                             ),
                       const SizedBox(height: 20),
+                      const OuDivider(),
+                      const SizedBox(height: 20),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: GoogleSignInButton(
+                          isLoading: _carregandoGoogle,
+                          expanded: true,
+                          onPressed: _entrarComGoogle,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -208,6 +222,27 @@ class _RegisterState extends State<Register> {
     }
   }
 
+  void _entrarComGoogle() async {
+    setState(() => _carregandoGoogle = true);
+
+    try {
+      final credencial = await _authService.entrarComGoogle();
+      TextInput.finishAutofillContext();
+
+      // Nulo = a pessoa fechou a janela do Google antes de escolher a conta.
+      // Não é erro, então nem diálogo nem navegação.
+      if (credencial == null) return;
+
+      if (mounted) context.go(AppRoutes.participants);
+    } catch (e) {
+      if (mounted) {
+        CustomShowDialog.show(context, _traduzirErro(e.toString()));
+      }
+    } finally {
+      if (mounted) setState(() => _carregandoGoogle = false);
+    }
+  }
+
   // Traduz os códigos de erro do FirebaseAuth para mensagens em português
   String _traduzirErro(String erro) {
     if (erro.contains('email-already-in-use')) {
@@ -216,6 +251,12 @@ class _RegisterState extends State<Register> {
       return 'Senha muito fraca. Use pelo menos 6 caracteres.';
     } else if (erro.contains('invalid-email')) {
       return 'E-mail inválido.';
+    } else if (erro.contains('account-exists-with-different-credential')) {
+      return 'Este e-mail já tem conta com senha. Entre com e-mail e senha.';
+    } else if (erro.contains('popup-blocked')) {
+      return 'O navegador bloqueou a janela do Google. Libere e tente de novo.';
+    } else if (erro.contains('network-request-failed')) {
+      return 'Sem conexão. Verifique a internet e tente de novo.';
     }
     return 'Erro ao cadastrar. Tente novamente.';
   }
