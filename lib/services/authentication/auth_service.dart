@@ -1,12 +1,30 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Backend próprio (repo bolao-bolado-email-api, projeto Vercel separado)
+  // que gera o link de redefinição via Admin SDK e manda o e-mail com o
+  // template visual do app — usado no lugar do `sendPasswordResetEmail`
+  // padrão do Firebase, cujo e-mail é genérico e cuja customização está
+  // quebrada neste projeto Firebase (Console recusa salvar o modelo/URL
+  // acionável).
+  static const _urlRecuperarSenha =
+      'https://bolao-bolado-email-api.vercel.app/api/redefinir-senha';
+
+  // Barreira simples contra bot varrendo o endpoint — não é um segredo
+  // forte de verdade: o app é web pública, então dá pra extrair esse valor
+  // do bundle. Só afasta abuso genérico, não alguém decidido (mesmo aviso
+  // no endpoint em si).
+  static const _segredoRecuperarSenha =
+      '7f3a9c1e5b8d4f26a0c9e7d3b5f8a1c4e6d9b2f7a5c8e1d4b6f9a2c5e8d1b4f7';
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
   User? get currentUser => _auth.currentUser;
@@ -190,8 +208,28 @@ class AuthService {
     mesclarNoCache(user.uid, {'nome': novoNome});
   }
 
+  /// Envia o e-mail de redefinição de senha pelo backend próprio (ver
+  /// [_urlRecuperarSenha]).
+  ///
+  /// O endpoint é anti-enumeração de propósito: responde sucesso (200) tanto
+  /// pra e-mail cadastrado quanto pra e-mail inexistente, sem diferenciar —
+  /// não dá pra usar essa chamada pra descobrir se alguém tem conta no app.
+  /// Só erro de rede/infraestrutura chega aqui como falha de verdade.
   Future<void> recuperarSenha(String email) async {
-    await _auth.sendPasswordResetEmail(email: email);
+    final resposta = await http.post(
+      Uri.parse(_urlRecuperarSenha),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-secret': _segredoRecuperarSenha,
+      },
+      body: jsonEncode({'email': email}),
+    );
+
+    if (resposta.statusCode != 200) {
+      throw Exception(
+        'Erro ao enviar e-mail de redefinição de senha (${resposta.statusCode}).',
+      );
+    }
   }
 
   bool get isLoggedIn {
