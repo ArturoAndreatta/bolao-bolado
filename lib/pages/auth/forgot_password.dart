@@ -127,13 +127,15 @@ class _RecuperarSenhaState extends State<RecuperarSenha> {
     try {
       await _authService.recuperarSenha(emailController.text.trim());
       if (mounted) setState(() => _enviado = true);
-    } on Exception catch (e) {
+    } on Exception {
+      // O backend de recuperação é anti-enumeração de propósito: nunca
+      // diferencia e-mail cadastrado de e-mail inexistente (ambos voltam
+      // sucesso). Só chega aqui erro de rede/infraestrutura de verdade.
       if (mounted) {
-        // Firebase retorna 'user-not-found' quando o e-mail não está cadastrado
-        final msg = e.toString().contains('user-not-found')
-            ? 'E-mail não encontrado.'
-            : 'Erro ao enviar e-mail. Tente novamente.';
-        CustomShowDialog.show(context, msg);
+        CustomShowDialog.show(
+          context,
+          'Erro ao enviar e-mail. Tente novamente.',
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
