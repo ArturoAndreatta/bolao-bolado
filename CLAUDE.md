@@ -547,6 +547,12 @@ atualize/adicione testes em `test/services/bet_service_test.dart`.
 - `functions/` está preparado para Cloud Functions mas ainda **não tem código-fonte
   versionado** (só `package-lock.json`); `node_modules` é git-ignored via
   `functions/.gitignore`.
+- `email_api/` é um backend **Node na Vercel**, fora do build do Flutter e do
+  deploy do Firebase: manda o e-mail de redefinição de senha pelo Gmail,
+  porque o editor de modelos de e-mail do Firebase está bloqueado neste
+  projeto. O app chama `/api/redefinir-senha` a partir de
+  [auth_service.dart](lib/services/authentication/auth_service.dart).
+  Credenciais só nas variáveis de ambiente da Vercel — ver o README da pasta.
 - Flags de debug de runtime (ex: forçar skeleton de loading) ficam em
   `core/debug_flags.dart` e só são acionáveis pelo Painel ADM — não persistem
   entre sessões.

@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/redefinir-senha.js": {
+      "maxDuration": 10
+    }
+  }
+}
