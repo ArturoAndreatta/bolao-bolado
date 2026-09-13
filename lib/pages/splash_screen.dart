@@ -3,6 +3,14 @@ import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:flutter/material.dart';
 
+/// Tela de espera enquanto o Firebase e a sessão sobem.
+///
+/// **Na web existe uma cópia dela em HTML e CSS puro, em `web/index.html`**,
+/// que cobre o intervalo antes de o motor do Flutter montar o primeiro quadro.
+/// As duas precisam continuar iguais — logo, tamanhos, espaçamento, barra e
+/// cores por tema: a cópia HTML fica por cima desta até o app entrar, e
+/// qualquer diferença entre elas aparece como um salto quando uma vira a
+/// outra. Mexeu aqui, mexa lá.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 

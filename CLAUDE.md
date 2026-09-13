@@ -323,6 +323,42 @@ escolhido.
 chapado — invisível no tema claro, um retângulo branco no escuro. Por isso o
 `Logo` usa `logo4.png` por padrão. Ao trocar arte, confira o canal alfa.
 
+## Splash na web: duas cópias
+
+A tela de carregamento (logo e barra) existe **duas vezes**: a
+[SplashScreen](lib/pages/splash_screen.dart), em Flutter, e uma cópia em HTML e
+CSS puro em [web/index.html](web/index.html). A cópia HTML cobre o intervalo em
+que o motor do Flutter ainda está baixando e subindo — sem ela esse intervalo é
+tela vazia, e é o mais longo da abertura.
+
+- **Quem tira o HTML é o app, não o motor.** `_AppInit`
+  ([main.dart](lib/main.dart)) chama `dispensarSplashWeb()`
+  ([splash_web.dart](lib/core/splash_web.dart)) no primeiro quadro depois de
+  `_pronto`, e isso dispara `bolao-app-pronto` no `window` — o único nome que o
+  HTML escuta. Tirar o HTML no primeiro quadro do motor trocaria um splash pelo
+  outro quase igual, e a diferença entre `<img>` e `Image.asset` piscaria.
+- **As duas precisam continuar iguais.** O HTML fica por cima da `SplashScreen`
+  até o app entrar, e qualquer diferença de tamanho, espaço ou cor aparece como
+  salto. Mexeu na `SplashScreen`, mexa no HTML.
+- **As cores do HTML são cópia de [app_cores.dart](lib/core/app_cores.dart)**
+  para as 7 paletas: `gradienteFundo`, `paradasGradiente`, `textoSobreCor` (o
+  trilho da barra, a 30%), `azul` (a barra) e, no aviso de demora, `texto`,
+  `acaoPrimaria` e `textoSobreAcao`. **Paleta nova ou cor mudada precisa entrar
+  lá também**, senão quem usa aquele tema vê o splash de outro tema até o app
+  subir. O tema salvo é lido do `localStorage` (`flutter.tema_modo`, em JSON),
+  com as mesmas regras de `carregarTemaSalvo`/`paletaDe`.
+- **O ângulo do gradiente é calculado, e não `to bottom right`.** O
+  `LinearGradient` do Flutter corre ao longo da diagonal do canto superior
+  esquerdo ao inferior direito; o `to bottom right` do CSS inclina as faixas
+  pela outra diagonal, e no celular em pé a diferença aparece.
+- **Aviso de demora:** se o app não entrar em 15s, aparece "Isso está
+  demorando mais que o normal" com um botão que recarrega. Só conta tempo com a
+  página visível — em segundo plano o Flutter não desenha e o aviso de pronto
+  espera a página voltar. O `#splash-demora[hidden]` é obrigatório: o
+  `display: flex` do aviso vence o `hidden` do navegador, e sem a regra ele
+  aparece desde o primeiro quadro. E ele fica fora do fluxo, pendurado embaixo
+  da barra, para a logo não subir quando ele aparece.
+
 ## Firebase / Firestore — modelo de dados
 
 Estrutura das coleções:

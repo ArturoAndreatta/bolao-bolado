@@ -95,10 +95,265 @@
 
   <title>Bolão Bolado</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    Splash em HTML e CSS puro: cópia da `SplashScreen` (lib/pages/splash_screen.dart).
+
+    Sem ela, entre o HTML pintar e o motor do Flutter montar o primeiro quadro
+    a tela fica vazia — e esse intervalo é o download do main.dart.js e do
+    CanvasKit, o maior da abertura. A `SplashScreen` do Flutter só aparece
+    depois disso.
+
+    AS DUAS CÓPIAS PRECISAM CONTINUAR IGUAIS. Esta fica por cima da do Flutter
+    até o app entrar; qualquer diferença de tamanho, espaço ou cor aparece como
+    um salto no instante da troca. Logo 280x220 com `scale-down` (o que o
+    `Image.asset` faz sem `fit`), 40px de respiro, barra de 200x6 com raio 8, a
+    barra enchendo de 0 a 100% em 2s com `ease-in-out` (o `Curves.easeInOut` do
+    Flutter é a mesma curva) e recomeçando do zero.
+  -->
+  <style>
+    #splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(
+        var(--splash-angulo, 135deg),
+        var(--splash-cor1, #FFE082) var(--splash-parada1, 50%),
+        var(--splash-cor2, #7CC8B5) var(--splash-parada2, 90%)
+      );
+      /* Sai com fade, não com corte. `will-change` deixa a camada compositada
+         antes de a transição começar: no Safari do iPhone o evento de saída
+         chega junto com o Flutter montando a primeira tela, e sem a camada
+         pronta o navegador perdia os quadros do meio e o fade saía cortado. */
+      opacity: 1;
+      will-change: opacity;
+      transition: opacity 360ms ease-out;
+    }
+    #splash.splash-saindo {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #splash .pilha {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #splash img {
+      width: 280px;
+      height: 220px;
+      object-fit: scale-down;
+    }
+    #splash .trilho {
+      width: 200px;
+      height: 6px;
+      margin-top: 40px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--splash-trilho, rgba(254, 254, 254, 0.3));
+    }
+    #splash .barra {
+      width: 100%;
+      height: 100%;
+      background: var(--splash-barra, #487DE5);
+      transform-origin: left center;
+      transform: scaleX(0);
+      animation: splash-encher 2s ease-in-out infinite;
+    }
+    @keyframes splash-encher {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+    /* Fora do fluxo, pendurado embaixo da barra: dentro dele, o aviso somava
+       altura à pilha e a logo e a barra subiam de repente ao ele aparecer —
+       além de deixarem de coincidir com a `SplashScreen` por baixo. */
+    #splash-demora {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      margin-top: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    /* O atributo `hidden` só esconde pela folha de estilo padrão do navegador,
+       e o `display: flex` acima vence ela. Sem esta regra o aviso aparece desde
+       o primeiro quadro — foi exatamente o que aconteceu no Spese. */
+    #splash-demora[hidden] {
+      display: none;
+    }
+    #splash-demora p {
+      margin: 0;
+      max-width: 260px;
+      text-align: center;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      color: var(--splash-texto, #1F2937);
+    }
+    #splash-demora button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--splash-texto-acao, #FEFEFE);
+      background: var(--splash-acao, #487DE5);
+      cursor: pointer;
+    }
+  </style>
+
+  <!--
+    Cores do splash pelo tema salvo. Roda antes do primeiro pixel, por isso é
+    síncrono e fica no <head>: sem isto quem usa o Cyber veria o gradiente
+    amarelo do tema claro até o Flutter subir.
+
+    O tema mora no localStorage porque o `shared_preferences` web grava ali,
+    com o prefixo `flutter.` e o valor em JSON. As regras são as de
+    `carregarTemaSalvo`/`paletaDe` (lib/core/tema_controller.dart): os nomes
+    antigos light/dark/system ainda valem, e Auto segue o brilho do sistema.
+
+    AS CORES SÃO CÓPIA DE lib/core/app_cores.dart — `gradienteFundo`,
+    `paradasGradiente`, `textoSobreCor` (o trilho, a 30%), `azul` (a barra) e,
+    para o aviso de demora, `texto`, `acaoPrimaria` e `textoSobreAcao`. Mexeu
+    numa paleta lá, mexa aqui.
+
+    O ângulo não é `to bottom right`. O `LinearGradient` do Flutter vai do
+    canto superior esquerdo ao inferior direito ao longo da diagonal; o
+    `to bottom right` do CSS inclina as faixas pela outra diagonal, e num
+    celular em pé a diferença aparece. `180deg - atan(largura/altura)` é a
+    direção da diagonal, e nesse ângulo o CSS estica o gradiente exatamente de
+    canto a canto — o mesmo desenho do Flutter.
+  -->
+  <script>
+    (function () {
+      var paletas = {
+        claro:     { cor1: '#FFE082', cor2: '#7CC8B5', parada1: 50, parada2: 90, trilho: '#FEFEFE', barra: '#487DE5', texto: '#1F2937', acao: '#487DE5', textoAcao: '#FEFEFE' },
+        escuro:    { cor1: '#1D2E39', cor2: '#242846', parada1: 0,  parada2: 100, trilho: '#FFFFFF', barra: '#A2C0F8', texto: '#F5F8FC', acao: '#F6A35A', textoAcao: '#1C0D02' },
+        cassino:   { cor1: '#2A2311', cor2: '#0F2720', parada1: 0,  parada2: 100, trilho: '#FFFFFF', barra: '#749CE7', texto: '#EBF0ED', acao: '#E5C061', textoAcao: '#1A1408' },
+        meiaNoite: { cor1: '#1F1750', cor2: '#0A1B33', parada1: 0,  parada2: 100, trilho: '#FFFFFF', barra: '#69B9F6', texto: '#EDF2FB', acao: '#35D6E8', textoAcao: '#04161A' },
+        cyber:     { cor1: '#35133A', cor2: '#0B1F2B', parada1: 0,  parada2: 100, trilho: '#FFFFFF', barra: '#89ADFF', texto: '#F2EDF8', acao: '#F45FD0', textoAcao: '#1A0715' },
+        papel:     { cor1: '#F3E2B8', cor2: '#CFD9B4', parada1: 50, parada2: 90, trilho: '#FBF6EC', barra: '#3E6A8F', texto: '#3B3226', acao: '#5A6B33', textoAcao: '#FBF6EC' },
+        bilhete:   { cor1: '#EFE6D2', cor2: '#BFD8CE', parada1: 50, parada2: 90, trilho: '#FFFDF8', barra: '#12569B', texto: '#1D2B36', acao: '#12569B', textoAcao: '#FFFDF8' }
+      };
+
+      var tema = null;
+      try {
+        var salvo = localStorage.getItem('flutter.tema_modo');
+        tema = salvo === null ? null : JSON.parse(salvo);
+      } catch (_) {
+        // Sem storage (modo privado, permissão negada): segue o sistema, como o app.
+      }
+      if (tema === 'light') tema = 'claro';
+      if (tema === 'dark') tema = 'escuro';
+      if (!paletas[tema]) {
+        var sistemaEscuro = window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        tema = sistemaEscuro ? 'escuro' : 'claro';
+      }
+
+      var p = paletas[tema];
+      var raiz = document.documentElement.style;
+      var comAlfa = function (hex, alfa) {
+        var n = parseInt(hex.slice(1), 16);
+        return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alfa + ')';
+      };
+      raiz.setProperty('--splash-cor1', p.cor1);
+      raiz.setProperty('--splash-cor2', p.cor2);
+      raiz.setProperty('--splash-parada1', p.parada1 + '%');
+      raiz.setProperty('--splash-parada2', p.parada2 + '%');
+      raiz.setProperty('--splash-trilho', comAlfa(p.trilho, 0.3));
+      raiz.setProperty('--splash-barra', p.barra);
+      raiz.setProperty('--splash-texto', p.texto);
+      raiz.setProperty('--splash-acao', p.acao);
+      raiz.setProperty('--splash-texto-acao', p.textoAcao);
+
+      var ajustarAngulo = function () {
+        var graus = 180 - Math.atan(window.innerWidth / window.innerHeight) * 180 / Math.PI;
+        raiz.setProperty('--splash-angulo', graus + 'deg');
+      };
+      ajustarAngulo();
+      window.addEventListener('resize', ajustarAngulo);
+    })();
+  </script>
 </head>
 
 <body>
+  <div id="splash">
+    <div class="pilha">
+      <img src="assets/images/logo4.png" alt="Bolão Bolado">
+      <div class="trilho"><div class="barra"></div></div>
+      <div id="splash-demora" hidden>
+        <p>Isso está demorando mais que o normal.</p>
+        <button type="button" onclick="location.reload()">Tentar de novo</button>
+      </div>
+    </div>
+  </div>
+
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Rede de segurança para quando o app nunca chega a entrar. O
+    // flutter_bootstrap.js injeta o main.dart.js sem ouvinte de erro, e o
+    // `_inicializar` do main.dart não tem saída se o Firebase não subir: nos
+    // dois casos nada lança, e sem este relógio o splash ficaria girando sem
+    // dizer nada. Na subida normal o aviso fica escondido; só aparece se o app
+    // não entrou em 15s.
+    //
+    // Os 15s contam só com a página visível. Em aba escondida (ou com o atalho
+    // do iPhone em segundo plano) o Flutter não desenha quadro nenhum, e o
+    // aviso de pronto só sai no primeiro quadro depois de a página voltar —
+    // com o relógio correndo por trás, quem trocasse de app no meio da
+    // abertura voltaria direto para um aviso de demora que não aconteceu.
+    var avisoDemora = null;
+    var armarAvisoDemora = function () {
+      clearTimeout(avisoDemora);
+      if (document.visibilityState !== 'visible') return;
+      avisoDemora = setTimeout(function () {
+        var aviso = document.getElementById('splash-demora');
+        if (aviso) aviso.hidden = false;
+      }, 15000);
+    };
+    armarAvisoDemora();
+    document.addEventListener('visibilitychange', armarAvisoDemora);
+
+    // Quem manda o splash sair é o app (lib/core/splash_web.dart), e não o
+    // motor do Flutter. O primeiro quadro do Flutter quase sempre é a própria
+    // `SplashScreen`: tirar o HTML ali trocaria um splash por outro quase
+    // igual, e a diferença entre `<img>` e `Image.asset` piscaria no meio.
+    window.addEventListener('bolao-app-pronto', function () {
+      clearTimeout(avisoDemora);
+      document.removeEventListener('visibilitychange', armarAvisoDemora);
+
+      var splash = document.getElementById('splash');
+      if (!splash) return;
+
+      var removido = false;
+      var remover = function () {
+        if (removido) return;
+        removido = true;
+        splash.remove();
+      };
+
+      // Força o navegador a registrar a opacidade atual antes de trocar a
+      // classe. Sem esta leitura as duas mudanças podem virar uma só, e a
+      // transição não tem de onde partir.
+      void splash.offsetHeight;
+
+      splash.classList.add('splash-saindo');
+      splash.addEventListener('transitionend', remover, { once: true });
+
+      // O Safari do iPhone às vezes não dispara `transitionend` neste ponto,
+      // com a thread ocupada pelo Flutter. Sem esta rede o splash ficaria no
+      // DOM com opacidade zero — invisível, mas de pé por cima do app.
+      setTimeout(remover, 500);
+    }, { once: true });
+  </script>
 </body>
 
 </html>

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bolao_bolado/bolao_bolado.dart';
 import 'package:bolao_bolado/core/app_tema.dart';
+import 'package:bolao_bolado/core/splash_web.dart';
 import 'package:bolao_bolado/core/tema_controller.dart';
 import 'package:bolao_bolado/core/ultima_rota_admin.dart';
 import 'package:bolao_bolado/pages/splash_screen.dart';
@@ -148,6 +149,12 @@ class _AppInitState extends State<_AppInit> {
     unawaited(ouvirConfiguracoesGlobais());
 
     setState(() => _pronto = true);
+
+    // Só depois do primeiro quadro do app de verdade: é a partir dele que a
+    // `SplashScreen` deixou de estar por baixo do splash HTML. Avisar antes
+    // faria o HTML esmaecer revelando a cópia Flutter do mesmo splash, e a
+    // troca entre os dois apareceria como uma piscada.
+    WidgetsBinding.instance.addPostFrameCallback((_) => dispensarSplashWeb());
   }
 
   @override
