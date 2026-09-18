@@ -12,6 +12,7 @@ Widget _montar(
   Mensagem mensagem, {
   void Function(String emoji)? onReagir,
   Map<String, String> nomesPorUid = const {},
+  bool podeInteragir = true,
 }) {
   return MaterialApp(
     home: Scaffold(
@@ -23,6 +24,7 @@ Widget _montar(
         compacto: false,
         uidAtual: 'eu',
         isAdmin: false,
+        podeInteragir: podeInteragir,
         fixada: false,
         nomesPorUid: nomesPorUid,
         onReagir: onReagir ?? (_) {},
@@ -217,6 +219,53 @@ void main() {
     expect(find.byType(BarraReacoes), findsOneWidget);
   });
 
+  testWidgets('sem permissão, nenhum gesto abre barra nem menu', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_montar(_mensagem(), podeInteragir: false));
+
+    await tester.longPress(find.byType(TextoMensagem));
+    await tester.pumpAndSettle();
+    expect(find.byType(BarraReacoes), findsNothing);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(find.byType(TextoMensagem)));
+    await tester.pumpAndSettle();
+    expect(find.byType(BarraReacoes), findsNothing);
+
+    await tester.tap(
+      find.byType(TextoMensagem),
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Copiar texto'), findsNothing);
+  });
+
+  testWidgets('sem permissão, tocar no chip não reage', (tester) async {
+    final reagidos = <String>[];
+    await tester.pumpWidget(
+      _montar(
+        Mensagem(
+          id: 'm1',
+          texto: 'boa',
+          autorUid: 'outro',
+          autorNome: 'Outro',
+          criadoEm: DateTime(2026, 8, 15),
+          reacoes: const {'a': '👍'},
+        ),
+        onReagir: reagidos.add,
+        podeInteragir: false,
+      ),
+    );
+
+    await tester.tap(find.text('👍'));
+    await tester.pumpAndSettle();
+
+    expect(reagidos, isEmpty);
+  });
+
   testWidgets('mouse por cima abre a barra de reações (desktop)', (
     tester,
   ) async {
@@ -262,6 +311,7 @@ void main() {
                   compacto: false,
                   uidAtual: 'eu',
                   isAdmin: false,
+                  podeInteragir: true,
                   fixada: false,
                   onReagir: (_) {},
                   onFixar: () {},

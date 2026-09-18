@@ -527,6 +527,9 @@ class _ChatSalaState extends State<ChatSala> {
                   compacto: widget.compacto,
                   uidAtual: uidAtual,
                   isAdmin: _isAdmin,
+                  // Admin entra mesmo sem aposta: o menu é onde ele fixa e
+                  // apaga mensagens.
+                  podeInteragir: _podeEnviar || _isAdmin,
                   fixada: fixada?.id == msg.id,
                   nomesPorUid: _nomesPorUid,
                   onReagir: (emoji) => _reagir(msg, emoji),

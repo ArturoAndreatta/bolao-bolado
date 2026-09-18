@@ -44,6 +44,11 @@ class BolhaMensagem extends StatefulWidget {
 
   final bool isAdmin;
 
+  /// Quem está olhando pode reagir e abrir o menu da mensagem. Falso para
+  /// visitante (anônimo) e para quem não apostou: a regra do Firestore já
+  /// recusa a reação deles, e mostrar a barra só fazia o toque sumir calado.
+  final bool podeInteragir;
+
   /// Esta é a mensagem que está fixada no topo agora.
   final bool fixada;
 
@@ -69,6 +74,7 @@ class BolhaMensagem extends StatefulWidget {
     required this.compacto,
     required this.uidAtual,
     required this.isAdmin,
+    required this.podeInteragir,
     required this.fixada,
     this.nomesPorUid = const {},
     required this.onReagir,
@@ -343,7 +349,7 @@ class _BolhaMensagemState extends State<BolhaMensagem>
                     uidAtual: widget.uidAtual,
                     alinharADireita: widget.isMinha,
                     nomeDe: _nomeDe,
-                    onReagir: widget.onReagir,
+                    onReagir: widget.podeInteragir ? widget.onReagir : null,
                     onAbrirDetalhes: _abrirQuemReagiu,
                   ),
                 ],
@@ -360,6 +366,9 @@ class _BolhaMensagemState extends State<BolhaMensagem>
   /// indo direto ao menu de ações, que é o que ele significa no desktop.
   /// Clique/toque simples segue livre para a seleção de texto do SelectionArea.
   Widget _comGestos(Widget bolha) {
+    // Sem permissão, a bolha fica só leitura: nem barra nem menu. O clique
+    // simples continua livre para a seleção de texto.
+    if (!widget.podeInteragir) return bolha;
     return OverlayPortal(
       controller: _barra,
       overlayChildBuilder: _construirBarra,
@@ -658,7 +667,10 @@ class _ChipsReacoes extends StatefulWidget {
   final String? uidAtual;
   final bool alinharADireita;
   final String Function(String uid) nomeDe;
-  final void Function(String emoji) onReagir;
+
+  /// Null para quem não pode reagir: o chip continua mostrando a contagem e
+  /// quem reagiu, só não responde ao toque.
+  final void Function(String emoji)? onReagir;
   final VoidCallback onAbrirDetalhes;
 
   const _ChipsReacoes({
@@ -821,7 +833,9 @@ class _ChipsReacoesState extends State<_ChipsReacoes>
                         quantidade: _dados[emoji]!.quantidade,
                         minha: _dados[emoji]!.minha,
                         quem: _dados[emoji]!.quem,
-                        onTap: () => widget.onReagir(emoji),
+                        onTap: widget.onReagir == null
+                            ? null
+                            : () => widget.onReagir!(emoji),
                         onLongPress: widget.onAbrirDetalhes,
                       ),
                     ),
@@ -904,7 +918,7 @@ class _ChipReacao extends StatelessWidget {
   final String quem;
 
   /// Dá esta reação, ou tira a sua quando ela já é esta.
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   /// Abre a lista de quem reagiu.
   final VoidCallback onLongPress;
