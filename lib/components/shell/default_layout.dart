@@ -10,10 +10,14 @@ class DefaultLayout extends StatelessWidget {
   final bool showLogo;
   // Quando true, na faixa compact (mobile + tablet/janela estreita) o
   // conteúdo ocupa 100% da largura da tela (sem o Center/Column encolhendo
-  // pro tamanho intrínseco do filho) — usado por páginas com layout de
-  // fichário (ex: Participants), pra não sobrar gradiente de fundo nas
-  // laterais/embaixo do card.
+  // pro tamanho intrínseco do filho) — usado por páginas cujo card ocupa a
+  // altura toda da tela (ex: Participants), com rolagem só dentro dele.
   final bool esticarLarguraCompact;
+  // Repassado ao Scaffold. Fica FORA do body de propósito: é o Scaffold que
+  // sabe esconder a barra atrás do teclado e encolher só o conteúdo quando
+  // ele abre — montada dentro do body, ela subiria junto com o teclado e
+  // roubaria altura do campo que está sendo digitado.
+  final Widget? bottomNavigationBar;
   const DefaultLayout({
     super.key,
     required this.child,
@@ -21,6 +25,7 @@ class DefaultLayout extends StatelessWidget {
     this.onDrawerChanged,
     this.showLogo = true,
     this.esticarLarguraCompact = false,
+    this.bottomNavigationBar,
   });
 
   // A arte do logo tem 52px de altura EXATOS (images/logo_appbar.png, com as
@@ -79,6 +84,7 @@ class DefaultLayout extends StatelessWidget {
       child: Scaffold(
         drawer: drawer,
         onDrawerChanged: onDrawerChanged,
+        bottomNavigationBar: bottomNavigationBar,
         backgroundColor: Colors.transparent,
         appBar: drawer != null
             ? AppBar(

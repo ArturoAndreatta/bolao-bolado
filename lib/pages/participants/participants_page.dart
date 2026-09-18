@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:bolao_bolado/components/shared/ficharios.dart';
+import 'package:bolao_bolado/components/shared/custom_card.dart';
+import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shared/header_card.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
@@ -21,7 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class Participants extends StatefulWidget {
-  // Aba a abrir no layout mobile, vinda da query string (?aba=aposta|chat).
+  // Seção a abrir no layout mobile, vinda da query string (?aba=aposta|chat).
   // Usada pelo Drawer para navegar direto pra seção certa.
   final String? abaInicial;
 
@@ -45,21 +46,24 @@ class _ParticipantsState extends State<Participants> {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _salaSubscription;
   final SimuladorApostas _simulador = SimuladorApostas();
 
-  // Aba ativa no mobile: 0 = Participantes, 1 = Chat, 2 = Minha Aposta
-  static int _abaDe(String? aba) => switch (aba) {
-    'aposta' => 2,
-    'chat' => 1,
-    _ => 0,
+  // Seção ativa no mobile, pelo `indice` de [_SecaoMobile].
+  static int _secaoDe(String? aba) => switch (aba) {
+    'aposta' => _SecaoMobile.aposta.indice,
+    'chat' => _SecaoMobile.chat.indice,
+    _ => _SecaoMobile.participantes.indice,
   };
 
-  late int _abaAtiva = _abaDe(widget.abaInicial);
+  // ValueNotifier e não campo com setState — ver _layoutMobile.
+  late final ValueNotifier<int> _secaoMobile = ValueNotifier(
+    _secaoDe(widget.abaInicial),
+  );
 
   // Controla se o chat está sobreposto ao grid no desktop (dispara a
   // animação de abrir/fechar).
   //
   // Nasce aberto quando a navegação pediu o chat. No desktop não existe aba
   // de Chat — o painel é sobreposto —, então o MESMO `?aba=chat` que escolhe
-  // a aba no mobile precisa abrir o painel aqui; sem isto, clicar em Chat no
+  // a seção no mobile precisa abrir o painel aqui; sem isto, clicar em Chat no
   // Drawer levava para Participantes e parava por aí.
   late bool _chatAbertoDesktop = widget.abaInicial == 'chat';
 
@@ -88,10 +92,10 @@ class _ParticipantsState extends State<Participants> {
     super.didUpdateWidget(oldWidget);
     // GoRouter reusa este State ao navegar de /participantes?aba=X pra
     // /participantes?aba=Y (mesma rota, query diferente): sem isso, clicar
-    // em outro item do Drawer estando já na tela não troca de aba.
+    // em outro item do Drawer estando já na tela não troca de seção.
     if (widget.abaInicial != oldWidget.abaInicial) {
+      _secaoMobile.value = _secaoDe(widget.abaInicial);
       setState(() {
-        _abaAtiva = _abaDe(widget.abaInicial);
         // No desktop o mesmo parâmetro decide o painel sobreposto. Ir para
         // "Participantes" ou "Minha Aposta" fecha o chat de propósito: o
         // painel cobre parte do grid, e quem pediu a tabela quer ver a tabela.
@@ -107,6 +111,7 @@ class _ParticipantsState extends State<Participants> {
     _salaSubscription?.cancel();
     _simulador.apostasLocais.removeListener(_onApostasLocaisMudaram);
     _simulador.parar();
+    _secaoMobile.dispose();
     super.dispose();
   }
 
@@ -231,7 +236,7 @@ class _ParticipantsState extends State<Participants> {
   Widget build(BuildContext context) {
     // Compact cobre mobile E tablet/janela estreita: abaixo da largura
     // mínima em que os dois cards cabem lado a lado sem estourar
-    // horizontalmente, usa o layout empilhado em abas (mesmo do mobile).
+    // horizontalmente, mostra uma seção por vez (mesmo layout do mobile).
     final isCompact = Responsive.isCompact(context);
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
     final isLoggedIn = AuthService().isLoggedIn;
@@ -239,8 +244,9 @@ class _ParticipantsState extends State<Participants> {
     return DefaultLayout(
       drawer: AppDrawer(onAvatarChanged: (_) => _load()),
       esticarLarguraCompact: true,
+      bottomNavigationBar: isCompact ? _barraSecoesMobile() : null,
       child: isCompact
-          ? _layoutMobile(currentUid)
+          ? _layoutMobile(currentUid, isLoggedIn)
           : _layoutDesktop(currentUid, isLoggedIn),
     );
   }
@@ -400,116 +406,191 @@ class _ParticipantsState extends State<Participants> {
     );
   }
 
-  Widget _layoutMobile(String? currentUid) {
-    final isLoggedInDeVerdade =
-        FirebaseAuth.instance.currentUser?.isAnonymous == false;
+  // ── Layout Mobile: uma seção por vez + barra inferior ──────────────────
+  //
+  // Cada seção é o MESMO card do desktop (título + subtítulo sobre o card
+  // externo, conteúdo no card interno, margem mostrando o gradiente), e a
+  // troca entre elas fica na barra inferior. Já foi um fichário de abas
+  // coloridas colado nas bordas da tela, com uma cor por seção: nada disso
+  // existia no desktop, e as duas versões pareciam apps diferentes.
+  //
+  // Vale também para tablet e janela estreita (tudo abaixo de
+  // kLarguraMinimaLadoALado): o card para em [_larguraMaximaMobile] e fica
+  // centralizado, em vez de esticar uma lista de celular por 1300px.
+  static const double _larguraMaximaMobile = 730;
 
-    // Índices fixos (0=Participantes, 1=Chat, 2=Aposta) por compatibilidade
-    // com o resto do estado _abaAtiva da página; a ORDEM visual na fileira
-    // é dada pela ordem desta lista. Também decide quais cantos da folha
-    // ativa ficam retos (primeira aba da fileira → canto esquerdo reto;
-    // última → canto direito reto).
-    // Sem corAtiva explícita: o Fichario atribui a cor automaticamente pela
-    // posição na fileira (1ª aba verde, 2ª azul, 3ª dourado, ciclando),
-    // então a sequência de cores fica consistente mesmo se abas forem
-    // adicionadas/removidas depois.
-    final abas = [
-      if (isLoggedInDeVerdade)
-        const AbaFichario(
-          texto: 'Minha Aposta',
-          icone: Icons.attach_money,
-          indice: 2,
-        ),
-      const AbaFichario(
-        texto: 'Participantes',
-        icone: Icons.people_outline,
-        indice: 0,
-      ),
-      const AbaFichario(
-        texto: 'Chat',
-        icone: Icons.chat_bubble_outline,
-        indice: 1,
-      ),
-    ];
+  List<_SecaoMobile> _secoesMobile() => [
+    // Visitante não tem aposta: a seção nem aparece na barra.
+    if (FirebaseAuth.instance.currentUser?.isAnonymous == false)
+      _SecaoMobile.aposta,
+    _SecaoMobile.participantes,
+    _SecaoMobile.chat,
+  ];
 
-    return Fichario(
-      abaAtiva: _abaAtiva,
-      onSelecionar: (i) => setState(() => _abaAtiva = i),
-      abas: abas,
-      semMargem: true,
-      esticarAltura: true,
-      // LayoutBuilder mede a altura real que o Expanded do Fichario cedeu
-      // pra folha ativa — evita recalcular manualmente o chrome (pill,
-      // paddings dos cards etc) e garante que os widgets internos (que
-      // esperam uma altura fixa em pixels) preencham exatamente o espaço
-      // certo, sem overflow nem sobra.
-      builder: (context, aba) => LayoutBuilder(
-        builder: (context, constraints) => _conteudoAba(
-          aba: aba,
-          currentUid: currentUid,
-          isLoggedInDeVerdade: isLoggedInDeVerdade,
-          alturaDisponivel: constraints.maxHeight,
+  // Deep link para uma seção que o usuário não tem (visitante abrindo
+  // `?aba=aposta`) cai em Participantes em vez de mostrar a tela vazia.
+  static int _indiceVisivel(int pedido, List<_SecaoMobile> secoes) =>
+      secoes.any((s) => s.indice == pedido)
+      ? pedido
+      : _SecaoMobile.participantes.indice;
+
+  Widget _layoutMobile(String? currentUid, bool isLoggedIn) {
+    final secoes = _secoesMobile();
+
+    // Todas as seções ficam montadas o tempo todo e só a ativa aparece:
+    // trocar de seção não pode reabrir streams, perder a rolagem da lista
+    // nem apagar o que foi digitado no formulário. Cada uma carrega key
+    // estável para o Flutter nunca confundir uma com outra quando a lista
+    // muda (a seção Minha Aposta entra e sai com o login).
+    //
+    // A seção ativa mora num ValueNotifier, e não no setState da página: o
+    // toque na barra reconstrói só os Visibility e a própria barra. Com
+    // setState, cada toque reconstruía as três seções (lista, chat e
+    // formulário) antes de a barra marcar a seção nova, e o toque parecia
+    // lento.
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _larguraMaximaMobile),
+        child: Stack(
+          children: [
+            for (final secao in secoes)
+              ValueListenableBuilder<int>(
+                key: ValueKey(secao.indice),
+                valueListenable: _secaoMobile,
+                child: _cardSecao(
+                  secao: secao,
+                  currentUid: currentUid,
+                  isLoggedIn: isLoggedIn,
+                ),
+                builder: (context, ativa, child) => Visibility(
+                  visible: secao.indice == _indiceVisivel(ativa, secoes),
+                  maintainState: true,
+                  child: child!,
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  // Conteúdo de UMA aba do fichário (Minha Aposta, Participantes ou Chat).
-  // O Fichario agora constrói as três de uma vez e mantém as inativas
-  // "vivas" atrás de um Offstage (ver ficharios.dart) — por isso este método
-  // recebe [aba] em vez de olhar só pra _abaAtiva: precisa devolver o
-  // widget de qualquer uma das três, não só da selecionada no momento.
-  Widget _conteudoAba({
-    required AbaFichario aba,
+  Widget _barraSecoesMobile() {
+    final secoes = _secoesMobile();
+    return ValueListenableBuilder<int>(
+      valueListenable: _secaoMobile,
+      builder: (context, ativa, _) => _BarraSecoes(
+        secoes: secoes,
+        ativa: _indiceVisivel(ativa, secoes),
+        onSelecionar: (indice) => _secaoMobile.value = indice,
+        larguraMaxima: _larguraMaximaMobile,
+      ),
+    );
+  }
+
+  /// Card de uma seção no mobile, com a mesma estrutura do desktop: card
+  /// externo com o cabeçalho da página, card interno com o conteúdo.
+  ///
+  /// O conteúdo recebe a altura que sobrou no card interno (LayoutBuilder):
+  /// lista, formulário e chat rolam por dentro dessa altura, e o card nunca
+  /// passa do fim da tela.
+  Widget _cardSecao({
+    required _SecaoMobile secao,
     required String? currentUid,
-    required bool isLoggedInDeVerdade,
-    required double alturaDisponivel,
+    required bool isLoggedIn,
   }) {
-    final alturaConteudo = alturaDisponivel;
-    if (aba.indice == 2 && isLoggedInDeVerdade) {
-      return MinhaApostaCard(
-        onApostaConfirmada: () => setState(() => _abaAtiva = 0),
-        mobile: true,
-        alturaMobile: alturaConteudo,
-        mostrarCabecalho: false,
-        apenasConteudo: true,
-      );
-    }
-    if (aba.indice == 0) {
-      return PainelParticipantes(
-        currentUid: currentUid,
-        loading: _loading,
-        rowsData: _rowsData,
-        isAdmin: _isAdmin,
-        sorteio: _sorteio,
-        dataSorteio: _dataSorteio,
-        premioSala: _premioSala,
-        onEditarSala: _botaoEditarSala,
-        onSimularApostas: _isAdmin ? _abrirDialogoSimulacao : null,
-        mobile: true,
-        alturaMobile: alturaConteudo,
-        mostrarCabecalho: false,
-        apenasConteudo: true,
-      );
-    }
-    if (_salaId != null) {
-      // Sem nenhum CustomCard envolvendo o chat: o Fichario já monta o
-      // cartão branco ao redor, e o ChatSala desenha sua própria borda/
-      // fundo, preenchendo todo o espaço disponível da folha ativa.
-      return SizedBox(
-        // Ocupa o restante da altura visível, medida a partir do
-        // LayoutBuilder em _layoutMobile.
-        height: alturaConteudo,
-        child: ChatSala(
-          salaId: _salaId!,
-          mostrarCabecalho: false,
-          // A folha do Fichario já é o cartão: sem isso o chat desenharia uma
-          // segunda borda por dentro dela.
-          compacto: true,
+    final cores = AppCores.de(context);
+    final trailing = secao == _SecaoMobile.participantes && _isAdmin
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [_botaoSimularApostas(), _botaoEditarSala()],
+          )
+        : null;
+
+    return Column(
+      children: [
+        CustomCard(
+          color: cores.cardExterno,
+          maxWidth: double.infinity,
+          esticarLargura: true,
+          esticarAltura: true,
+          children: [
+            HeaderPaginas(
+              text: secao.titulo,
+              subtitle: secao.subtitulo,
+              trailing: trailing,
+              // Mesma regra do desktop: visitante veio da Home e pode voltar.
+              showBackButton:
+                  !isLoggedIn && secao == _SecaoMobile.participantes,
+              onBack: () => context.go(AppRoutes.home),
+            ),
+            CustomCard(
+              isChild: true,
+              maxWidth: double.infinity,
+              esticarLargura: true,
+              esticarAltura: true,
+              children: [
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => _conteudoSecao(
+                      secao: secao,
+                      currentUid: currentUid,
+                      altura: constraints.maxHeight,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-      );
+      ],
+    );
+  }
+
+  Widget _conteudoSecao({
+    required _SecaoMobile secao,
+    required String? currentUid,
+    required double altura,
+  }) {
+    switch (secao) {
+      case _SecaoMobile.aposta:
+        return MinhaApostaCard(
+          // Aposta confirmada leva para a lista, onde ela acabou de entrar.
+          onApostaConfirmada: () =>
+              _secaoMobile.value = _SecaoMobile.participantes.indice,
+          mobile: true,
+          alturaMobile: altura,
+          mostrarCabecalho: false,
+          apenasConteudo: true,
+        );
+      case _SecaoMobile.participantes:
+        return PainelParticipantes(
+          currentUid: currentUid,
+          loading: _loading,
+          rowsData: _rowsData,
+          isAdmin: _isAdmin,
+          sorteio: _sorteio,
+          dataSorteio: _dataSorteio,
+          premioSala: _premioSala,
+          onEditarSala: _botaoEditarSala,
+          mobile: true,
+          alturaMobile: altura,
+          mostrarCabecalho: false,
+        );
+      case _SecaoMobile.chat:
+        return SizedBox(
+          height: altura,
+          child: _salaId == null
+              ? const SkeletonChatSala()
+              : ChatSala(
+                  salaId: _salaId!,
+                  mostrarCabecalho: false,
+                  // O card interno da seção já é a moldura: sem isso o chat
+                  // desenharia uma segunda borda por dentro dela.
+                  compacto: true,
+                ),
+        );
     }
-    return const SizedBox.shrink();
   }
 
   Widget _botaoEditarSala() {
@@ -612,6 +693,133 @@ class _PainelChatAnimadoState extends State<_PainelChatAnimado> {
         duration: duracao,
         curve: Curves.easeOutCubic,
         child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Seções do layout mobile. [indice] é o valor guardado no estado da página
+/// (e o que o `?aba=` escolhe); a ORDEM desta enum é a ordem na barra.
+enum _SecaoMobile {
+  aposta(
+    2,
+    'Minha Aposta',
+    'Informe seu valor de aposta',
+    'Aposta',
+    Icons.attach_money,
+  ),
+  participantes(
+    0,
+    'Participantes',
+    'Visualize quem está participando',
+    'Participantes',
+    Icons.people_outline,
+  ),
+  chat(
+    1,
+    'Chat',
+    'Converse com quem está no bolão',
+    'Chat',
+    Icons.chat_bubble_outline,
+  );
+
+  final int indice;
+  final String titulo;
+  final String subtitulo;
+  // Rótulo da barra: mais curto que o título porque três itens dividem uma
+  // tela de 360px.
+  final String rotulo;
+  final IconData icone;
+
+  const _SecaoMobile(
+    this.indice,
+    this.titulo,
+    this.subtitulo,
+    this.rotulo,
+    this.icone,
+  );
+}
+
+/// Barra inferior que troca a seção no mobile.
+///
+/// A seção ativa é marcada com a cor de ação do tema ([AppCores.acaoPrimaria])
+/// a 22% sobre a superfície — a mesma que pinta o botão Confirmar. É a única
+/// cor forte da tela, e repeti-la aqui liga a barra ao resto do app em vez de
+/// trazer uma cor por seção. Ícone e rótulo ficam em [AppCores.texto], que
+/// passa AA sobre esse fundo tingido; a cor de marca cheia por cima da mesma
+/// cor a 22% não passaria.
+class _BarraSecoes extends StatelessWidget {
+  final List<_SecaoMobile> secoes;
+  final int ativa;
+  final ValueChanged<int> onSelecionar;
+  final double larguraMaxima;
+
+  const _BarraSecoes({
+    required this.secoes,
+    required this.ativa,
+    required this.onSelecionar,
+    required this.larguraMaxima,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    final posicao = secoes.indexWhere((s) => s.indice == ativa);
+    Color corDo(Set<WidgetState> estados) =>
+        estados.contains(WidgetState.selected) ? cores.texto : cores.textoSuave;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cores.cardExterno,
+        border: Border(top: BorderSide(color: cores.borda)),
+      ),
+      // Fundo de ponta a ponta, itens limitados à largura do card: no tablet
+      // três destinos espalhados por 1000px ficariam longe demais do card
+      // que eles controlam.
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: larguraMaxima),
+          child: NavigationBarTheme(
+            data: NavigationBarThemeData(
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              height: 64,
+              indicatorColor: Color.alphaBlend(
+                cores.acaoPrimaria.withValues(alpha: 0.22),
+                cores.cardExterno,
+              ),
+              iconTheme: WidgetStateProperty.resolveWith(
+                (estados) => IconThemeData(size: 22, color: corDo(estados)),
+              ),
+              labelTextStyle: WidgetStateProperty.resolveWith(
+                (estados) => TextStyle(
+                  fontSize: 12,
+                  fontWeight: estados.contains(WidgetState.selected)
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                  color: corDo(estados),
+                ),
+              ),
+            ),
+            child: NavigationBar(
+              selectedIndex: posicao == -1 ? 0 : posicao,
+              onDestinationSelected: (i) => onSelecionar(secoes[i].indice),
+              // Sem animação na troca: o indicador crescendo lia como atraso
+              // do toque — o mesmo motivo que tirou a animação das abas do
+              // antigo fichário.
+              animationDuration: Duration.zero,
+              destinations: [
+                for (final secao in secoes)
+                  NavigationDestination(
+                    icon: Icon(secao.icone),
+                    label: secao.rotulo,
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

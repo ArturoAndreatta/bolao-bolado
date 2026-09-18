@@ -537,7 +537,9 @@ Arquivo a arquivo no `git add`, nunca `git add .` — `.firebase/hosting.*.cache
   invariantes) — siga esse padrão em vez de comentários redundantes.
 - **Responsividade:** use `core/responsive.dart`. Três faixas: mobile (<600),
   intermediária/tablet (600–1024) e desktop (≥1024). `Responsive.isCompact` (<1440)
-  decide quando a tela de Participantes cai do layout lado a lado para abas.
+  decide quando a tela de Participantes cai do layout lado a lado para uma
+  seção por vez (card igual ao do desktop + barra inferior Aposta /
+  Participantes / Chat).
 - **Combobox:** só existem dois, em [combos.dart](lib/components/shared/combos.dart),
   e nenhuma tela deve montar um dropdown próprio. `ComboFiltro` é a casca
   compacta (filtro de estado, campo de ordenação); `ComboCampo` é o campo de

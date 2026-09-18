@@ -26,7 +26,7 @@ import 'package:flutter/rendering.dart';
 // Card "Minha Aposta": formulário onde o usuário informa nome e valor,
 // vê quantas cotas aquilo compra e o prêmio estimado, e confirma a aposta.
 // No desktop aparece lado a lado com o painel de Participantes; no mobile é
-// uma das abas do Fichario (ver [apenasConteudo]).
+// uma das seções da barra inferior (ver [apenasConteudo]).
 class MinhaApostaCard extends StatefulWidget {
   final VoidCallback? onApostaConfirmada;
 
@@ -38,13 +38,12 @@ class MinhaApostaCard extends StatefulWidget {
   // Repassado ao CustomCard externo: faz o card ocupar toda a largura
   // disponível do pai (até maxWidth), em vez de encolher para o conteúdo.
   final bool esticarLargura;
-  // Esconde o título "Minha Aposta" e o subtítulo: usado no layout de
-  // seções (mobile/tablet com Fichario), onde a própria seção selecionada
-  // já identifica o conteúdo — o título ficaria redundante.
+  // Esconde o título "Minha Aposta" e o subtítulo, para quando quem monta o
+  // card em volta já desenha o próprio cabeçalho.
   final bool mostrarCabecalho;
-  // Quando true (usado dentro do Fichario), renderiza só o conteúdo (sem
-  // nenhum CustomCard) — o Fichario já monta o cartão branco e a barra de
-  // destaque ao redor, então um CustomCard aqui dentro duplicaria a moldura.
+  // Quando true (mobile), renderiza só o conteúdo, sem nenhum CustomCard: a
+  // página monta o card da seção em volta, com o mesmo título e subtítulo
+  // do desktop, e um CustomCard aqui dentro duplicaria a moldura.
   final bool apenasConteudo;
 
   const MinhaApostaCard({
@@ -453,8 +452,8 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     final larguraConteudo = widget.mobile ? 730.0 : _larguraConteudo;
 
     // Campos do form: extraídos numa lista simples para poderem ser usados
-    // tanto soltos (apenasConteudo, dentro do Fichario) quanto envoltos num
-    // CustomCard(isChild:true) (desktop / uso fora do Fichario).
+    // tanto soltos (apenasConteudo, no card de seção do mobile) quanto
+    // envoltos num CustomCard(isChild:true) (desktop).
     // camposTopo fica com o formulário (nome/valor/prêmio/botão); o bloco
     // Pix é montado à parte para poder ser empurrado até o fim do card
     // (ver `blocoPix` mais abaixo).
@@ -565,7 +564,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       child: FocusTraversalGroup(
         policy: OrderedTraversalPolicy(),
         child: widget.apenasConteudo
-            // Ocupa a altura cedida pelo Fichario (alturaCard): quando o
+            // Ocupa a altura cedida pelo card de seção (alturaCard): quando o
             // conteúdo é mais curto que isso, MainAxisAlignment.spaceBetween
             // empurra o bloco Pix/Como Funciona para o fim do card — usa
             // minHeight (não uma altura fixa) para não quebrar quando o
@@ -658,19 +657,15 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     );
 
     if (widget.apenasConteudo) {
-      // Sem altura fixa: o card encolhe para o tamanho real do conteúdo (o
-      // bloco Pix + Como Funciona variam de altura conforme a sala), em vez
-      // de reservar sempre a altura total da aba e sobrar espaço em branco
-      // embaixo quando o conteúdo é mais curto que isso.
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: mostrarSkeleton
-            ? SizedBox(
-                height: alturaCard,
-                child: _buildSkeletonConteudo(larguraConteudo),
-              )
-            : form,
-      );
+      // Sem padding próprio: o card de seção da página já tem o mesmo
+      // respiro interno do desktop, e somar outro aqui deixava os campos
+      // mais estreitos que a lista da seção Participantes.
+      return mostrarSkeleton
+          ? SizedBox(
+              height: alturaCard,
+              child: _buildSkeletonConteudo(larguraConteudo),
+            )
+          : form;
     }
 
     return CustomCard(

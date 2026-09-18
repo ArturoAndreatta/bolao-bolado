@@ -335,8 +335,8 @@ class SkeletonChatSala extends StatelessWidget {
 
 /// Skeleton completo do painel de participantes.
 ///
-/// Reproduz a estrutura final no mobile (busca + ordenação, lista com
-/// rodapé, cards de estatística) já no primeiro frame, para que o
+/// Reproduz a estrutura final no mobile (cards de estatística, busca +
+/// ordenação, lista com rodapé) já no primeiro frame, para que o
 /// carregamento pareça uma transição de conteúdo e não a montagem tardia
 /// da tela inteira.
 class SkeletonParticipantes extends StatelessWidget {
@@ -349,10 +349,16 @@ class SkeletonParticipantes extends StatelessWidget {
     final cores = AppCores.de(context);
     if (!mobile) return const SkeletonEstatisticasDesktop();
 
-    // Cabeçalho de altura fixa: busca + botões de ordenação (mesma barra de
-    // BarraBuscaOrdenacao em participants_busca.dart, sem cabeçalho de
-    // tabela clicável no mobile).
+    // Cabeçalho de altura fixa: os 3 cards de estatística empilhados (como
+    // PainelEstatisticas fica em largura de celular) e, abaixo, busca +
+    // botões de ordenação (mesma barra de BarraBuscaOrdenacao em
+    // participants_busca.dart, sem cabeçalho de tabela clicável no mobile).
     final cabecalho = <Widget>[
+      for (var i = 0; i < 3; i++) ...[
+        const SkeletonCardEstatistica(destaque: true),
+        const SizedBox(height: 8),
+      ],
+      const SizedBox(height: 4),
       Row(
         children: [
           const Expanded(
@@ -411,19 +417,11 @@ class SkeletonParticipantes extends StatelessWidget {
       ),
     );
 
-    // Botão recolhido de "Estatísticas do bolão" (mesmo de
-    // PainelEstatisticas com recolhivel:true) — os 3 cards ficam escondidos
-    // por padrão, então o skeleton reproduz o botão fechado, não os cards.
-    final estatisticas = <Widget>[
-      const SizedBox(height: 14),
-      const SkeletonBox(width: double.infinity, height: 44, radius: 10),
-    ];
-
     // LayoutBuilder distingue os dois modos de montagem do painel real
-    // (participants_painel.dart): dentro do fichário a altura é fixa
+    // (participants_painel.dart): dentro do card de seção a altura é fixa
     // (maxHeight finito) e a lista precisa caber no espaço restante; fora
     // dele a altura é livre e a coluna cresce naturalmente. Sem isso, a
-    // pilha fixa de cabeçalho + linhas + estatísticas estoura a altura do
+    // pilha fixa de estatísticas + busca + linhas estoura a altura do
     // card (RenderFlex overflow no eixo vertical).
     return Shimmer(
       child: LayoutBuilder(
@@ -437,7 +435,6 @@ class SkeletonParticipantes extends StatelessWidget {
               alturaLimitada
                   ? Expanded(child: listaComRodape)
                   : SizedBox(height: 320, child: listaComRodape),
-              ...estatisticas,
             ],
           );
         },

@@ -1,4 +1,3 @@
-import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/header_card.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
@@ -27,22 +26,13 @@ class PainelParticipantes extends StatefulWidget {
   final DateTime? dataSorteio;
   final double premioSala;
   final Widget Function() onEditarSala;
-  final VoidCallback? onSimularApostas;
   final bool mobile;
   final bool expandirConteudo;
   final bool mostrarCabecalho;
-  // Repassado ao HeaderCard/CustomCard: faz o card ocupar toda a largura
-  // disponível do pai (até maxWidth), em vez de encolher para o conteúdo.
-  final bool esticarLargura;
-  // Quando true (usado dentro do Fichario), renderiza só o conteúdo (sem
-  // nenhum CustomCard/HeaderCard) — o Fichario já monta o cartão branco e
-  // a barra de destaque ao redor, então um CustomCard aqui dentro duplicaria
-  // a moldura.
-  final bool apenasConteudo;
-  // Altura fixa do card no mobile/fichário (mesmo cálculo usado por
-  // MinhaApostaCard e pelo card do Chat): sem isso, ListaParticipantes
-  // (Column sem scroll) cresce livremente com a quantidade de apostas,
-  // empurrando o card e desalinhando a altura da fileira de abas.
+  // Altura que o card de seção cedeu ao painel no mobile (a página mede com
+  // LayoutBuilder): estatísticas e busca ficam fixas no topo e só a lista
+  // rola no que sobra. Sem ela a lista cresceria com a quantidade de apostas
+  // e empurraria o card para fora da tela.
   final double? alturaMobile;
 
   const PainelParticipantes({
@@ -55,12 +45,9 @@ class PainelParticipantes extends StatefulWidget {
     required this.dataSorteio,
     required this.premioSala,
     required this.onEditarSala,
-    this.onSimularApostas,
     required this.mobile,
     this.expandirConteudo = false,
     this.mostrarCabecalho = true,
-    this.esticarLargura = false,
-    this.apenasConteudo = false,
     this.alturaMobile,
   });
 
@@ -263,31 +250,20 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
     );
   }
 
+  // No mobile o painel devolve só o CONTEÚDO: o card com título e subtítulo
+  // em volta é montado pela página, igual ao card de Minha Aposta e ao do
+  // Chat, para as três seções terem a mesma moldura.
   Widget _buildMobile(BuildContext context) {
     final cores = AppCores.de(context);
     if (_loadingEfetivo) {
-      final skeleton = SkeletonParticipantes(mobile: true);
-      if (widget.apenasConteudo) {
-        return Padding(padding: const EdgeInsets.all(16), child: skeleton);
-      }
-      return CustomCard(
-        color: cores.cardExterno,
-        maxWidth: widget.esticarLargura ? double.infinity : 730,
-        // esticarLargura força o card a usar largura fluida (width: null) em
-        // vez do SizedBox de largura fixa (maxWidth-15 = 715px), que estourava
-        // a lista de skeletons para fora do card em telas < 715px.
-        esticarLargura: true,
-        children: [skeleton],
+      return SizedBox(
+        height: widget.alturaMobile,
+        child: const SkeletonParticipantes(mobile: true),
       );
     }
 
     final linhasFiltradas = _linhasFiltradas();
 
-    // Corpo com altura fixa (mesmo cálculo usado por MinhaApostaCard e pelo
-    // card do Chat): sem isso, a lista de participantes crescia livremente
-    // com a quantidade de apostas, empurrando o card e desalinhando a
-    // altura do painel ativo do Fichario. Estatísticas/busca ficam fixas
-    // no topo; só a lista rola dentro do espaço restante.
     final rodapeLista = RodapeLista(
       total: linhasFiltradas.length,
       valorTotal: linhasFiltradas.fold<double>(
@@ -349,51 +325,44 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
             ),
           );
 
-    final conteudo = [
-      BarraBuscaOrdenacao(
-        busca: _busca,
-        onBuscaChanged: (v) => setState(() => _busca = v),
-        colunaOrdenada: _colunaOrdenada,
-        ascendente: _ascendente,
-        onOrdenarPor: _onCabecalhoTap,
-      ),
-      const SizedBox(height: 12),
-      widget.alturaMobile != null
-          ? Expanded(child: listaOuVazio)
-          : listaOuVazio,
-      const SizedBox(height: 14),
-      PainelEstatisticas(
-        rows: widget.rowsData,
-        currentUid: widget.currentUid,
-        sorteio: widget.sorteio,
-        dataSorteio: widget.dataSorteio,
-        premioSala: widget.premioSala,
-        recolhivel: true,
-      ),
-    ];
+    // Com o teclado aberto (digitando na busca) a altura cedida despenca, e
+    // os três indicadores empilhados sozinhos já ocupam uns 150px: mantidos,
+    // a lista ficava sem espaço nenhum justamente quando se está procurando
+    // alguém nela. Abaixo deste limite eles saem e voltam ao fechar o teclado.
+    // A decisão sai da altura medida, e não de `MediaQuery.viewInsets`, para
+    // o teclado não reconstruir o painel inteiro (ver responsive.dart).
+    final altura = widget.alturaMobile;
+    final mostrarEstatisticas = altura == null || altura >= 420;
 
-    if (widget.apenasConteudo) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: SizedBox(
-          height: widget.alturaMobile,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: conteudo,
+    // Mesma ordem do desktop: indicadores no topo, busca, lista.
+    return SizedBox(
+      height: altura,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (mostrarEstatisticas) ...[
+            PainelEstatisticas(
+              rows: widget.rowsData,
+              currentUid: widget.currentUid,
+              sorteio: widget.sorteio,
+              dataSorteio: widget.dataSorteio,
+              premioSala: widget.premioSala,
+            ),
+            const SizedBox(height: 12),
+          ],
+          BarraBuscaOrdenacao(
+            busca: _busca,
+            onBuscaChanged: (v) => setState(() => _busca = v),
+            colunaOrdenada: _colunaOrdenada,
+            ascendente: _ascendente,
+            onOrdenarPor: _onCabecalhoTap,
           ),
-        ),
-      );
-    }
-
-    return HeaderCard(
-      text: 'Participantes',
-      subtitle: 'Visualize quem está participando',
-      showBackButton: false,
-      mostrarCabecalho: widget.mostrarCabecalho,
-      maxWidth: widget.esticarLargura ? double.infinity : 730,
-      height: widget.alturaMobile,
-      esticarLargura: widget.esticarLargura,
-      children: conteudo,
+          const SizedBox(height: 12),
+          widget.alturaMobile != null
+              ? Expanded(child: listaOuVazio)
+              : listaOuVazio,
+        ],
+      ),
     );
   }
 

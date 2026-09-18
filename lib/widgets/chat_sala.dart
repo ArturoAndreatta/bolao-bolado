@@ -32,9 +32,9 @@ class ChatSala extends StatefulWidget {
   // para reforçar a hierarquia visual de "por cima" da tabela.
   final bool flutuante;
 
-  // No mobile o chat vive dentro da folha do Fichario, que já desenha o
-  // cartão branco com borda e sombra. Sem isto o usuário vê dois retângulos
-  // encaixados (o da folha e o do próprio chat) e perde ~16px de largura útil
+  // No mobile o chat vive dentro do card de seção da página, que já desenha
+  // o cartão com borda e sombra. Sem isto o usuário vê dois retângulos
+  // encaixados (o do card e o do próprio chat) e perde ~16px de largura útil
   // de cada lado — que na tela estreita é justamente o que falta às bolhas.
   final bool compacto;
 
@@ -391,7 +391,7 @@ class _ChatSalaState extends State<ChatSala> {
     return SizedBox.expand(
       child: Material(
         color: cores.card,
-        // No modo compacto o cartão ao redor é do Fichario: aqui só o fundo,
+        // No modo compacto o cartão ao redor é o card de seção da página: aqui só o fundo,
         // sem elevação nem borda própria (ver [ChatSala.compacto]).
         elevation: widget.compacto ? 0 : (widget.flutuante ? 10 : 3),
         shadowColor: cores.sombra,
