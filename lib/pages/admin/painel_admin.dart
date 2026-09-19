@@ -1,9 +1,9 @@
 import 'package:bolao_bolado/components/shared/custom_card.dart';
-import 'package:bolao_bolado/components/shared/ficharios.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
+import 'package:bolao_bolado/components/shell/secoes_mobile.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/pages/admin/admin_abas.dart';
@@ -15,10 +15,10 @@ import 'package:flutter/material.dart';
 /// Painel ADM com dois layouts conforme o espaço disponível:
 /// - Desktop/tablet largo: cards soltos lado a lado (grade), todos visíveis
 ///   ao mesmo tempo, dentro de um card pai com o cabeçalho da página.
-/// - Mobile/janela estreita ([Responsive.isCompact]): fichário de abas
-///   (mesmo padrão visual de Participantes/Minha Aposta/Chat) — cada seção
-///   já era um card independente, então virou uma folha do fichário sem
-///   precisar duplicar nenhum conteúdo.
+/// - Mobile/janela estreita ([Responsive.isCompact]): uma seção por vez, com
+///   a barra flutuante embaixo — o mesmo layout da tela de Participantes (ver
+///   secoes_mobile.dart). Cada seção já era um conteúdo independente, então
+///   virou uma seção sem duplicar nada.
 ///
 /// Toda a lógica de estado/ações vive em [PainelAdminMixin] — este widget só
 /// monta o layout.
@@ -30,52 +30,84 @@ class PainelAdmin extends StatefulWidget {
 }
 
 class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
-  // Aba ativa no fichário mobile.
-  AbaAdmin _abaAtiva = AbaAdmin.visaoGeral;
+  // Seção ativa no mobile, pelo índice de [AbaAdmin]. ValueNotifier e não
+  // setState: ver [FolhaSecoesMobile].
+  final ValueNotifier<int> _secaoMobile = ValueNotifier(
+    AbaAdmin.visaoGeral.index,
+  );
+
+  @override
+  void dispose() {
+    _secaoMobile.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final compact = Responsive.isCompact(context);
+    // A barra só existe quando há painel para navegar: carregando ou sem
+    // permissão, a tela mostra o skeleton/aviso sozinha.
+    final comBarra = compact && !loading && autorizado;
 
     return DefaultLayout(
       drawer: AppDrawer(),
       esticarLarguraCompact: compact,
+      bottomNavigationBar: comBarra ? _barraSecoesMobile() : null,
+      // A barra flutua sobre o conteúdo; a folha desconta a altura dela.
+      extendBody: comBarra,
       child: compact ? _layoutMobile() : _layoutDesktop(context),
     );
   }
 
-  // ── Layout mobile: fichário de abas ─────────────────────────────────────
+  // ── Layout mobile: uma seção por vez + barra flutuante ──────────────────
+
+  // Rótulos curtos de propósito: são cinco seções dividindo a pílula, e o
+  // rótulo do item ativo precisa caber inteiro ao lado do ícone.
+  List<ItemSecaoMobile> _itensMobile() => [
+    ItemSecaoMobile(
+      indice: AbaAdmin.visaoGeral.index,
+      rotulo: 'Resumo',
+      icone: Icons.dashboard_outlined,
+    ),
+    ItemSecaoMobile(
+      indice: AbaAdmin.participantes.index,
+      rotulo: 'Apostas',
+      icone: Icons.groups_outlined,
+      // Selo com as apostas esperando verificação — as mesmas do selo do
+      // item Painel ADM no Drawer.
+      contador: quantidadePendentes,
+    ),
+    ItemSecaoMobile(
+      indice: AbaAdmin.ranking.index,
+      rotulo: 'Ranking',
+      icone: Icons.leaderboard_outlined,
+    ),
+    ItemSecaoMobile(
+      indice: AbaAdmin.sala.index,
+      rotulo: 'Sala',
+      icone: Icons.meeting_room_outlined,
+    ),
+    ItemSecaoMobile(
+      indice: AbaAdmin.config.index,
+      rotulo: 'Ajustes',
+      icone: Icons.settings_outlined,
+    ),
+  ];
+
+  Widget _barraSecoesMobile() {
+    return ValueListenableBuilder<int>(
+      valueListenable: _secaoMobile,
+      builder: (context, ativa, _) => BarraSecoesMobile(
+        itens: _itensMobile(),
+        ativa: ativa,
+        onSelecionar: (indice) => _secaoMobile.value = indice,
+      ),
+    );
+  }
+
   Widget _layoutMobile() {
     if (loading) return _skeleton();
     if (!autorizado) return mensagemAcessoNegado();
-
-    // Ordem visual da fileira de abas — define também a cor automática do
-    // Fichario (1ª verde-água, 2ª azul, 3ª dourado, 4ª roxo, 5ª coral: a
-    // paleta cobre as cinco seções sem repetir cor). Config é a última aba,
-    // não mais um dialog no botão de engrenagem.
-    const abas = [
-      AbaFichario(
-        texto: 'Visão geral',
-        icone: Icons.dashboard_outlined,
-        indice: 0,
-      ),
-      AbaFichario(
-        texto: 'Participantes',
-        icone: Icons.groups_outlined,
-        indice: 1,
-      ),
-      AbaFichario(
-        texto: 'Ranking',
-        icone: Icons.leaderboard_outlined,
-        indice: 2,
-      ),
-      AbaFichario(texto: 'Sala', icone: Icons.meeting_room_outlined, indice: 3),
-      AbaFichario(
-        texto: 'Configurações',
-        icone: Icons.settings_outlined,
-        indice: 4,
-      ),
-    ];
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: apostasPendentesStream,
@@ -86,35 +118,39 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
           );
         }
 
-        return Fichario(
-          abaAtiva: _abaAtiva.index,
-          onSelecionar: (i) => setState(() => _abaAtiva = AbaAdmin.values[i]),
-          abas: abas,
-          semMargem: true,
-          esticarAltura: true,
-          builder: (context, aba) {
-            final abaSelecionada = AbaAdmin.values[aba.indice];
-            // Participantes e Ranking preenchem a folha inteira sozinhos
-            // (lista paginada com Expanded) — o Fichario com esticarAltura
-            // já entrega altura limitada aqui, e envolver em
-            // SingleChildScrollView reintroduz altura infinita bem em cima
-            // do Expanded deles, o que no Flutter web não estoura
-            // visivelmente: só deixa a aba em branco (mesma armadilha do
+        return FolhaSecoesMobile(
+          itens: _itensMobile(),
+          ativa: _secaoMobile,
+          // Cada seção do painel já tem 16px de respiro por dentro (é o
+          // mesmo conteúdo dos cards do desktop). Somados aos 12 da folha,
+          // o conteúdo ficava a 28px da borda, bem mais estreito que o das
+          // outras telas, e a logo parecia fora do eixo dos cards.
+          respiro: EdgeInsets.zero,
+          construir: (context, item, altura) {
+            final aba = AbaAdmin.values[item.indice];
+            // Participantes e Ranking preenchem a altura sozinhos (lista
+            // paginada com Expanded) — a folha já entrega altura limitada, e
+            // envolver em SingleChildScrollView reintroduz altura infinita
+            // bem em cima do Expanded deles, o que no Flutter web não estoura
+            // visivelmente: só deixa a seção em branco (mesma armadilha do
             // RenderFlex documentada em _layoutDesktop). Visão geral, Sala e
             // Configurações são conteúdo empilhado (Column mainAxisSize.min,
-            // sem Expanded) e continuam precisando de scroll em telas
-            // baixas — Visão geral em mobile usa bentoGrid:false por isso
-            // (ver AdminCardStats.bentoGrid).
-            final conteudo = abaSelecionada == AbaAdmin.visaoGeral
+            // sem Expanded) e precisam de scroll em telas baixas — Visão geral
+            // em mobile usa bentoGrid:false por isso (ver
+            // AdminCardStats.bentoGrid).
+            final conteudo = aba == AbaAdmin.visaoGeral
                 ? conteudoStats(pendentesSnapshot, bentoGrid: false)
-                : conteudoAba(abaSelecionada, pendentesSnapshot);
+                : conteudoAba(aba, pendentesSnapshot);
             final precisaScroll =
-                abaSelecionada == AbaAdmin.visaoGeral ||
-                abaSelecionada == AbaAdmin.sala ||
-                abaSelecionada == AbaAdmin.config;
-            return precisaScroll
-                ? SingleChildScrollView(child: conteudo)
-                : conteudo;
+                aba == AbaAdmin.visaoGeral ||
+                aba == AbaAdmin.sala ||
+                aba == AbaAdmin.config;
+            return SizedBox(
+              height: altura,
+              child: precisaScroll
+                  ? SingleChildScrollView(child: conteudo)
+                  : conteudo,
+            );
           },
         );
       },
@@ -122,7 +158,7 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
   }
 
   // Config só existe como dialog no desktop (engrenagem no header) — no
-  // mobile continua como aba do fichário (ver _layoutMobile).
+  // mobile é a seção Ajustes (ver _layoutMobile).
   void _abrirConfiguracoes(BuildContext context) {
     final cores = AdminCores.de(context);
     showDialog(
@@ -291,12 +327,6 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
             // roxo para sala (administrativo, deliberadamente fora da
             // paleta "operacional" das outras). Config não tem mais card na
             // grade — vive num dialog aberto pela engrenagem do header.
-            //
-            // Mesma sequência (e mesmos valores) da paleta automática do
-            // Fichario em ficharios.dart, na mesma ordem: no mobile estas
-            // seções viram abas e recebem a cor pela posição na fileira, então
-            // manter os dois alinhados é o que faz uma seção ter a MESMA cor
-            // nos dois layouts. Ao mexer aqui, mexa lá também.
             final admin = AdminCores.de(context);
             final cores = {
               AbaAdmin.participantes: admin.verdeAgua,

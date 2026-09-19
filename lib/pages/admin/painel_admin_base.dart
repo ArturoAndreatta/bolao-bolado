@@ -642,10 +642,16 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
   int _totalPendentes(
     AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot,
   ) {
-    if (fakePendentes != null) return fakePendentes!.length;
     if (pendentesSnapshot.hasError) return -1;
-    return bets.where((b) => b['verificado'] != true).length;
+    return quantidadePendentes;
   }
+
+  /// Apostas ainda não verificadas pelo admin (as fake, quando o teste de
+  /// layout estiver ligado). Também alimenta o selo da seção Apostas na barra
+  /// do celular.
+  int get quantidadePendentes =>
+      fakePendentes?.length ??
+      bets.where((b) => b['verificado'] != true).length;
 
   /// Card de estatísticas (participantes, arrecadado, prêmio, cotas,
   /// verificadas, pendentes). [bentoGrid] só vale `true` no layout desktop

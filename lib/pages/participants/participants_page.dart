@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:bolao_bolado/components/shared/header_card.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
+import 'package:bolao_bolado/components/shell/secoes_mobile.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
-import 'package:bolao_bolado/core/area_segura.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/dev/simulador_apostas.dart';
 import 'package:bolao_bolado/pages/participants/participants_painel.dart';
@@ -245,7 +244,7 @@ class _ParticipantsState extends State<Participants> {
       drawer: AppDrawer(onAvatarChanged: (_) => _load()),
       esticarLarguraCompact: true,
       bottomNavigationBar: isCompact ? _barraSecoesMobile() : null,
-      // A barra flutua sobre o conteúdo (ver _BarraSecoes); cada seção
+      // A barra flutua sobre o conteúdo (ver BarraSecoesMobile); cada seção
       // desconta a altura dela em [_secao].
       extendBody: isCompact,
       child: isCompact
@@ -411,15 +410,13 @@ class _ParticipantsState extends State<Participants> {
 
   // ── Layout Mobile: uma seção por vez + barra inferior ──────────────────
   //
-  // Uma seção por vez, direto sobre o gradiente (ver [_secao]), com a troca
-  // entre elas na barra inferior. Já foi um fichário de abas
-  // coloridas colado nas bordas da tela, com uma cor por seção: nada disso
-  // existia no desktop, e as duas versões pareciam apps diferentes.
+  // Folha de seções + barra flutuante, o layout compartilhado com o Painel
+  // ADM (ver secoes_mobile.dart). Já foi um fichário de abas coloridas colado
+  // nas bordas da tela, com uma cor por seção: nada disso existia no
+  // desktop, e as duas versões pareciam apps diferentes.
   //
   // Vale também para tablet e janela estreita (tudo abaixo de
-  // kLarguraMinimaLadoALado): o conteúdo para em [_larguraMaximaMobile] e
-  // fica centralizado, em vez de esticar uma lista de celular por 1300px.
-  static const double _larguraMaximaMobile = 730;
+  // kLarguraMinimaLadoALado).
 
   List<_SecaoMobile> _secoesMobile() => [
     // Visitante não tem aposta: a seção nem aparece na barra.
@@ -438,55 +435,14 @@ class _ParticipantsState extends State<Participants> {
 
   Widget _layoutMobile(String? currentUid) {
     final secoes = _secoesMobile();
-
-    // Todas as seções ficam montadas o tempo todo e só a ativa aparece:
-    // trocar de seção não pode reabrir streams, perder a rolagem da lista
-    // nem apagar o que foi digitado no formulário. Cada uma carrega key
-    // estável para o Flutter nunca confundir uma com outra quando a lista
-    // muda (a seção Minha Aposta entra e sai com o login).
-    //
-    // A seção ativa mora num ValueNotifier, e não no setState da página: o
-    // toque na barra reconstrói só os Visibility e a própria barra. Com
-    // setState, cada toque reconstruía as três seções (lista, chat e
-    // formulário) antes de a barra marcar a seção nova, e o toque parecia
-    // lento.
-    // Folha: superfície de ponta a ponta, com os cantos de cima arredondados,
-    // na cor [AppCores.fundoConteudoMobile] — a do card nos temas claros,
-    // transparente nos escuros (ver o campo na paleta). Nos claros ela faz o
-    // papel do card branco do desktop e o gradiente fica só em volta do
-    // logo; nos escuros o conteúdo segue direto sobre o gradiente.
-    final cores = AppCores.de(context);
-    // Respiro extra no topo só com folha visível (cantos arredondados): nos
-    // temas escuros a posição do conteúdo fica exatamente a de antes.
-    final temFolha = cores.fundoConteudoMobile.a > 0;
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _larguraMaximaMobile),
-        child: Container(
-          margin: EdgeInsets.only(top: temFolha ? 4 : 0),
-          padding: EdgeInsets.only(top: temFolha ? 10 : 0),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: cores.fundoConteudoMobile,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Stack(
-            children: [
-              for (final secao in secoes)
-                ValueListenableBuilder<int>(
-                  key: ValueKey(secao.indice),
-                  valueListenable: _secaoMobile,
-                  child: _secao(secao: secao, currentUid: currentUid),
-                  builder: (context, ativa, child) => Visibility(
-                    visible: secao.indice == _indiceVisivel(ativa, secoes),
-                    maintainState: true,
-                    child: child!,
-                  ),
-                ),
-            ],
-          ),
-        ),
+    return FolhaSecoesMobile(
+      itens: [for (final secao in secoes) secao.item],
+      ativa: _secaoMobile,
+      resolverAtiva: (pedido) => _indiceVisivel(pedido, secoes),
+      construir: (context, item, altura) => _conteudoSecao(
+        secao: _SecaoMobile.values.firstWhere((s) => s.indice == item.indice),
+        currentUid: currentUid,
+        altura: altura,
       ),
     );
   }
@@ -495,32 +451,10 @@ class _ParticipantsState extends State<Participants> {
     final secoes = _secoesMobile();
     return ValueListenableBuilder<int>(
       valueListenable: _secaoMobile,
-      builder: (context, ativa, _) => _BarraSecoes(
-        secoes: secoes,
+      builder: (context, ativa, _) => BarraSecoesMobile(
+        itens: [for (final secao in secoes) secao.item],
         ativa: _indiceVisivel(ativa, secoes),
         onSelecionar: (indice) => _secaoMobile.value = indice,
-      ),
-    );
-  }
-
-  /// Uma seção no mobile, sem card próprio: o conteúdo fica na folha montada
-  /// em [_layoutMobile], só com um respiro nas bordas. Já teve a moldura de
-  /// card do desktop (externo + interno), mas no celular as duas camadas
-  /// comiam ~20px de cada lado e a tela lia como caixa dentro de caixa.
-  ///
-  /// O conteúdo recebe a altura disponível (LayoutBuilder): lista,
-  /// formulário e chat rolam por dentro dela, e nada passa do fim da tela.
-  Widget _secao({required _SecaoMobile secao, required String? currentUid}) {
-    return _RespiroDaBarra(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-        child: LayoutBuilder(
-          builder: (context, constraints) => _conteudoSecao(
-            secao: secao,
-            currentUid: currentUid,
-            altura: constraints.maxHeight,
-          ),
-        ),
       ),
     );
   }
@@ -682,190 +616,7 @@ enum _SecaoMobile {
   final IconData icone;
 
   const _SecaoMobile(this.indice, this.rotulo, this.icone);
-}
 
-/// Barra inferior que troca a seção no mobile: uma pílula FLUTUANTE, solta
-/// das bordas da tela, no estilo das barras do Google (google_nav_bar). O
-/// item ativo vira uma cápsula na cor de ação do tema (a do botão Confirmar)
-/// com ícone e rótulo; os outros mostram só o ícone. Com três seções, o
-/// rótulo do item ativo sempre cabe, e o ícone basta para os demais.
-///
-/// Feita à mão, e não com pacote: toda cor sai de [AppCores] (a cápsula usa
-/// o par [AppCores.acaoPrimaria]/[AppCores.textoSobreAcao], que já garante
-/// contraste em todos os temas), e nenhum pacote do gênero expõe a paleta
-/// inteira sem reescrever metade dele.
-class _BarraSecoes extends StatelessWidget {
-  final List<_SecaoMobile> secoes;
-  final int ativa;
-  final ValueChanged<int> onSelecionar;
-
-  const _BarraSecoes({
-    required this.secoes,
-    required this.ativa,
-    required this.onSelecionar,
-  });
-
-  // Largura máxima da pílula: no tablet ela não atravessa a tela inteira,
-  // fica do tamanho de uma barra de celular, centrada.
-  static const double _larguraMaxima = 420;
-
-  @override
-  Widget build(BuildContext context) {
-    final cores = AppCores.de(context);
-    // Área da barrinha de gestos do iPhone. Fora da web o Flutter já informa
-    // em MediaQuery.padding; na web ele entrega zero, e quem sabe é o CSS
-    // (ver area_segura.dart). O maior dos dois, para não somar duas vezes.
-    final areaSegura = math.max(
-      MediaQuery.paddingOf(context).bottom,
-      margemInferiorNavegador(),
-    );
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 6, 16, 10 + areaSegura),
-      child: Center(
-        heightFactor: 1,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _larguraMaxima),
-          child: Container(
-            height: 60,
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: cores.cardExterno,
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: cores.borda),
-              boxShadow: [
-                BoxShadow(
-                  color: cores.sombra,
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
-              // stretch: cada item ocupa a altura toda da barra. Sem isto a
-              // cápsula do item ativo encolhia para a altura do ícone e virava
-              // uma tarja fina no meio da pílula.
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final secao in secoes)
-                  _ItemBarra(
-                    secao: secao,
-                    ativo: secao.indice == ativa,
-                    onTap: () => onSelecionar(secao.indice),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ItemBarra extends StatelessWidget {
-  final _SecaoMobile secao;
-  final bool ativo;
-  final VoidCallback onTap;
-
-  const _ItemBarra({
-    required this.secao,
-    required this.ativo,
-    required this.onTap,
-  });
-
-  // Curta de propósito: a cápsula crescendo é o charme da barra, mas as
-  // abas antigas já mostraram que troca de seção animada acima de ~200ms lê
-  // como atraso do toque. A cor muda junto, sem esperar o fim.
-  static const _duracao = Duration(milliseconds: 180);
-
-  @override
-  Widget build(BuildContext context) {
-    final cores = AppCores.de(context);
-    final corConteudo = ativo ? cores.textoSobreAcao : cores.textoSuave;
-
-    return Expanded(
-      // O item ativo pega mais largura para caber o rótulo; os outros
-      // dividem o resto.
-      flex: ativo ? 5 : 3,
-      child: Semantics(
-        button: true,
-        selected: ativo,
-        label: secao.rotulo,
-        excludeSemantics: true,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: AnimatedContainer(
-              duration: _duracao,
-              curve: Curves.easeOutCubic,
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(
-                color: ativo
-                    ? cores.acaoPrimaria
-                    : cores.acaoPrimaria.withValues(alpha: 0),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(secao.icone, size: 22, color: corConteudo),
-                  // Rótulo só no ativo, entrando com a largura da cápsula.
-                  Flexible(
-                    child: AnimatedSize(
-                      duration: _duracao,
-                      curve: Curves.easeOutCubic,
-                      child: ativo
-                          ? Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: Text(
-                                secao.rotulo,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: corConteudo,
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Desconta da seção a altura da barra flutuante, que passa por cima do
-/// conteúdo (extendBody): o Scaffold informa essa altura no padding de baixo.
-///
-/// Com o teclado aberto a barra fica escondida atrás dele, e o desconto
-/// sobraria como um vão entre o conteúdo e o teclado — bem em cima do campo
-/// do chat. Por isso aí ele zera.
-///
-/// Widget próprio, e não conta feita no build da página: ler `viewInsets`
-/// cria dependência do teclado, e na página isso reconstruiria as três seções
-/// a cada abrir/fechar dele (ver responsive.dart). Aqui só este padding
-/// reconstrói; o conteúdo entra pronto por [child].
-class _RespiroDaBarra extends StatelessWidget {
-  final Widget child;
-
-  const _RespiroDaBarra({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final tecladoAberto = MediaQuery.viewInsetsOf(context).bottom > 0;
-    final alturaBarra = MediaQuery.paddingOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.only(bottom: tecladoAberto ? 0 : alturaBarra),
-      child: child,
-    );
-  }
+  ItemSecaoMobile get item =>
+      ItemSecaoMobile(indice: indice, rotulo: rotulo, icone: icone);
 }
