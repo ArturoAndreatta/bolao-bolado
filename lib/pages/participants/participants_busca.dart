@@ -11,12 +11,16 @@ class CampoBusca extends StatefulWidget {
   final String busca;
   final void Function(String) onBuscaChanged;
   final FocusNode? focusNode;
+  // No mobile o campo divide a linha com os dois botões de ordenação e
+  // sobra pouca largura: "Buscar participante..." aparecia cortado.
+  final String dica;
 
   const CampoBusca({
     super.key,
     required this.busca,
     required this.onBuscaChanged,
     this.focusNode,
+    this.dica = 'Buscar participante...',
   });
 
   @override
@@ -110,7 +114,7 @@ class _CampoBuscaState extends State<CampoBusca> {
                 decoration: InputDecoration(
                   isCollapsed: true,
                   border: InputBorder.none,
-                  hintText: 'Buscar participante...',
+                  hintText: widget.dica,
                   hintStyle: TextStyle(fontSize: 14, color: cores.textoFraco),
                 ),
                 style: const TextStyle(fontSize: 14),
@@ -163,7 +167,11 @@ class BarraBuscaOrdenacao extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: CampoBusca(busca: busca, onBuscaChanged: onBuscaChanged),
+          child: CampoBusca(
+            busca: busca,
+            onBuscaChanged: onBuscaChanged,
+            dica: 'Buscar...',
+          ),
         ),
         const SizedBox(width: 8),
         _BotaoDirecaoOrdenacao(

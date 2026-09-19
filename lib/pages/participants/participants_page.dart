@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
-import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shared/header_card.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
@@ -246,7 +245,7 @@ class _ParticipantsState extends State<Participants> {
       esticarLarguraCompact: true,
       bottomNavigationBar: isCompact ? _barraSecoesMobile() : null,
       child: isCompact
-          ? _layoutMobile(currentUid, isLoggedIn)
+          ? _layoutMobile(currentUid)
           : _layoutDesktop(currentUid, isLoggedIn),
     );
   }
@@ -408,15 +407,14 @@ class _ParticipantsState extends State<Participants> {
 
   // ── Layout Mobile: uma seção por vez + barra inferior ──────────────────
   //
-  // Cada seção é o MESMO card do desktop (título + subtítulo sobre o card
-  // externo, conteúdo no card interno, margem mostrando o gradiente), e a
-  // troca entre elas fica na barra inferior. Já foi um fichário de abas
+  // Uma seção por vez, direto sobre o gradiente (ver [_secao]), com a troca
+  // entre elas na barra inferior. Já foi um fichário de abas
   // coloridas colado nas bordas da tela, com uma cor por seção: nada disso
   // existia no desktop, e as duas versões pareciam apps diferentes.
   //
   // Vale também para tablet e janela estreita (tudo abaixo de
-  // kLarguraMinimaLadoALado): o card para em [_larguraMaximaMobile] e fica
-  // centralizado, em vez de esticar uma lista de celular por 1300px.
+  // kLarguraMinimaLadoALado): o conteúdo para em [_larguraMaximaMobile] e
+  // fica centralizado, em vez de esticar uma lista de celular por 1300px.
   static const double _larguraMaximaMobile = 730;
 
   List<_SecaoMobile> _secoesMobile() => [
@@ -434,7 +432,7 @@ class _ParticipantsState extends State<Participants> {
       ? pedido
       : _SecaoMobile.participantes.indice;
 
-  Widget _layoutMobile(String? currentUid, bool isLoggedIn) {
+  Widget _layoutMobile(String? currentUid) {
     final secoes = _secoesMobile();
 
     // Todas as seções ficam montadas o tempo todo e só a ativa aparece:
@@ -458,11 +456,7 @@ class _ParticipantsState extends State<Participants> {
               ValueListenableBuilder<int>(
                 key: ValueKey(secao.indice),
                 valueListenable: _secaoMobile,
-                child: _cardSecao(
-                  secao: secao,
-                  currentUid: currentUid,
-                  isLoggedIn: isLoggedIn,
-                ),
+                child: _secao(secao: secao, currentUid: currentUid),
                 builder: (context, ativa, child) => Visibility(
                   visible: secao.indice == _indiceVisivel(ativa, secoes),
                   maintainState: true,
@@ -488,62 +482,23 @@ class _ParticipantsState extends State<Participants> {
     );
   }
 
-  /// Card de uma seção no mobile, com a mesma estrutura do desktop: card
-  /// externo com o cabeçalho da página, card interno com o conteúdo.
+  /// Uma seção no mobile, SEM card em volta: o conteúdo fica direto sobre o
+  /// gradiente de fundo, só com um respiro nas bordas. Já teve a moldura de
+  /// card do desktop (externo + interno), mas no celular as duas camadas
+  /// comiam ~20px de cada lado e a tela lia como caixa dentro de caixa.
   ///
-  /// O conteúdo recebe a altura que sobrou no card interno (LayoutBuilder):
-  /// lista, formulário e chat rolam por dentro dessa altura, e o card nunca
-  /// passa do fim da tela.
-  Widget _cardSecao({
-    required _SecaoMobile secao,
-    required String? currentUid,
-    required bool isLoggedIn,
-  }) {
-    final cores = AppCores.de(context);
-    final trailing = secao == _SecaoMobile.participantes && _isAdmin
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [_botaoSimularApostas(), _botaoEditarSala()],
-          )
-        : null;
-
-    return Column(
-      children: [
-        CustomCard(
-          color: cores.cardExterno,
-          maxWidth: double.infinity,
-          esticarLargura: true,
-          esticarAltura: true,
-          children: [
-            HeaderPaginas(
-              text: secao.titulo,
-              subtitle: secao.subtitulo,
-              trailing: trailing,
-              // Mesma regra do desktop: visitante veio da Home e pode voltar.
-              showBackButton:
-                  !isLoggedIn && secao == _SecaoMobile.participantes,
-              onBack: () => context.go(AppRoutes.home),
-            ),
-            CustomCard(
-              isChild: true,
-              maxWidth: double.infinity,
-              esticarLargura: true,
-              esticarAltura: true,
-              children: [
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) => _conteudoSecao(
-                      secao: secao,
-                      currentUid: currentUid,
-                      altura: constraints.maxHeight,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+  /// O conteúdo recebe a altura disponível (LayoutBuilder): lista,
+  /// formulário e chat rolam por dentro dela, e nada passa do fim da tela.
+  Widget _secao({required _SecaoMobile secao, required String? currentUid}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) => _conteudoSecao(
+          secao: secao,
+          currentUid: currentUid,
+          altura: constraints.maxHeight,
         ),
-      ],
+      ),
     );
   }
 
@@ -585,8 +540,6 @@ class _ParticipantsState extends State<Participants> {
               : ChatSala(
                   salaId: _salaId!,
                   mostrarCabecalho: false,
-                  // O card interno da seção já é a moldura: sem isso o chat
-                  // desenharia uma segunda borda por dentro dela.
                   compacto: true,
                 ),
         );
@@ -701,43 +654,15 @@ class _PainelChatAnimadoState extends State<_PainelChatAnimado> {
 /// Seções do layout mobile. [indice] é o valor guardado no estado da página
 /// (e o que o `?aba=` escolhe); a ORDEM desta enum é a ordem na barra.
 enum _SecaoMobile {
-  aposta(
-    2,
-    'Minha Aposta',
-    'Informe seu valor de aposta',
-    'Aposta',
-    Icons.attach_money,
-  ),
-  participantes(
-    0,
-    'Participantes',
-    'Visualize quem está participando',
-    'Participantes',
-    Icons.people_outline,
-  ),
-  chat(
-    1,
-    'Chat',
-    'Converse com quem está no bolão',
-    'Chat',
-    Icons.chat_bubble_outline,
-  );
+  aposta(2, 'Aposta', Icons.attach_money),
+  participantes(0, 'Participantes', Icons.people_outline),
+  chat(1, 'Chat', Icons.chat_bubble_outline);
 
   final int indice;
-  final String titulo;
-  final String subtitulo;
-  // Rótulo da barra: mais curto que o título porque três itens dividem uma
-  // tela de 360px.
   final String rotulo;
   final IconData icone;
 
-  const _SecaoMobile(
-    this.indice,
-    this.titulo,
-    this.subtitulo,
-    this.rotulo,
-    this.icone,
-  );
+  const _SecaoMobile(this.indice, this.rotulo, this.icone);
 }
 
 /// Barra inferior que troca a seção no mobile.
