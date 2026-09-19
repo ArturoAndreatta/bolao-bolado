@@ -127,8 +127,10 @@ class CampoEnvioChat extends StatelessWidget {
           //
           // No mobile o botão precisa dos ~44px de alvo de toque
           // recomendados: 12 de padding + 20 do ícone chegam lá.
+          // Cor de ação do tema, como todo botão principal do app (e como o
+          // balão das próprias mensagens).
           Material(
-            color: cores.azul,
+            color: cores.acaoPrimaria,
             shape: const CircleBorder(),
             child: InkWell(
               customBorder: const CircleBorder(),
@@ -138,7 +140,7 @@ class CampoEnvioChat extends StatelessWidget {
                 child: Icon(
                   Icons.send_rounded,
                   size: compacto ? 20 : 18,
-                  color: cores.textoSobreCor,
+                  color: cores.textoSobreAcao,
                 ),
               ),
             ),

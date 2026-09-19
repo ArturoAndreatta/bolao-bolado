@@ -417,7 +417,18 @@ class _ChatSalaState extends State<ChatSala> {
                     podeDesafixar: _isAdmin,
                     onDesafixar: _desafixar,
                   ),
-                Expanded(child: _lista(fixada)),
+                // Estampa atrás da lista, fixa enquanto as mensagens rolam
+                // (como o papel de parede dos apps de conversa). A
+                // RepaintBoundary isola a pintura dela: rolar a lista não
+                // repinta a estampa.
+                Expanded(
+                  child: CustomPaint(
+                    painter: _EstampaChat(
+                      cor: cores.texto.withValues(alpha: 0.045),
+                    ),
+                    child: RepaintBoundary(child: _lista(fixada)),
+                  ),
+                ),
                 if (_sugestoes.isNotEmpty)
                   _ListaSugestoes(
                     key: const ValueKey('sugestoes-mencao'),
@@ -468,13 +479,44 @@ class _ChatSalaState extends State<ChatSala> {
             if (mensagens.isEmpty) {
               return Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: SelectionArea(
-                    child: Text(
-                      'Nenhuma mensagem ainda.\nSeja o primeiro a falar! 💬',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: cores.textoFraco, fontSize: 13),
-                    ),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: cores.campo,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.forum_outlined,
+                          size: 30,
+                          color: cores.textoSuave,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Nenhuma mensagem ainda',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: cores.texto,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Puxe o assunto: palpite, zoeira, figurinha…\n'
+                        'Use @ para chamar alguém.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: cores.textoSuave,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -809,4 +851,71 @@ class _SeparadorData extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Estampa discreta do fundo do chat: bolinhas de loteria e brilhos de quatro
+/// pontas espalhados, no espírito do papel de parede dos apps de conversa. Sem
+/// ela o fundo era um retângulo liso, e a conversa parecia um formulário.
+///
+/// Pintada, e não imagem: sai na cor do tema (o [cor] já vem com a
+/// transparência certa), não pesa no download e não borra em tela nenhuma. O
+/// desenho é um ladrilho fixo de [_lado] px repetido — posições fixas, e não
+/// sorteadas, para a estampa não mudar a cada repintura.
+class _EstampaChat extends CustomPainter {
+  final Color cor;
+
+  _EstampaChat({required this.cor});
+
+  static const double _lado = 140;
+
+  // (x, y, raio) das bolinhas e (x, y, tamanho) dos brilhos no ladrilho.
+  static const _bolinhas = [
+    (18.0, 24.0, 7.0),
+    (96.0, 14.0, 5.0),
+    (62.0, 70.0, 9.0),
+    (122.0, 92.0, 6.0),
+    (28.0, 118.0, 5.5),
+    (90.0, 126.0, 4.0),
+  ];
+  static const _brilhos = [
+    (54.0, 30.0, 6.0),
+    (118.0, 48.0, 4.5),
+    (20.0, 74.0, 4.0),
+    (70.0, 110.0, 5.0),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final traco = Paint()
+      ..color = cor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    final cheio = Paint()..color = cor;
+
+    for (var y = 0.0; y < size.height; y += _lado) {
+      for (var x = 0.0; x < size.width; x += _lado) {
+        for (final (bx, by, r) in _bolinhas) {
+          final centro = Offset(x + bx, y + by);
+          canvas.drawCircle(centro, r, traco);
+          // Pontinho no meio: é o que faz o círculo ler como bolinha de
+          // sorteio, e não como um "o" solto.
+          canvas.drawCircle(centro, r * 0.28, cheio);
+        }
+        for (final (sx, sy, t) in _brilhos) {
+          final c = Offset(x + sx, y + sy);
+          final brilho = Path()
+            ..moveTo(c.dx, c.dy - t)
+            ..quadraticBezierTo(c.dx, c.dy, c.dx + t, c.dy)
+            ..quadraticBezierTo(c.dx, c.dy, c.dx, c.dy + t)
+            ..quadraticBezierTo(c.dx, c.dy, c.dx - t, c.dy)
+            ..quadraticBezierTo(c.dx, c.dy, c.dx, c.dy - t)
+            ..close();
+          canvas.drawPath(brilho, cheio);
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _EstampaChat antiga) => antiga.cor != cor;
 }

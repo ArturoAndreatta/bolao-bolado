@@ -566,11 +566,15 @@ class _BolhaMensagemState extends State<BolhaMensagem>
   // que fazia cada mensagem custar três alturas de texto no mobile.
   Widget _corpoBolha(BuildContext context, String horario) {
     final cores = AppCores.de(context);
+    // Balão próprio na cor de ação do tema (a do botão Confirmar e da barra
+    // de seções), com o par de texto que ela já carrega: no azul fixo, os
+    // temas escuros tinham um balão frio e apagado destoando do resto da
+    // tela, e o texto branco por cima dele ficava abaixo de AA em alguns.
     final corTexto = widget.isMinha
-        ? cores.textoSobreCor
+        ? cores.textoSobreAcao
         : cores.bolhaOutroTexto;
     final corHorario = widget.isMinha
-        ? cores.textoSobreCor.withValues(alpha: 0.75)
+        ? cores.textoSobreAcao.withValues(alpha: 0.75)
         : cores.textoFraco;
 
     const raio = Radius.circular(16);
@@ -579,7 +583,7 @@ class _BolhaMensagemState extends State<BolhaMensagem>
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 7, 10, 7),
       decoration: BoxDecoration(
-        color: widget.isMinha ? cores.azul : cores.bolhaOutro,
+        color: widget.isMinha ? cores.acaoPrimaria : cores.bolhaOutro,
         borderRadius: BorderRadius.only(
           topLeft: raio,
           topRight: raio,
