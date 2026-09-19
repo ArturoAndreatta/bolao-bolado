@@ -245,6 +245,9 @@ class _ParticipantsState extends State<Participants> {
       drawer: AppDrawer(onAvatarChanged: (_) => _load()),
       esticarLarguraCompact: true,
       bottomNavigationBar: isCompact ? _barraSecoesMobile() : null,
+      // A barra flutua sobre o conteúdo (ver _BarraSecoes); cada seção
+      // desconta a altura dela em [_secao].
+      extendBody: isCompact,
       child: isCompact
           ? _layoutMobile(currentUid)
           : _layoutDesktop(currentUid, isLoggedIn),
@@ -447,24 +450,42 @@ class _ParticipantsState extends State<Participants> {
     // setState, cada toque reconstruía as três seções (lista, chat e
     // formulário) antes de a barra marcar a seção nova, e o toque parecia
     // lento.
+    // Folha: superfície de ponta a ponta, com os cantos de cima arredondados,
+    // na cor [AppCores.fundoConteudoMobile] — a do card nos temas claros,
+    // transparente nos escuros (ver o campo na paleta). Nos claros ela faz o
+    // papel do card branco do desktop e o gradiente fica só em volta do
+    // logo; nos escuros o conteúdo segue direto sobre o gradiente.
+    final cores = AppCores.de(context);
+    // Respiro extra no topo só com folha visível (cantos arredondados): nos
+    // temas escuros a posição do conteúdo fica exatamente a de antes.
+    final temFolha = cores.fundoConteudoMobile.a > 0;
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _larguraMaximaMobile),
-        child: Stack(
-          children: [
-            for (final secao in secoes)
-              ValueListenableBuilder<int>(
-                key: ValueKey(secao.indice),
-                valueListenable: _secaoMobile,
-                child: _secao(secao: secao, currentUid: currentUid),
-                builder: (context, ativa, child) => Visibility(
-                  visible: secao.indice == _indiceVisivel(ativa, secoes),
-                  maintainState: true,
-                  child: child!,
+        child: Container(
+          margin: EdgeInsets.only(top: temFolha ? 4 : 0),
+          padding: EdgeInsets.only(top: temFolha ? 10 : 0),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: cores.fundoConteudoMobile,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Stack(
+            children: [
+              for (final secao in secoes)
+                ValueListenableBuilder<int>(
+                  key: ValueKey(secao.indice),
+                  valueListenable: _secaoMobile,
+                  child: _secao(secao: secao, currentUid: currentUid),
+                  builder: (context, ativa, child) => Visibility(
+                    visible: secao.indice == _indiceVisivel(ativa, secoes),
+                    maintainState: true,
+                    child: child!,
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -478,26 +499,27 @@ class _ParticipantsState extends State<Participants> {
         secoes: secoes,
         ativa: _indiceVisivel(ativa, secoes),
         onSelecionar: (indice) => _secaoMobile.value = indice,
-        larguraMaxima: _larguraMaximaMobile,
       ),
     );
   }
 
-  /// Uma seção no mobile, SEM card em volta: o conteúdo fica direto sobre o
-  /// gradiente de fundo, só com um respiro nas bordas. Já teve a moldura de
+  /// Uma seção no mobile, sem card próprio: o conteúdo fica na folha montada
+  /// em [_layoutMobile], só com um respiro nas bordas. Já teve a moldura de
   /// card do desktop (externo + interno), mas no celular as duas camadas
   /// comiam ~20px de cada lado e a tela lia como caixa dentro de caixa.
   ///
   /// O conteúdo recebe a altura disponível (LayoutBuilder): lista,
   /// formulário e chat rolam por dentro dela, e nada passa do fim da tela.
   Widget _secao({required _SecaoMobile secao, required String? currentUid}) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-      child: LayoutBuilder(
-        builder: (context, constraints) => _conteudoSecao(
-          secao: secao,
-          currentUid: currentUid,
-          altura: constraints.maxHeight,
+    return _RespiroDaBarra(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+        child: LayoutBuilder(
+          builder: (context, constraints) => _conteudoSecao(
+            secao: secao,
+            currentUid: currentUid,
+            altura: constraints.maxHeight,
+          ),
         ),
       ),
     );
@@ -662,109 +684,188 @@ enum _SecaoMobile {
   const _SecaoMobile(this.indice, this.rotulo, this.icone);
 }
 
-/// Entrega à [NavigationBar] a margem da barrinha do iPhone quando o app roda
-/// na web. A NavigationBar já soma `MediaQuery.padding.bottom` à própria
-/// altura, mas na web esse valor chega zerado (ver area_segura.dart) e os
-/// rótulos ficavam por baixo da barrinha. Usa o maior dos dois para não
-/// somar a margem duas vezes onde o Flutter já a conhece.
-Widget _comAreaSeguraWeb(BuildContext context, Widget barra) {
-  final margemWeb = margemInferiorNavegador();
-  if (margemWeb <= 0) return barra;
-  final dados = MediaQuery.of(context);
-  return MediaQuery(
-    data: dados.copyWith(
-      padding: dados.padding.copyWith(
-        bottom: math.max(dados.padding.bottom, margemWeb),
-      ),
-    ),
-    child: barra,
-  );
-}
-
-/// Barra inferior que troca a seção no mobile.
+/// Barra inferior que troca a seção no mobile: uma pílula FLUTUANTE, solta
+/// das bordas da tela, no estilo das barras do Google (google_nav_bar). O
+/// item ativo vira uma cápsula na cor de ação do tema (a do botão Confirmar)
+/// com ícone e rótulo; os outros mostram só o ícone. Com três seções, o
+/// rótulo do item ativo sempre cabe, e o ícone basta para os demais.
 ///
-/// A seção ativa é marcada com a cor de ação do tema ([AppCores.acaoPrimaria])
-/// a 22% sobre a superfície — a mesma que pinta o botão Confirmar. É a única
-/// cor forte da tela, e repeti-la aqui liga a barra ao resto do app em vez de
-/// trazer uma cor por seção. Ícone e rótulo ficam em [AppCores.texto], que
-/// passa AA sobre esse fundo tingido; a cor de marca cheia por cima da mesma
-/// cor a 22% não passaria.
+/// Feita à mão, e não com pacote: toda cor sai de [AppCores] (a cápsula usa
+/// o par [AppCores.acaoPrimaria]/[AppCores.textoSobreAcao], que já garante
+/// contraste em todos os temas), e nenhum pacote do gênero expõe a paleta
+/// inteira sem reescrever metade dele.
 class _BarraSecoes extends StatelessWidget {
   final List<_SecaoMobile> secoes;
   final int ativa;
   final ValueChanged<int> onSelecionar;
-  final double larguraMaxima;
 
   const _BarraSecoes({
     required this.secoes,
     required this.ativa,
     required this.onSelecionar,
-    required this.larguraMaxima,
   });
+
+  // Largura máxima da pílula: no tablet ela não atravessa a tela inteira,
+  // fica do tamanho de uma barra de celular, centrada.
+  static const double _larguraMaxima = 420;
 
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
-    final posicao = secoes.indexWhere((s) => s.indice == ativa);
-    Color corDo(Set<WidgetState> estados) =>
-        estados.contains(WidgetState.selected) ? cores.texto : cores.textoSuave;
+    // Área da barrinha de gestos do iPhone. Fora da web o Flutter já informa
+    // em MediaQuery.padding; na web ele entrega zero, e quem sabe é o CSS
+    // (ver area_segura.dart). O maior dos dois, para não somar duas vezes.
+    final areaSegura = math.max(
+      MediaQuery.paddingOf(context).bottom,
+      margemInferiorNavegador(),
+    );
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cores.cardExterno,
-        border: Border(top: BorderSide(color: cores.borda)),
-      ),
-      // Fundo de ponta a ponta, itens limitados à largura do card: no tablet
-      // três destinos espalhados por 1000px ficariam longe demais do card
-      // que eles controlam.
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 6, 16, 10 + areaSegura),
       child: Center(
         heightFactor: 1,
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: larguraMaxima),
-          child: NavigationBarTheme(
-            data: NavigationBarThemeData(
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-              height: 64,
-              indicatorColor: Color.alphaBlend(
-                cores.acaoPrimaria.withValues(alpha: 0.22),
-                cores.cardExterno,
-              ),
-              iconTheme: WidgetStateProperty.resolveWith(
-                (estados) => IconThemeData(size: 22, color: corDo(estados)),
-              ),
-              labelTextStyle: WidgetStateProperty.resolveWith(
-                (estados) => TextStyle(
-                  fontSize: 12,
-                  fontWeight: estados.contains(WidgetState.selected)
-                      ? FontWeight.w700
-                      : FontWeight.w500,
-                  color: corDo(estados),
+          constraints: const BoxConstraints(maxWidth: _larguraMaxima),
+          child: Container(
+            height: 60,
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: cores.cardExterno,
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: cores.borda),
+              boxShadow: [
+                BoxShadow(
+                  color: cores.sombra,
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
                 ),
-              ),
+              ],
             ),
-            child: _comAreaSeguraWeb(
-              context,
-              NavigationBar(
-                selectedIndex: posicao == -1 ? 0 : posicao,
-                onDestinationSelected: (i) => onSelecionar(secoes[i].indice),
-                // Sem animação na troca: o indicador crescendo lia como atraso
-                // do toque — o mesmo motivo que tirou a animação das abas do
-                // antigo fichário.
-                animationDuration: Duration.zero,
-                destinations: [
-                  for (final secao in secoes)
-                    NavigationDestination(
-                      icon: Icon(secao.icone),
-                      label: secao.rotulo,
+            child: Row(
+              // stretch: cada item ocupa a altura toda da barra. Sem isto a
+              // cápsula do item ativo encolhia para a altura do ícone e virava
+              // uma tarja fina no meio da pílula.
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final secao in secoes)
+                  _ItemBarra(
+                    secao: secao,
+                    ativo: secao.indice == ativa,
+                    onTap: () => onSelecionar(secao.indice),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ItemBarra extends StatelessWidget {
+  final _SecaoMobile secao;
+  final bool ativo;
+  final VoidCallback onTap;
+
+  const _ItemBarra({
+    required this.secao,
+    required this.ativo,
+    required this.onTap,
+  });
+
+  // Curta de propósito: a cápsula crescendo é o charme da barra, mas as
+  // abas antigas já mostraram que troca de seção animada acima de ~200ms lê
+  // como atraso do toque. A cor muda junto, sem esperar o fim.
+  static const _duracao = Duration(milliseconds: 180);
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    final corConteudo = ativo ? cores.textoSobreAcao : cores.textoSuave;
+
+    return Expanded(
+      // O item ativo pega mais largura para caber o rótulo; os outros
+      // dividem o resto.
+      flex: ativo ? 5 : 3,
+      child: Semantics(
+        button: true,
+        selected: ativo,
+        label: secao.rotulo,
+        excludeSemantics: true,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: AnimatedContainer(
+              duration: _duracao,
+              curve: Curves.easeOutCubic,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: ativo
+                    ? cores.acaoPrimaria
+                    : cores.acaoPrimaria.withValues(alpha: 0),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(secao.icone, size: 22, color: corConteudo),
+                  // Rótulo só no ativo, entrando com a largura da cápsula.
+                  Flexible(
+                    child: AnimatedSize(
+                      duration: _duracao,
+                      curve: Curves.easeOutCubic,
+                      child: ativo
+                          ? Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                secao.rotulo,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: corConteudo,
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
+                  ),
                 ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Desconta da seção a altura da barra flutuante, que passa por cima do
+/// conteúdo (extendBody): o Scaffold informa essa altura no padding de baixo.
+///
+/// Com o teclado aberto a barra fica escondida atrás dele, e o desconto
+/// sobraria como um vão entre o conteúdo e o teclado — bem em cima do campo
+/// do chat. Por isso aí ele zera.
+///
+/// Widget próprio, e não conta feita no build da página: ler `viewInsets`
+/// cria dependência do teclado, e na página isso reconstruiria as três seções
+/// a cada abrir/fechar dele (ver responsive.dart). Aqui só este padding
+/// reconstrói; o conteúdo entra pronto por [child].
+class _RespiroDaBarra extends StatelessWidget {
+  final Widget child;
+
+  const _RespiroDaBarra({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final tecladoAberto = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final alturaBarra = MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: tecladoAberto ? 0 : alturaBarra),
+      child: child,
     );
   }
 }

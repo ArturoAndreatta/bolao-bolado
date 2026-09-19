@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:bolao_bolado/components/shared/custom_field_decoration.dart';
 import 'package:bolao_bolado/core/aparelho.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
@@ -48,6 +49,12 @@ class _PixInfoState extends State<PixInfo> {
   Widget build(BuildContext context) {
     if (widget.chavePix.isEmpty) return const SizedBox.shrink();
 
+    // No celular o card é outro (ver _buildCopiaECola), com moldura própria.
+    // A decisão sai ANTES do LayoutBuilder abaixo, que não mede altura
+    // natural: a tela de aposta precisa dela para repartir a sobra da tela
+    // (ver preencherAltura em MinhaApostaCard).
+    if (_aparelhoMovel) return _buildCopiaECola(context);
+
     final cores = AppCores.de(context);
     return Container(
       width: double.infinity,
@@ -57,19 +64,14 @@ class _PixInfoState extends State<PixInfo> {
         borderRadius: AppRadii.circularMd,
         border: Border.all(color: cores.bordaCampo, width: 1.5),
       ),
-      // No celular a decisão sai ANTES do LayoutBuilder, que não mede altura
-      // natural: a tela de aposta precisa dela para repartir a sobra da tela
-      // (ver preencherAltura em MinhaApostaCard).
-      child: _aparelhoMovel
-          ? _buildCopiaECola(context)
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final mostrarQrCode = constraints.maxWidth >= 330;
-                return mostrarQrCode
-                    ? _buildComQrCode(context, constraints.maxWidth)
-                    : _buildSemQrCode(context);
-              },
-            ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final mostrarQrCode = constraints.maxWidth >= 330;
+          return mostrarQrCode
+              ? _buildComQrCode(context, constraints.maxWidth)
+              : _buildSemQrCode(context);
+        },
+      ),
     );
   }
 
@@ -255,83 +257,143 @@ class _PixInfoState extends State<PixInfo> {
   // app do banco ele já chega com o valor da aposta preenchido — copiando só
   // a chave, a pessoa digita o valor na mão, e é aí que se paga errado. A
   // chave aparece em texto acima do botão, para conferir o destinatário.
+  //
+  // Mesma linguagem do card do sorteio no topo da tela de aposta: ícone num
+  // bloco tingido à esquerda, degradê leve da cor do Pix a partir dele e o
+  // símbolo do Pix grande e quase transparente no canto, na altura do título
+  // (longe da chave e do botão, para nada ficar por cima dele).
   Widget _buildCopiaECola(BuildContext context) {
     final cores = AppCores.de(context);
     final valor = widget.valor;
     final codigoCopiado = _copiado == _Copiado.codigo;
     final corBotao = codigoCopiado ? cores.verde : cores.azul;
+    final raio = BorderRadius.circular(CustomFieldDecoration.radius);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: raio,
+        border: Border.all(color: cores.bordaCampo),
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Color.alphaBlend(cores.pix.withValues(alpha: 0.10), cores.campo),
+            cores.campo,
+          ],
+        ),
+      ),
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Image.asset('images/pix_logo.png', width: 22, height: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Pagamento via PIX',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: cores.texto,
+          Positioned(
+            right: -14,
+            top: -20,
+            child: ExcludeSemantics(
+              child: Transform.rotate(
+                angle: 0.3,
+                child: Icon(
+                  Icons.pix,
+                  size: 72,
+                  color: cores.texto.withValues(alpha: 0.05),
                 ),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          // A chave fica à vista, acima do botão: quem paga confere para quem
-          // está mandando antes de copiar, e o código Copia e Cola é um
-          // amontoado de caracteres onde ela não se reconhece.
-          Text.rich(
-            TextSpan(
+          // Medidas contidas de propósito: o card tem a mesma altura da versão
+          // sem decoração, para não comer as folgas da tela de aposta.
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                TextSpan(
-                  text: 'Chave PIX: ',
-                  style: TextStyle(color: cores.textoSuave),
+                Row(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Color.alphaBlend(
+                          cores.pix.withValues(alpha: 0.22),
+                          cores.campo,
+                        ),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Image.asset(
+                        'images/pix_logo.png',
+                        width: 18,
+                        height: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Pagamento via PIX',
+                      // Mesmo tamanho do nome do sorteio no card do topo da
+                      // tela de aposta: os dois títulos de card se leem como
+                      // do mesmo nível.
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: cores.texto,
+                      ),
+                    ),
+                  ],
                 ),
-                TextSpan(
-                  text: widget.chavePix,
-                  style: TextStyle(
-                    color: cores.texto,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(height: 8),
+                // A chave fica à vista, acima do botão: quem paga confere para
+                // quem está mandando antes de copiar, e o código Copia e Cola
+                // é um amontoado de caracteres onde ela não se reconhece.
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Chave PIX: ',
+                        style: TextStyle(color: cores.textoSuave),
+                      ),
+                      TextSpan(
+                        text: widget.chavePix,
+                        style: TextStyle(
+                          color: cores.texto,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 46,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _copiar(
+                      PixPayload.gerar(chave: widget.chavePix, valor: valor),
+                      _Copiado.codigo,
+                    ),
+                    icon: Icon(
+                      codigoCopiado ? Icons.check : Icons.copy_outlined,
+                      size: 18,
+                      color: corBotao,
+                    ),
+                    label: Text(
+                      codigoCopiado ? 'Código copiado!' : 'Copiar código PIX',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: corBotao,
+                      side: BorderSide(color: corBotao, width: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadii.circularXl,
+                      ),
+                    ),
                   ),
                 ),
               ],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 46,
-            child: OutlinedButton.icon(
-              onPressed: () => _copiar(
-                PixPayload.gerar(chave: widget.chavePix, valor: valor),
-                _Copiado.codigo,
-              ),
-              icon: Icon(
-                codigoCopiado ? Icons.check : Icons.copy_outlined,
-                size: 18,
-                color: corBotao,
-              ),
-              label: Text(
-                codigoCopiado ? 'Código copiado!' : 'Copiar código PIX',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: corBotao,
-                side: BorderSide(color: corBotao, width: 2),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadii.circularXl,
-                ),
-              ),
             ),
           ),
         ],

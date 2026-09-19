@@ -43,6 +43,14 @@ class AppCores extends ThemeExtension<AppCores> {
   /// É a "capa" do fichário e o fundo dos cards de página.
   final Color cardExterno;
 
+  /// Superfície atrás do conteúdo das seções no celular (aposta,
+  /// participantes, chat), que ali não ficam dentro de card. Nos temas
+  /// CLAROS é a cor do [card]: o gradiente de fundo claro é vivo demais, e o
+  /// amarelo/verde vazava entre os campos e por dentro das linhas da lista.
+  /// Nos ESCUROS é transparente: o gradiente escuro é sóbrio, e o conteúdo
+  /// direto sobre ele era o visual desejado.
+  final Color fundoConteudoMobile;
+
   /// Fundo de campos de formulário, tiles e cabeçalhos de seção.
   final Color campo;
 
@@ -247,6 +255,7 @@ class AppCores extends ThemeExtension<AppCores> {
   const AppCores({
     required this.card,
     required this.cardExterno,
+    required this.fundoConteudoMobile,
     required this.campo,
     required this.superficieAlta,
     required this.ficharioFundo,
@@ -306,6 +315,7 @@ class AppCores extends ThemeExtension<AppCores> {
   static const AppCores claro = AppCores(
     card: Color(0xFFFEFEFE),
     cardExterno: Color(0xFFF3F1EF),
+    fundoConteudoMobile: Color(0xFFFEFEFE),
     campo: Color(0xFFF3F4F6),
     superficieAlta: Color(0xFFE9EAEC),
     ficharioFundo: Color(0xFFEDEBE8),
@@ -427,6 +437,7 @@ class AppCores extends ThemeExtension<AppCores> {
     // card é o que não pode encolher — os dois se movem em par.
     card: Color(0xFF333C4D),
     cardExterno: Color(0xFF28303E),
+    fundoConteudoMobile: Color(0x00000000),
     campo: Color(0xFF3F4A5E),
     superficieAlta: Color(0xFF4E5A70),
     ficharioFundo: Color(0xFF262F3C),
@@ -590,6 +601,7 @@ class AppCores extends ThemeExtension<AppCores> {
   static const AppCores cassino = AppCores(
     card: Color(0xFF222F2C),
     cardExterno: Color(0xFF192421),
+    fundoConteudoMobile: Color(0x00000000),
     campo: Color(0xFF2D3C37),
     superficieAlta: Color(0xFF374843),
     ficharioFundo: Color(0xFF101916),
@@ -674,6 +686,7 @@ class AppCores extends ThemeExtension<AppCores> {
     // [escuroTema].
     card: Color(0xFF203159),
     cardExterno: Color(0xFF182749),
+    fundoConteudoMobile: Color(0x00000000),
     campo: Color(0xFF2A3F6C),
     superficieAlta: Color(0xFF374D7B),
     ficharioFundo: Color(0xFF111E3F),
@@ -751,6 +764,7 @@ class AppCores extends ThemeExtension<AppCores> {
     // justamente o que o tema tem de próprio.
     card: Color(0xFF352C45),
     cardExterno: Color(0xFF292238),
+    fundoConteudoMobile: Color(0x00000000),
     campo: Color(0xFF423955),
     superficieAlta: Color(0xFF514667),
     ficharioFundo: Color(0xFF211A2D),
@@ -827,6 +841,7 @@ class AppCores extends ThemeExtension<AppCores> {
   static const AppCores papel = AppCores(
     card: Color(0xFFFBF6EC),
     cardExterno: Color(0xFFF2EADB),
+    fundoConteudoMobile: Color(0xFFFBF6EC),
     campo: Color(0xFFF0E8D8),
     superficieAlta: Color(0xFFE6DCC7),
     ficharioFundo: Color(0xFFEDE3D0),
@@ -903,6 +918,7 @@ class AppCores extends ThemeExtension<AppCores> {
   static const AppCores bilhete = AppCores(
     card: Color(0xFFFFFDF8),
     cardExterno: Color(0xFFF4F1E9),
+    fundoConteudoMobile: Color(0xFFFFFDF8),
     campo: Color(0xFFF1EFE7),
     superficieAlta: Color(0xFFE6E3D9),
     ficharioFundo: Color(0xFFEDEAE1),
@@ -991,6 +1007,11 @@ class AppCores extends ThemeExtension<AppCores> {
     return AppCores(
       card: Color.lerp(card, outro.card, t)!,
       cardExterno: Color.lerp(cardExterno, outro.cardExterno, t)!,
+      fundoConteudoMobile: Color.lerp(
+        fundoConteudoMobile,
+        outro.fundoConteudoMobile,
+        t,
+      )!,
       campo: Color.lerp(campo, outro.campo, t)!,
       superficieAlta: Color.lerp(superficieAlta, outro.superficieAlta, t)!,
       ficharioFundo: Color.lerp(ficharioFundo, outro.ficharioFundo, t)!,

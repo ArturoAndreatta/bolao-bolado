@@ -18,6 +18,12 @@ class DefaultLayout extends StatelessWidget {
   // ele abre — montada dentro do body, ela subiria junto com o teclado e
   // roubaria altura do campo que está sendo digitado.
   final Widget? bottomNavigationBar;
+  // Repassado ao Scaffold: o body continua por trás da barra inferior até a
+  // borda da tela. Para barra FLUTUANTE, que não tem fundo próprio de ponta a
+  // ponta — sem isso sobra, em volta dela, uma faixa do fundo da página. Com
+  // isso o Scaffold soma a altura da barra ao MediaQuery.padding.bottom do
+  // body, e quem está por baixo precisa descontar esse valor.
+  final bool extendBody;
   const DefaultLayout({
     super.key,
     required this.child,
@@ -26,6 +32,7 @@ class DefaultLayout extends StatelessWidget {
     this.showLogo = true,
     this.esticarLarguraCompact = false,
     this.bottomNavigationBar,
+    this.extendBody = false,
   });
 
   // A arte do logo tem 52px de altura EXATOS (images/logo_appbar.png, com as
@@ -85,6 +92,7 @@ class DefaultLayout extends StatelessWidget {
         drawer: drawer,
         onDrawerChanged: onDrawerChanged,
         bottomNavigationBar: bottomNavigationBar,
+        extendBody: extendBody,
         backgroundColor: Colors.transparent,
         appBar: drawer != null
             ? AppBar(

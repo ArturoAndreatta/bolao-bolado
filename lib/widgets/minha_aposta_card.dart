@@ -340,11 +340,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     // ficam compactos para caber ao lado da tabela.
     final espaco = widget.mobile ? _espacoMobile : 10.0;
 
-    final resumo = _ResumoAposta(
-      premio: _meuPremio,
-      cotas: _minhasCotas,
-      precoCota: _precoCota,
-    );
+    final resumo = _ResumoAposta(premio: _meuPremio, cotas: _minhasCotas);
 
     final camposTopo = [
       const SizedBox(height: 12),
@@ -416,7 +412,6 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           cotasUsadas: _cotasDosJogos,
           cotasDisponiveis: _minhasCotas,
           onTap: _abrirSelecaoJogos,
-          alto: widget.mobile,
         ),
       ),
       SizedBox(height: widget.mobile ? _espacoMobile : 12),
@@ -465,10 +460,12 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           sorteio: _sorteio,
           dataSorteio: _dataSorteio,
           situacao: _situacao,
+          premio: _premioSala,
         ),
-        // Folga maior que a dos campos (somada aos 12 do topo do formulário):
-        // o bloco é contexto, e colado nele parecia o primeiro campo.
-        const SizedBox(height: 10),
+        // Somada aos 12 do topo do formulário, dá a mesma folga mínima que
+        // separa o Confirmar do Pix: os três blocos da tela ficam com o mesmo
+        // respiro entre si.
+        const SizedBox(height: _folgaPix - 12),
         folga(),
         ...camposTopo,
         if (blocoApenasPix != null) ...[
@@ -846,15 +843,12 @@ class _BotaoEscolherJogos extends StatelessWidget {
   final int cotasUsadas;
   final int cotasDisponiveis;
   final VoidCallback onTap;
-  // Altura de alvo de toque do celular (ver camposTopo).
-  final bool alto;
 
   const _BotaoEscolherJogos({
     required this.jogos,
     required this.cotasUsadas,
     required this.cotasDisponiveis,
     required this.onTap,
-    this.alto = false,
   });
 
   @override
@@ -862,52 +856,55 @@ class _BotaoEscolherJogos extends StatelessWidget {
     final cores = AppCores.de(context);
     final excedeu = cotasUsadas > cotasDisponiveis;
     final resumo = switch (jogos.length) {
-      0 => 'Escolher meus jogos (opcional)',
+      0 => 'Escolher números (opcional)',
       1 => jogos.first.map((n) => n.toString().padLeft(2, '0')).join(' · '),
       final total => '$total jogos',
     };
 
-    return InkWell(
-      onTap: onTap,
+    // Mesma decoração do CustomField (rótulo "Meus jogos" na borda, ícone,
+    // altura e raio): sem rótulo, os números apareciam soltos no meio do
+    // formulário, sem dizer o que eram, enquanto Nome e Valor têm o seu.
+    // O rótulo fica sempre no alto (isEmpty: false) porque o campo sempre
+    // mostra alguma coisa, nem que seja o convite para escolher.
+    final decoracao = CustomFieldDecoration.build(
+      context,
+      hint: 'Meus jogos',
+      icon: Icons.casino_outlined,
+      suffix: Icon(Icons.chevron_right, size: 20, color: cores.textoFraco),
+    );
+    final bordaErro = OutlineInputBorder(
       borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: alto ? 14 : 10),
-        decoration: BoxDecoration(
-          color: cores.campo,
-          borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
-          border: Border.fromBorderSide(
-            BorderSide(
-              color: excedeu ? cores.vermelho : cores.bordaCampo,
-              width: 1.5,
+      borderSide: BorderSide(color: cores.vermelho, width: 1.5),
+    );
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: InputDecorator(
+          isEmpty: false,
+          decoration: excedeu
+              ? decoracao.copyWith(
+                  enabledBorder: bordaErro,
+                  prefixIcon: Icon(Icons.error_outline, color: cores.vermelho),
+                )
+              : decoracao,
+          child: Text(
+            excedeu
+                ? 'Jogos passam do valor ($cotasUsadas de '
+                      '$cotasDisponiveis cotas)'
+                : resumo,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: jogos.length == 1 && !excedeu ? 16 : 15,
+              fontWeight: jogos.isEmpty ? FontWeight.w500 : FontWeight.w600,
+              color: excedeu
+                  ? cores.vermelho
+                  : (jogos.isEmpty ? cores.textoSuave : cores.texto),
             ),
           ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              excedeu ? Icons.error_outline : Icons.casino_outlined,
-              size: 18,
-              color: excedeu ? cores.vermelho : cores.textoSuave,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                excedeu
-                    ? 'Jogos passam do valor apostado ($cotasUsadas de '
-                          '$cotasDisponiveis cotas)'
-                    : resumo,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: jogos.isEmpty ? FontWeight.w500 : FontWeight.w600,
-                  color: excedeu
-                      ? cores.vermelho
-                      : (jogos.isEmpty ? cores.textoSuave : cores.texto),
-                ),
-              ),
-            ),
-            Icon(Icons.chevron_right, size: 18, color: cores.textoFraco),
-          ],
         ),
       ),
     );
@@ -988,13 +985,8 @@ class _DisplayInfo extends StatelessWidget {
 class _ResumoAposta extends StatelessWidget {
   final double premio;
   final int cotas;
-  final double precoCota;
 
-  const _ResumoAposta({
-    required this.premio,
-    required this.cotas,
-    required this.precoCota,
-  });
+  const _ResumoAposta({required this.premio, required this.cotas});
 
   @override
   Widget build(BuildContext context) {
@@ -1002,7 +994,6 @@ class _ResumoAposta extends StatelessWidget {
     // Números que mudam a cada tecla no campo de valor: sem dígitos
     // tabulares, o valor "dança" de largura enquanto se digita.
     const tabular = [FontFeature.tabularFigures()];
-    final rotuloCotas = cotas == 1 ? 'cota' : 'cotas';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1018,16 +1009,21 @@ class _ResumoAposta extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // "Seu": o card do topo também mostra um prêmio (o do sorteio
+              // inteiro), e sem o possessivo os dois valores se confundiam.
+              // Rótulo apagado, como o rótulo de qualquer campo do formulário;
+              // o dado (as cotas) é que vai na cor de texto principal.
               Text(
-                'Prêmio estimado',
+                'Seu prêmio estimado',
                 style: TextStyle(fontSize: 13.5, color: cores.textoSuave),
               ),
               const SizedBox(height: 2),
               Text(
-                '$cotas $rotuloCotas de ${Formatters.moeda.format(precoCota)}',
+                '$cotas ${cotas == 1 ? 'Cota' : 'Cotas'}',
                 style: TextStyle(
-                  fontSize: 12.5,
-                  color: cores.textoFraco,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: cores.texto,
                   fontFeatures: tabular,
                 ),
               ),
@@ -1086,19 +1082,26 @@ enum _Situacao {
 /// no rateio, e até aqui a pessoa só descobria isso procurando o próprio nome
 /// na lista de participantes.
 ///
-/// A data vem numa "folhinha" de calendário à esquerda, tingida com a cor de
-/// ação do tema (a mesma do botão Confirmar, a 22% sobre a superfície), e a
-/// situação num selo com o par fundo/borda/texto da paleta: verde confirmada,
-/// amarelo aguardando o admin.
+/// A data vem numa "folhinha" de calendário à esquerda: faixa do dia da
+/// semana na cor de ação do tema (a do botão Confirmar, com o texto do par
+/// [AppCores.textoSobreAcao]) e corpo tingido dela a 22%. A mesma cor entra
+/// bem de leve no degradê do fundo, do lado da folhinha, e um bilhete grande
+/// e quase transparente no canto dá o clima de loteria sem disputar atenção
+/// com o texto. A situação vai num selo com o par fundo/borda/texto da
+/// paleta: verde confirmada, amarelo aguardando o admin.
 class _SituacaoAposta extends StatelessWidget {
   final String? sorteio;
   final DateTime? dataSorteio;
   final _Situacao situacao;
+  // Prêmio do sorteio (da sala), na última linha. 0 = a sala ainda não tem
+  // prêmio cadastrado, e a linha não aparece.
+  final double premio;
 
   const _SituacaoAposta({
     required this.sorteio,
     required this.dataSorteio,
     required this.situacao,
+    required this.premio,
   });
 
   // O intl devolve "qui." e "dez."; na folhinha o ponto sobra.
@@ -1109,16 +1112,17 @@ class _SituacaoAposta extends StatelessWidget {
 
   // Contagem em dias de CALENDÁRIO (meia-noite a meia-noite), não em blocos
   // de 24h: sorteio amanhã às 20h, visto hoje às 23h, é "amanhã" e não "hoje".
-  static String _quantoFalta(DateTime data) {
+  // Devolve (prefixo, destaque): o destaque sai em negrito na linha.
+  static (String, String) _quantoFalta(DateTime data) {
     final agora = DateTime.now();
-    if (data.isBefore(agora)) return 'já realizado';
+    if (data.isBefore(agora)) return ('Sorteio já realizado', '');
     final dias = DateUtils.dateOnly(
       data,
     ).difference(DateUtils.dateOnly(agora)).inDays;
     return switch (dias) {
-      0 => 'é hoje!',
-      1 => 'é amanhã',
-      _ => 'faltam $dias dias',
+      0 => ('', 'É hoje!'),
+      1 => ('', 'É amanhã'),
+      _ => ('Faltam ', '$dias dias'),
     };
   }
 
@@ -1127,88 +1131,233 @@ class _SituacaoAposta extends StatelessWidget {
     final cores = AppCores.de(context);
     final nomeSorteio = isLotofacil(sorteio) ? 'Lotofácil' : 'Mega-Sena';
     final data = dataSorteio;
-    final fundoFolhinha = Color.alphaBlend(
-      cores.acaoPrimaria.withValues(alpha: 0.22),
-      cores.campo,
+    final estiloFolhinha = TextStyle(
+      fontSize: 10.5,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0.8,
+      color: cores.texto,
     );
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cores.campo,
-        borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
-        border: Border.all(color: cores.bordaCampo),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 68,
-            decoration: BoxDecoration(
-              color: fundoFolhinha,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: data == null
-                ? Icon(Icons.event_outlined, color: cores.texto)
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _abreviado('EEE', data),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                          color: cores.texto,
-                        ),
-                      ),
-                      Text(
-                        '${data.day}',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          height: 1.1,
-                          color: cores.texto,
-                        ),
-                      ),
-                      Text(
-                        _abreviado('MMM', data),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                          color: cores.texto,
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  nomeSorteio,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: cores.texto,
-                  ),
+    final folhinha = ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: 60,
+        height: 96,
+        child: data == null
+            ? ColoredBox(
+                color: Color.alphaBlend(
+                  cores.acaoPrimaria.withValues(alpha: 0.22),
+                  cores.campo,
                 ),
-                if (data != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Sorteio às ${Formatters.horaCurta.format(data)} · '
-                    '${_quantoFalta(data)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, color: cores.textoSuave),
+                child: Icon(Icons.event_outlined, color: cores.texto),
+              )
+            : Column(
+                // stretch: sem isto o corpo tingido encolhe para a largura do
+                // "31"/"DEZ" e vira uma faixa estreita sob a tarja do dia.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    height: 20,
+                    color: cores.acaoPrimaria,
+                    alignment: Alignment.center,
+                    child: Text(
+                      _abreviado('EEE', data),
+                      style: estiloFolhinha.copyWith(
+                        color: cores.textoSobreAcao,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ColoredBox(
+                      color: Color.alphaBlend(
+                        cores.acaoPrimaria.withValues(alpha: 0.22),
+                        cores.campo,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${data.day}',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              height: 1.05,
+                              color: cores.texto,
+                            ),
+                          ),
+                          Text(_abreviado('MMM', data), style: estiloFolhinha),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Horário no rodapé da própria folhinha, como a hora
+                  // impressa num ingresso: data e hora formam uma peça só.
+                  // Tom um pouco mais forte que o corpo, para separar as duas
+                  // partes sem outra linha.
+                  Container(
+                    height: 20,
+                    color: Color.alphaBlend(
+                      cores.acaoPrimaria.withValues(alpha: 0.38),
+                      cores.campo,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      Formatters.horaCurta.format(data),
+                      style: estiloFolhinha.copyWith(letterSpacing: 0.4),
+                    ),
                   ),
                 ],
-                const SizedBox(height: 8),
-                _SeloSituacao(situacao: situacao),
-              ],
+              ),
+      ),
+    );
+
+    final (prefixo, destaque) = data == null ? ('', '') : _quantoFalta(data);
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
+        border: Border.all(color: cores.bordaCampo),
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Color.alphaBlend(
+              cores.acaoPrimaria.withValues(alpha: 0.10),
+              cores.campo,
+            ),
+            cores.campo,
+          ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Bilhete de fundo: decoração pura, fora da leitura de tela.
+          Positioned(
+            right: -18,
+            bottom: -30,
+            child: ExcludeSemantics(
+              child: Transform.rotate(
+                angle: -0.3,
+                child: Icon(
+                  Icons.confirmation_number_outlined,
+                  size: 96,
+                  color: cores.texto.withValues(alpha: 0.05),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            // IntrinsicHeight + stretch: a coluna do texto ocupa a altura toda
+            // da coluna da folhinha, para o título alinhar com o topo do
+            // calendário e o prêmio com o horário embaixo dele.
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  folhinha,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    nomeSorteio,
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                      color: cores.texto,
+                                    ),
+                                  ),
+                                  // Dentro da coluna do título, e não abaixo da
+                                  // linha inteira: lá ela ficava presa à altura
+                                  // do bloco do prêmio, mais alto que o título,
+                                  // e descolava do "Mega-Sena".
+                                  if (data != null)
+                                    Text.rich(
+                                      TextSpan(
+                                        children: [
+                                          TextSpan(text: prefixo),
+                                          TextSpan(
+                                            text: destaque,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: cores.texto,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: cores.textoSuave,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            // Situação no canto: é status, e status mora no
+                            // topo. Por isso o selo tem rótulos curtos — aqui
+                            // ele divide a linha com o nome do sorteio.
+                            const SizedBox(width: 8),
+                            _SeloSituacao(situacao: situacao),
+                          ],
+                        ),
+                        if (premio > 0) ...[
+                          // Rótulo em cima e valor embaixo, alinhado à
+                          // esquerda com o título: na mesma linha, o rótulo
+                          // empurrava o valor para o meio do card. Valor na
+                          // cor do título — o verde fica para o dinheiro da
+                          // pessoa (prêmio estimado), não o do sorteio.
+                          // Agrupados numa coluna só: soltos na coluna de fora
+                          // (spaceBetween), o espaço sobrando se dividia entre
+                          // o rótulo e o valor e separava os dois.
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'PRÊMIO',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                  color: cores.textoSuave,
+                                ),
+                              ),
+                              // Valor por extenso; FittedBox encolhe a fonte se
+                              // não couber.
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  Formatters.moeda.format(premio),
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.15,
+                                    color: cores.texto,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -1231,28 +1380,28 @@ class _SeloSituacao extends StatelessWidget {
         cores.borda,
         cores.textoSuave,
         Icons.info_outline,
-        'Você ainda não apostou',
+        'Sem aposta',
       ),
       _Situacao.aguardando => (
         cores.fundoAmarelo,
         cores.bordaAmarelo,
         cores.textoAmarelo,
-        Icons.schedule,
-        'Aguardando confirmação',
+        Icons.hourglass_empty,
+        'Aguardando',
       ),
       _Situacao.alterada => (
         cores.fundoAmarelo,
         cores.bordaAmarelo,
         cores.textoAmarelo,
         Icons.edit_outlined,
-        'Alterada, aguardando confirmação',
+        'Alterada',
       ),
       _Situacao.confirmada => (
         cores.fundoVerde,
         cores.bordaVerde,
         cores.textoVerde,
         Icons.check_circle_outline,
-        'Aposta confirmada',
+        'Confirmada',
       ),
     };
 
@@ -1268,16 +1417,16 @@ class _SeloSituacao extends StatelessWidget {
         children: [
           Icon(icone, size: 14, color: texto),
           const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              rotulo,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: texto,
-              ),
+          // Sem Flexible: o selo fica no canto de uma Row, onde recebe largura
+          // livre, e um filho flexível ali quebra o layout. Os rótulos são
+          // curtos justamente para caberem sempre.
+          Text(
+            rotulo,
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: texto,
             ),
           ),
         ],
