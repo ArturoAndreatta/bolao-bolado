@@ -58,7 +58,7 @@ class _PixInfoState extends State<PixInfo> {
         border: Border.all(color: cores.bordaCampo, width: 1.5),
       ),
       // No celular a decisão sai ANTES do LayoutBuilder, que não mede altura
-      // natural: o formulário da aposta precisa dela para esticar o resumo
+      // natural: a tela de aposta precisa dela para repartir a sobra da tela
       // (ver preencherAltura em MinhaApostaCard).
       child: _aparelhoMovel
           ? _buildCopiaECola(context)

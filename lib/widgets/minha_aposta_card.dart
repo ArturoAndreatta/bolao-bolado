@@ -22,6 +22,7 @@ import 'package:bolao_bolado/widgets/selecao_jogos_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 // Card "Minha Aposta": formulário onde o usuário informa nome e valor,
 // vê quantas cotas aquilo compra e o prêmio estimado, e confirma a aposta.
@@ -94,6 +95,11 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
   // deixar por conta de quem compra os bilhetes). Vazio = não escolheu.
   // Cada jogo consome cotas conforme o tamanho — ver jogos_aposta.dart.
   List<List<int>> _jogos = [];
+  // Data do sorteio e situação da aposta deste usuário, para o bloco do topo
+  // no celular (ver _SituacaoAposta). Os dois vêm das streams que o card já
+  // escuta — sala e apostas —, sem leitura extra.
+  DateTime? _dataSorteio;
+  _Situacao _situacao = _Situacao.semAposta;
   @override
   void initState() {
     super.initState();
@@ -136,6 +142,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       setState(() {
         _premioSala = (doc.data()?['premio'] as num?)?.toDouble() ?? 0;
         _sorteio = doc.data()?['sorteio']?.toString();
+        _dataSorteio = (doc.data()?['dataHora'] as Timestamp?)?.toDate();
         _precoCota = precoCotaPara(_sorteio);
         _chavePix = doc.data()?['chavePix']?.toString() ?? '';
         // Sai do mesmo snapshot já em uso: o teto acompanha edições do admin
@@ -148,7 +155,9 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       (bets) {
         if (!mounted) return;
         final uid = FirebaseAuth.instance.currentUser?.uid;
+        final minha = bets.where((item) => item['uid'] == uid).firstOrNull;
         setState(() {
+          _situacao = _Situacao.de(minha);
           _totalCotasOutros = bets
               .where((item) => item['uid'] != uid)
               .fold<int>(0, (soma, item) => soma + (item['cotas'] as int));
@@ -331,22 +340,6 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     // ficam compactos para caber ao lado da tabela.
     final espaco = widget.mobile ? _espacoMobile : 10.0;
 
-    // No celular o formulário quase nunca preenche a tela. A sobra vai para
-    // as margens do card do Pix (metade acima, metade abaixo), e os campos
-    // ficam com o espaçamento fixo, juntos. Já se tentou: ancorar o Pix no
-    // rodapé (vão no meio), esticar o bloco do prêmio (caixa grande e vazia)
-    // e repartir a sobra entre todos os campos (formulário esparramado). O
-    // Pix é um bloco à parte do formulário, e é o único lugar onde folga em
-    // volta lê como separação e não como buraco. Em tela baixa, ou com o
-    // teclado aberto, as margens ficam no mínimo e a página rola.
-    //
-    // Só com o Pix no modo Copia e Cola (celular/tablet de verdade): repartir
-    // exige medir a altura natural do formulário inteiro, e o Pix do
-    // computador escolhe o layout com um LayoutBuilder, que não permite essa
-    // medição. Numa janela estreita do computador o formulário fica no
-    // tamanho natural.
-    final preencherAltura = widget.apenasConteudo && aparelhoMovel;
-
     final resumo = _ResumoAposta(
       premio: _meuPremio,
       cotas: _minhasCotas,
@@ -446,15 +439,46 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
             child: PixInfo(chavePix: _chavePix, valor: _valorApostado),
           );
 
+    // Três blocos no celular: situação do sorteio, formulário e Pix. Os
+    // campos do formulário ficam sempre juntos, e a altura que sobra na tela
+    // é repartida em partes iguais entre as TRÊS folgas que separam esses
+    // blocos: situação→formulário, Confirmar→Pix e Pix→barra inferior. As
+    // duas do Pix saem iguais (o card fica centrado no espaço abaixo do
+    // Confirmar).
+    //
+    // Espaço extra só entre blocos, nunca dentro do formulário: já se tentou
+    // esticar o bloco do prêmio (caixa grande e vazia) e espalhar a sobra
+    // entre os campos (formulário esparramado).
+    //
+    // Só no celular/tablet de verdade (Pix em Copia e Cola): repartir exige
+    // medir a altura natural da coluna, e o Pix do computador escolhe o
+    // layout com um LayoutBuilder, que não permite essa medição. Numa janela
+    // estreita do computador as folgas ficam no mínimo.
+    final preencherAltura = aparelhoMovel;
+    Widget folga() =>
+        preencherAltura ? const Spacer() : const SizedBox.shrink();
+
     final colunaMobile = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _SituacaoAposta(
+          sorteio: _sorteio,
+          dataSorteio: _dataSorteio,
+          situacao: _situacao,
+        ),
+        // Folga maior que a dos campos (somada aos 12 do topo do formulário):
+        // o bloco é contexto, e colado nele parecia o primeiro campo.
+        const SizedBox(height: 10),
+        folga(),
         ...camposTopo,
         if (blocoApenasPix != null) ...[
-          const SizedBox(height: 20),
-          if (preencherAltura) const Spacer(),
+          const SizedBox(height: _folgaPix),
+          folga(),
           blocoApenasPix,
-          if (preencherAltura) const Spacer(),
+          // Menor que a de cima porque a seção já tem 12px de respiro no pé;
+          // somadas, as duas folgas do Pix ficam iguais.
+          const SizedBox(height: _folgaPix - 12),
+          folga(),
         ],
       ],
     );
@@ -464,10 +488,9 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       child: FocusTraversalGroup(
         policy: OrderedTraversalPolicy(),
         child: widget.apenasConteudo
-            // Tudo em fluxo, de cima para baixo, com o Pix logo abaixo do
-            // Confirmar. SliverFillRemaining dá à coluna no mínimo a altura
-            // da tela (é o que deixa o resumo esticar) e, se ela for mais
-            // alta que isso, rola.
+            // SliverFillRemaining dá à coluna no mínimo a altura da tela (é o
+            // que deixa as folgas crescerem) e, se ela for mais alta que isso
+            // (tela baixa, teclado aberto), rola.
             ? preencherAltura
                   ? CustomScrollView(
                       slivers: [
@@ -1036,3 +1059,229 @@ class _ResumoAposta extends StatelessWidget {
 // Espaço entre os blocos do formulário no celular: mais que os 10 do
 // desktop, para os alvos de toque não ficarem colados.
 const double _espacoMobile = 14;
+
+// Folga mínima acima e abaixo do card do Pix no celular.
+const double _folgaPix = 16;
+
+/// Situação da aposta do usuário, na ordem em que ela acontece.
+enum _Situacao {
+  semAposta,
+  aguardando,
+  alterada,
+  confirmada;
+
+  /// A partir da linha do usuário em `streamBets()` (null = ainda não
+  /// apostou). Editar depois de verificada volta a precisar do admin, então
+  /// `editadoAposVerificacao` vence `verificado`.
+  static _Situacao de(Map<String, Object?>? aposta) {
+    if (aposta == null) return semAposta;
+    if (aposta['editadoAposVerificacao'] == true) return alterada;
+    if (aposta['verificado'] == true) return confirmada;
+    return aguardando;
+  }
+}
+
+/// Bloco do topo da aposta no celular: qual sorteio, quando, quanto falta e
+/// em que pé está a aposta. A confirmação do admin é o que decide quem entra
+/// no rateio, e até aqui a pessoa só descobria isso procurando o próprio nome
+/// na lista de participantes.
+///
+/// A data vem numa "folhinha" de calendário à esquerda, tingida com a cor de
+/// ação do tema (a mesma do botão Confirmar, a 22% sobre a superfície), e a
+/// situação num selo com o par fundo/borda/texto da paleta: verde confirmada,
+/// amarelo aguardando o admin.
+class _SituacaoAposta extends StatelessWidget {
+  final String? sorteio;
+  final DateTime? dataSorteio;
+  final _Situacao situacao;
+
+  const _SituacaoAposta({
+    required this.sorteio,
+    required this.dataSorteio,
+    required this.situacao,
+  });
+
+  // O intl devolve "qui." e "dez."; na folhinha o ponto sobra.
+  static String _abreviado(String padrao, DateTime data) => DateFormat(
+    padrao,
+    'pt_BR',
+  ).format(data).replaceAll('.', '').toUpperCase();
+
+  // Contagem em dias de CALENDÁRIO (meia-noite a meia-noite), não em blocos
+  // de 24h: sorteio amanhã às 20h, visto hoje às 23h, é "amanhã" e não "hoje".
+  static String _quantoFalta(DateTime data) {
+    final agora = DateTime.now();
+    if (data.isBefore(agora)) return 'já realizado';
+    final dias = DateUtils.dateOnly(
+      data,
+    ).difference(DateUtils.dateOnly(agora)).inDays;
+    return switch (dias) {
+      0 => 'é hoje!',
+      1 => 'é amanhã',
+      _ => 'faltam $dias dias',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    final nomeSorteio = isLotofacil(sorteio) ? 'Lotofácil' : 'Mega-Sena';
+    final data = dataSorteio;
+    final fundoFolhinha = Color.alphaBlend(
+      cores.acaoPrimaria.withValues(alpha: 0.22),
+      cores.campo,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cores.campo,
+        borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
+        border: Border.all(color: cores.bordaCampo),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 68,
+            decoration: BoxDecoration(
+              color: fundoFolhinha,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: data == null
+                ? Icon(Icons.event_outlined, color: cores.texto)
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _abreviado('EEE', data),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: cores.texto,
+                        ),
+                      ),
+                      Text(
+                        '${data.day}',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          height: 1.1,
+                          color: cores.texto,
+                        ),
+                      ),
+                      Text(
+                        _abreviado('MMM', data),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: cores.texto,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nomeSorteio,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: cores.texto,
+                  ),
+                ),
+                if (data != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Sorteio às ${Formatters.horaCurta.format(data)} · '
+                    '${_quantoFalta(data)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: cores.textoSuave),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                _SeloSituacao(situacao: situacao),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SeloSituacao extends StatelessWidget {
+  final _Situacao situacao;
+
+  const _SeloSituacao({required this.situacao});
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    final (fundo, borda, texto, icone, rotulo) = switch (situacao) {
+      _Situacao.semAposta => (
+        cores.superficieAlta,
+        cores.borda,
+        cores.textoSuave,
+        Icons.info_outline,
+        'Você ainda não apostou',
+      ),
+      _Situacao.aguardando => (
+        cores.fundoAmarelo,
+        cores.bordaAmarelo,
+        cores.textoAmarelo,
+        Icons.schedule,
+        'Aguardando confirmação',
+      ),
+      _Situacao.alterada => (
+        cores.fundoAmarelo,
+        cores.bordaAmarelo,
+        cores.textoAmarelo,
+        Icons.edit_outlined,
+        'Alterada, aguardando confirmação',
+      ),
+      _Situacao.confirmada => (
+        cores.fundoVerde,
+        cores.bordaVerde,
+        cores.textoVerde,
+        Icons.check_circle_outline,
+        'Aposta confirmada',
+      ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: fundo,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: borda),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icone, size: 14, color: texto),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              rotulo,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: texto,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
