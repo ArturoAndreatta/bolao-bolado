@@ -3,12 +3,14 @@ import 'dart:math' as math;
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/services/pix/pix_payload.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-// Bloco com QR code + chave PIX da sala, exibido abaixo do botão
-// Confirmar em MinhaApostaCard, para o usuário pagar sem sair da tela.
+// Bloco de pagamento PIX da sala, exibido abaixo do botão Confirmar em
+// MinhaApostaCard, para o usuário pagar sem sair da tela: QR code + chave no
+// computador, código Copia e Cola no celular.
 class PixInfo extends StatefulWidget {
   final String chavePix;
   final double? valor;
@@ -19,17 +21,31 @@ class PixInfo extends StatefulWidget {
   State<PixInfo> createState() => _PixInfoState();
 }
 
-class _PixInfoState extends State<PixInfo> {
-  bool _copiado = false;
+// O que foi copiado por último, para o botão certo mostrar "Copiado!".
+enum _Copiado { nada, chave, codigo }
 
-  Future<void> _copiar() async {
-    await Clipboard.setData(ClipboardData(text: widget.chavePix));
+class _PixInfoState extends State<PixInfo> {
+  _Copiado _copiado = _Copiado.nada;
+
+  Future<void> _copiar(String texto, _Copiado qual) async {
+    await Clipboard.setData(ClipboardData(text: texto));
     if (!mounted) return;
-    setState(() => _copiado = true);
+    setState(() => _copiado = qual);
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _copiado = false);
+      if (mounted && _copiado == qual) {
+        setState(() => _copiado = _Copiado.nada);
+      }
     });
   }
+
+  // Celular ou tablet: o aparelho que mostra o QR é o mesmo que teria de
+  // escaneá-lo, então o QR não serve para nada. Decide pelo SISTEMA, e não
+  // pela largura da tela: uma janela estreita no computador continua podendo
+  // ser escaneada pelo celular. Na web o Flutter já informa o sistema do
+  // aparelho (Android/iOS), então isto vale para o site aberto no celular.
+  static bool get _aparelhoMovel =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +62,7 @@ class _PixInfoState extends State<PixInfo> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          if (_aparelhoMovel) return _buildCopiaECola(context);
           final mostrarQrCode = constraints.maxWidth >= 330;
           return mostrarQrCode
               ? _buildComQrCode(context, constraints.maxWidth)
@@ -232,23 +249,118 @@ class _PixInfoState extends State<PixInfo> {
     );
   }
 
+  // Layout do celular: sem QR code, com o "Pix Copia e Cola" como ação
+  // principal. O código é o MESMO payload do QR (ver PixPayload), e colado no
+  // app do banco ele já chega com o valor da aposta preenchido — copiando só
+  // a chave, a pessoa digita o valor na mão, e é aí que se paga errado. A
+  // chave continua disponível embaixo, para banco que não aceite o código.
+  Widget _buildCopiaECola(BuildContext context) {
+    final cores = AppCores.de(context);
+    final valor = widget.valor;
+    final comValor = valor != null && valor > 0;
+    final codigoCopiado = _copiado == _Copiado.codigo;
+    final chaveCopiada = _copiado == _Copiado.chave;
+    final corBotao = codigoCopiado ? cores.verde : cores.azul;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Image.asset('images/pix_logo.png', width: 22, height: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Pagamento via PIX',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: cores.texto,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            comValor
+                ? 'Copie o código e cole no app do seu banco, em Pix Copia e '
+                      'Cola. O valor já vai preenchido.'
+                : 'Copie o código e cole no app do seu banco, em Pix Copia e '
+                      'Cola.',
+            style: TextStyle(
+              fontSize: 13,
+              color: cores.textoSuave,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 46,
+            child: OutlinedButton.icon(
+              onPressed: () => _copiar(
+                PixPayload.gerar(chave: widget.chavePix, valor: valor),
+                _Copiado.codigo,
+              ),
+              icon: Icon(
+                codigoCopiado ? Icons.check : Icons.copy_outlined,
+                size: 18,
+                color: corBotao,
+              ),
+              label: Text(
+                codigoCopiado ? 'Código copiado!' : 'Copiar código PIX',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: corBotao,
+                side: BorderSide(color: corBotao, width: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadii.circularXl,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Chave em texto, tocável: segunda opção, sem peso de botão.
+          TextButton(
+            onPressed: () => _copiar(widget.chavePix, _Copiado.chave),
+            style: TextButton.styleFrom(foregroundColor: cores.textoSuave),
+            child: Text(
+              chaveCopiada
+                  ? 'Chave copiada!'
+                  : 'Ou copie só a chave: ${widget.chavePix}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _botaoCopiar(BuildContext context) {
     final cores = AppCores.de(context);
-    final corBotao = _copiado ? cores.verde : cores.azul;
+    final copiado = _copiado == _Copiado.chave;
+    final corBotao = copiado ? cores.verde : cores.azul;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: SizedBox(
         width: double.infinity,
         height: 34,
         child: OutlinedButton.icon(
-          onPressed: _copiar,
+          onPressed: () => _copiar(widget.chavePix, _Copiado.chave),
           icon: Icon(
-            _copiado ? Icons.check : Icons.copy_outlined,
+            copiado ? Icons.check : Icons.copy_outlined,
             size: 15,
             color: corBotao,
           ),
           label: Text(
-            _copiado ? 'Copiado!' : 'Copiar chave PIX',
+            copiado ? 'Copiado!' : 'Copiar chave PIX',
             style: TextStyle(fontSize: 13),
           ),
           style: OutlinedButton.styleFrom(

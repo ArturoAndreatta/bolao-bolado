@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:bolao_bolado/components/shared/header_card.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
+import 'package:bolao_bolado/core/area_segura.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/dev/simulador_apostas.dart';
 import 'package:bolao_bolado/pages/participants/participants_painel.dart';
@@ -660,6 +662,25 @@ enum _SecaoMobile {
   const _SecaoMobile(this.indice, this.rotulo, this.icone);
 }
 
+/// Entrega à [NavigationBar] a margem da barrinha do iPhone quando o app roda
+/// na web. A NavigationBar já soma `MediaQuery.padding.bottom` à própria
+/// altura, mas na web esse valor chega zerado (ver area_segura.dart) e os
+/// rótulos ficavam por baixo da barrinha. Usa o maior dos dois para não
+/// somar a margem duas vezes onde o Flutter já a conhece.
+Widget _comAreaSeguraWeb(BuildContext context, Widget barra) {
+  final margemWeb = margemInferiorNavegador();
+  if (margemWeb <= 0) return barra;
+  final dados = MediaQuery.of(context);
+  return MediaQuery(
+    data: dados.copyWith(
+      padding: dados.padding.copyWith(
+        bottom: math.max(dados.padding.bottom, margemWeb),
+      ),
+    ),
+    child: barra,
+  );
+}
+
 /// Barra inferior que troca a seção no mobile.
 ///
 /// A seção ativa é marcada com a cor de ação do tema ([AppCores.acaoPrimaria])
@@ -723,20 +744,23 @@ class _BarraSecoes extends StatelessWidget {
                 ),
               ),
             ),
-            child: NavigationBar(
-              selectedIndex: posicao == -1 ? 0 : posicao,
-              onDestinationSelected: (i) => onSelecionar(secoes[i].indice),
-              // Sem animação na troca: o indicador crescendo lia como atraso
-              // do toque — o mesmo motivo que tirou a animação das abas do
-              // antigo fichário.
-              animationDuration: Duration.zero,
-              destinations: [
-                for (final secao in secoes)
-                  NavigationDestination(
-                    icon: Icon(secao.icone),
-                    label: secao.rotulo,
-                  ),
-              ],
+            child: _comAreaSeguraWeb(
+              context,
+              NavigationBar(
+                selectedIndex: posicao == -1 ? 0 : posicao,
+                onDestinationSelected: (i) => onSelecionar(secoes[i].indice),
+                // Sem animação na troca: o indicador crescendo lia como atraso
+                // do toque — o mesmo motivo que tirou a animação das abas do
+                // antigo fichário.
+                animationDuration: Duration.zero,
+                destinations: [
+                  for (final secao in secoes)
+                    NavigationDestination(
+                      icon: Icon(secao.icone),
+                      label: secao.rotulo,
+                    ),
+                ],
+              ),
             ),
           ),
         ),
