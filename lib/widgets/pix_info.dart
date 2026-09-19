@@ -255,8 +255,7 @@ class _PixInfoState extends State<PixInfo> {
   // Layout do celular: sem QR code, com o "Pix Copia e Cola" como ação
   // principal. O código é o MESMO payload do QR (ver PixPayload), e colado no
   // app do banco ele já chega com o valor da aposta preenchido — copiando só
-  // a chave, a pessoa digita o valor na mão, e é aí que se paga errado. A
-  // chave aparece em texto acima do botão, para conferir o destinatário.
+  // a chave, a pessoa digita o valor na mão, e é aí que se paga errado.
   //
   // Mesma linguagem do card do sorteio no topo da tela de aposta: ícone num
   // bloco tingido à esquerda, degradê leve da cor do Pix a partir dele e o
@@ -340,33 +339,11 @@ class _PixInfoState extends State<PixInfo> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                // A chave fica à vista, acima do botão: quem paga confere para
-                // quem está mandando antes de copiar, e o código Copia e Cola
-                // é um amontoado de caracteres onde ela não se reconhece.
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: 'Chave PIX: ',
-                        style: TextStyle(color: cores.textoSuave),
-                      ),
-                      TextSpan(
-                        text: widget.chavePix,
-                        style: TextStyle(
-                          color: cores.texto,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 10),
+                // Sem a linha da chave aqui (em teste, a pedido): o card fica
+                // só com o título e o botão, e o botão ganha o destaque.
+                const SizedBox(height: 12),
                 SizedBox(
-                  height: 46,
+                  height: 52,
                   child: OutlinedButton.icon(
                     onPressed: () => _copiar(
                       PixPayload.gerar(chave: widget.chavePix, valor: valor),
@@ -374,13 +351,13 @@ class _PixInfoState extends State<PixInfo> {
                     ),
                     icon: Icon(
                       codigoCopiado ? Icons.check : Icons.copy_outlined,
-                      size: 18,
+                      size: 20,
                       color: corBotao,
                     ),
                     label: Text(
                       codigoCopiado ? 'Código copiado!' : 'Copiar código PIX',
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 16.5,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

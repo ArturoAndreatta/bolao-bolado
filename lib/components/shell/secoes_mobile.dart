@@ -140,16 +140,20 @@ class FolhaSecoesMobile extends StatelessWidget {
   }
 }
 
-/// Troca de seção com transição: a que sai esmaece e desliza um pouco para o
-/// lado oposto, a que entra esmaece de volta vindo do lado da barra em que o
-/// dedo tocou — tocar numa seção à direita traz o conteúdo da direita. O
-/// deslize é curto (6% da largura) de propósito: é o bastante para o olho
-/// ler direção, sem parecer que a tela inteira está se mexendo.
+/// Troca de seção com transição: a que entra aparece esmaecendo e deslizando
+/// um pouco a partir do lado da barra em que o dedo tocou — tocar numa seção
+/// à direita traz o conteúdo da direita. O deslize é curto (4% da largura):
+/// o bastante para o olho ler direção, sem a tela inteira se mexer.
 ///
-/// Fora da transição, a seção inativa sai do layout e da pintura como antes
-/// (Visibility com maintainState): continua montada, com streams, rolagem e
-/// texto digitado intactos, mas não custa nada por quadro. Só durante os
-/// 260ms da troca as duas são pintadas juntas.
+/// A que SAI some na hora, sem animação. Já saiu animando também, e as duas
+/// seções semitransparentes na tela ao mesmo tempo (lista e chat inteiros,
+/// cada um numa camada própria) pesavam a ponto de a troca parecer lenta no
+/// celular, sobretudo na web. Com uma só animando, o custo cai pela metade e
+/// a resposta ao toque é imediata: a seção antiga já não está lá.
+///
+/// Fora da transição, a seção inativa sai do layout e da pintura (Visibility
+/// com maintainState): continua montada, com streams, rolagem e texto
+/// digitado intactos, mas não custa nada por quadro.
 class _SecaoAnimada extends StatefulWidget {
   final bool ativa;
   final int posicao;
@@ -169,8 +173,9 @@ class _SecaoAnimada extends StatefulWidget {
 
 class _SecaoAnimadaState extends State<_SecaoAnimada>
     with SingleTickerProviderStateMixin {
-  static const _duracao = Duration(milliseconds: 260);
-  static const _deslize = 0.06;
+  // Curta: animação longa, mesmo lisa, é sentida como espera pelo toque.
+  static const _duracao = Duration(milliseconds: 200);
+  static const _deslize = 0.04;
 
   late final AnimationController _controle = AnimationController(
     vsync: this,
@@ -193,11 +198,10 @@ class _SecaoAnimadaState extends State<_SecaoAnimada>
     if (widget.ativa) {
       // Entrando: vem do lado em que ela está em relação à que saiu.
       _lado = widget.posicao >= antiga.posicaoAtiva ? 1 : -1;
-      _controle.forward();
+      _controle.forward(from: 0);
     } else {
-      // Saindo: vai para o lado oposto ao da que está entrando.
-      _lado = widget.posicaoAtiva >= widget.posicao ? -1 : 1;
-      _controle.reverse();
+      // Saindo: some no ato (ver a documentação da classe).
+      _controle.value = 0;
     }
   }
 
@@ -243,7 +247,10 @@ class _SecaoAnimadaState extends State<_SecaoAnimada>
             position: _curva.drive(
               Tween(begin: Offset(_lado * _deslize, 0), end: Offset.zero),
             ),
-            child: widget.child,
+            // RepaintBoundary: a seção é desenhada UMA vez e a transição só
+            // move e esmaece a camada pronta. Sem ela, cada quadro do deslize
+            // redesenhava a lista (ou o chat) inteira.
+            child: RepaintBoundary(child: widget.child),
           ),
         ),
       ),
@@ -400,7 +407,7 @@ class BarraSecoesMobile extends StatelessWidget {
 // Duração e curva da troca na barra, iguais para a cápsula, a largura dos
 // itens, a cor do ícone e a entrada do rótulo — tudo precisa chegar junto,
 // senão a cápsula termina antes do texto caber nela.
-const Duration _duracaoBarra = Duration(milliseconds: 320);
+const Duration _duracaoBarra = Duration(milliseconds: 240);
 const Curve _curvaBarra = Curves.easeOutCubic;
 
 class _ItemBarra extends StatelessWidget {

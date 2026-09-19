@@ -431,4 +431,49 @@ void main() {
       await tester.pumpAndSettle();
     });
   });
+
+  // Nos testes o texto sai na fonte Ahem, em que todo caractere é um quadrado
+  // da largura da fonte — bem mais largo que a fonte real. A linha dos botões
+  // de baixo (Limpar / Cancelar / Confirmar) estoura por isso a 360px, sem
+  // estourar no aparelho. Os testes daqui consomem esse aviso e conferem só a
+  // disposição dos números, que é o que eles cobrem.
+  group('layout no celular', () {
+    testWidgets('jogo de 7 números fica numa linha só na lista', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await abrir(
+        tester,
+        cotas: 20,
+        jogosIniciais: [
+          [10, 22, 28, 38, 44, 47, 59],
+        ],
+      );
+
+      final alturas = {
+        for (final n in ['10', '22', '28', '38', '44', '47', '59'])
+          tester.getCenter(find.text(n)).dy,
+      };
+      expect(alturas, hasLength(1));
+      tester.takeException();
+    });
+
+    testWidgets('grade da Mega fecha 6 números por linha', (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await abrir(tester, cotas: 20);
+      await tester.tap(find.textContaining('Jogo').first);
+      await tester.pumpAndSettle();
+
+      final linha1 = tester.getCenter(find.text('1')).dy;
+      expect(tester.getCenter(find.text('6')).dy, linha1);
+      expect(tester.getCenter(find.text('7')).dy, greaterThan(linha1));
+      tester.takeException();
+    });
+  });
 }

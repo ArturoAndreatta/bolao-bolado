@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/custom_field_decoration.dart';
 import 'package:bolao_bolado/components/shared/custom_show_dialog.dart';
+import 'package:bolao_bolado/components/shared/numero_rolante.dart';
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/custom_fields.dart';
@@ -976,12 +977,14 @@ class _DisplayInfo extends StatelessWidget {
   }
 }
 
-/// Resultado do valor digitado, no celular: prêmio estimado e, logo abaixo,
-/// quantas cotas isso compra, numa caixa só. Mesma superfície dos outros
-/// blocos de leitura ([_DisplayInfo]) — sem cor própria, porque uma caixa
-/// tingida era a única coisa colorida da tela e não combinava com tema
-/// nenhum. O destaque do prêmio vem só do texto verde, a cor do dinheiro no
-/// app (mesma da coluna de prêmio na tabela).
+/// Resultado do valor digitado, no celular: prêmio estimado e quantas cotas
+/// isso compra.
+///
+/// Tem a MESMA anatomia dos campos em volta (Nome, Valor, Meus jogos): rótulo
+/// sobre a borda, ícone na coluna dos ícones e o conteúdo na linha. Já foi uma
+/// caixa com desenho próprio — rótulo e valor disputando a mesma linha, um
+/// bloco com o troféu fora da coluna dos ícones, um canhoto de bilhete colado
+/// no Valor — e nenhuma dessas versões agradou.
 class _ResumoAposta extends StatelessWidget {
   final double premio;
   final int cotas;
@@ -995,55 +998,46 @@ class _ResumoAposta extends StatelessWidget {
     // tabulares, o valor "dança" de largura enquanto se digita.
     const tabular = [FontFeature.tabularFigures()];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: cores.campo,
-        borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
+    return InputDecorator(
+      // Rótulo sempre no alto: o campo sempre mostra um valor.
+      isEmpty: false,
+      // "Seu": o card do topo também mostra um prêmio (o do sorteio inteiro),
+      // e sem o possessivo os dois valores se confundiam.
+      decoration: CustomFieldDecoration.build(
+        context,
+        hint: 'Seu prêmio estimado',
+        icon: Icons.emoji_events_outlined,
       ),
       child: Row(
         children: [
-          // O rótulo fica no tamanho dele e o prêmio leva o resto da linha:
-          // é o número que precisa de largura (13 dígitos na Mega acumulada).
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // "Seu": o card do topo também mostra um prêmio (o do sorteio
-              // inteiro), e sem o possessivo os dois valores se confundiam.
-              // Rótulo apagado, como o rótulo de qualquer campo do formulário;
-              // o dado (as cotas) é que vai na cor de texto principal.
-              Text(
-                'Seu prêmio estimado',
-                style: TextStyle(fontSize: 13.5, color: cores.textoSuave),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '$cotas ${cotas == 1 ? 'Cota' : 'Cotas'}',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: cores.texto,
-                  fontFeatures: tabular,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 8),
+          // O prêmio leva a linha: é o número que precisa de largura (13
+          // dígitos na Mega acumulada), e encolhe a fonte se não couber.
           Expanded(
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Text(
-                Formatters.moeda.format(premio),
-                maxLines: 1,
-                style: TextStyle(
+              alignment: Alignment.centerLeft,
+              // Os dígitos que mudam giram até o valor novo a cada toque no
+              // + e − do Valor (ver NumeroRolante).
+              child: NumeroRolante(
+                texto: Formatters.moeda.format(premio),
+                valor: premio,
+                estilo: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: cores.verde,
                   fontFeatures: tabular,
                 ),
               ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$cotas ${cotas == 1 ? 'Cota' : 'Cotas'}',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: cores.textoSuave,
+              fontFeatures: tabular,
             ),
           ),
         ],
@@ -1056,8 +1050,12 @@ class _ResumoAposta extends StatelessWidget {
 // desktop, para os alvos de toque não ficarem colados.
 const double _espacoMobile = 14;
 
-// Folga mínima acima e abaixo do card do Pix no celular.
-const double _folgaPix = 16;
+// Folga mínima entre os três blocos da aposta no celular (sorteio,
+// formulário, Pix) — e abaixo do Pix. Quase o dobro do espaço entre os
+// campos ([_espacoMobile]) de propósito: com 16, praticamente igual aos 14 de
+// dentro do formulário, o olho não via onde um bloco acabava e o outro
+// começava, e a tela lia como uma pilha só, "cheia demais".
+const double _folgaPix = 26;
 
 /// Situação da aposta do usuário, na ordem em que ela acontece.
 enum _Situacao {

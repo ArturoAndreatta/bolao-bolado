@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:bolao_bolado/components/shared/buttons.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
@@ -239,6 +241,9 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
     return Dialog(
       backgroundColor: cores.card,
       surfaceTintColor: Colors.transparent,
+      // Margem lateral menor que a padrão do Material (40): no celular os 80px
+      // que ela come eram justamente a coluna de números que faltava na grade.
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       shape: RoundedRectangleBorder(
         borderRadius: AppRadii.circularXxl,
         side: BorderSide(color: cores.borda, width: 1),
@@ -516,17 +521,37 @@ class _SelecaoJogosDialogState extends State<_SelecaoJogosDialog> {
         const SizedBox(height: 12),
         Flexible(
           child: SingleChildScrollView(
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: List.generate(_numeroMaximo, (i) {
-                final numero = i + 1;
-                return _BolaNumero(
-                  numero: numero,
-                  selecionado: edicao.numeros.contains(numero),
-                  onTap: () => _alternarNumero(numero),
+            // Colunas fixas, e a bola do tamanho que couber: com bola de
+            // tamanho fixo o Wrap enchia a linha até onde dava (5 por linha
+            // numa tela, 6 noutra) e sobrava um vão à direita. Mega com 6
+            // colunas fecha 10 linhas inteiras; Lotofácil com 5 fica 5×5,
+            // como no volante.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const espaco = 8.0;
+                final colunas = _numeroMaximo % 6 == 0 ? 6 : 5;
+                // floor: meio pixel a mais e o Wrap manda a última bola da
+                // linha para baixo.
+                final lado = math
+                    .min(
+                      48.0,
+                      (constraints.maxWidth - espaco * (colunas - 1)) / colunas,
+                    )
+                    .floorToDouble();
+                return Wrap(
+                  spacing: espaco,
+                  runSpacing: espaco,
+                  children: List.generate(_numeroMaximo, (i) {
+                    final numero = i + 1;
+                    return _BolaNumero(
+                      numero: numero,
+                      lado: lado,
+                      selecionado: edicao.numeros.contains(numero),
+                      onTap: () => _alternarNumero(numero),
+                    );
+                  }),
                 );
-              }),
+              },
             ),
           ),
         ),
@@ -907,6 +932,61 @@ class _OpcaoEstilo extends StatelessWidget {
 
 /// Um jogo na lista: posição e números escolhidos.
 class _LinhaJogo extends StatelessWidget {
+  static const _espaco = 4.0;
+  static const _ladoMaximo = 26.0;
+  // Abaixo disso o número fica pequeno demais para ler: melhor quebrar linha.
+  static const _ladoMinimo = 21.0;
+
+  /// Números do jogo sem nenhum sozinho numa linha.
+  ///
+  /// Primeiro tenta todos numa linha, encolhendo as pastilhas até
+  /// [_ladoMinimo] — resolve o caso comum (6 ou 7 números na Mega). Se nem
+  /// assim cabem, divide em linhas do MESMO tamanho (ou quase): 15 números
+  /// em duas linhas viram 8 + 7, e não 13 + 2. Deixar o Wrap decidir era o
+  /// que produzia a linha com um número sobrando.
+  Widget _numerosEmLinhas(double largura) {
+    final total = numeros.length;
+    if (total == 0) return const SizedBox.shrink();
+
+    double ladoPara(int porLinha) => math
+        .min(_ladoMaximo, (largura - _espaco * (porLinha - 1)) / porLinha)
+        .floorToDouble();
+
+    var porLinha = total;
+    var lado = ladoPara(total);
+    if (lado < _ladoMinimo) {
+      final cabem = math.max(
+        1,
+        ((largura + _espaco) / (_ladoMaximo + _espaco)).floor(),
+      );
+      final linhas = (total / cabem).ceil();
+      porLinha = (total / linhas).ceil();
+      lado = ladoPara(porLinha);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var inicio = 0; inicio < total; inicio += porLinha)
+          Padding(
+            padding: EdgeInsets.only(top: inicio == 0 ? 0 : _espaco),
+            child: Row(
+              children: [
+                for (
+                  var i = inicio;
+                  i < math.min(inicio + porLinha, total);
+                  i++
+                ) ...[
+                  if (i > inicio) const SizedBox(width: _espaco),
+                  _PastilhaNumero(numero: numeros[i], lado: lado),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   final int posicao;
   final List<int> numeros;
   final VoidCallback onEditar;
@@ -944,24 +1024,25 @@ class _LinhaJogo extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: [
-                    for (final numero in numeros)
-                      _PastilhaNumero(numero: numero),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) =>
+                      _numerosEmLinhas(constraints.maxWidth),
                 ),
               ],
             ),
           ),
+          // Botões compactos: os 48px padrão de cada um tiravam quase 100px
+          // da linha dos números, e era isso que empurrava o último número
+          // para uma linha sozinho.
           IconButton(
             onPressed: onEditar,
+            visualDensity: VisualDensity.compact,
             icon: Icon(Icons.edit_outlined, size: 18, color: cores.textoSuave),
             tooltip: 'Editar',
           ),
           IconButton(
             onPressed: onRemover,
+            visualDensity: VisualDensity.compact,
             icon: Icon(Icons.close, size: 18, color: cores.textoSuave),
             tooltip: 'Remover',
           ),
@@ -975,15 +1056,16 @@ class _LinhaJogo extends StatelessWidget {
 /// ele é leitura, não alvo de toque.
 class _PastilhaNumero extends StatelessWidget {
   final int numero;
+  final double lado;
 
-  const _PastilhaNumero({required this.numero});
+  const _PastilhaNumero({required this.numero, this.lado = 26});
 
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
     return Container(
-      width: 26,
-      height: 26,
+      width: lado,
+      height: lado,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -992,7 +1074,8 @@ class _PastilhaNumero extends StatelessWidget {
       child: Text(
         numero.toString().padLeft(2, '0'),
         style: TextStyle(
-          fontSize: 11,
+          // Acompanha a pastilha quando ela encolhe para caber na linha.
+          fontSize: lado * 0.42,
           fontWeight: FontWeight.w700,
           color: cores.textoSobreAcao,
         ),
@@ -1123,10 +1206,14 @@ class _BolaNumero extends StatefulWidget {
   final bool selecionado;
   final VoidCallback onTap;
 
+  /// Diâmetro, calculado pela grade para as colunas ocuparem a largura toda.
+  final double lado;
+
   const _BolaNumero({
     required this.numero,
     required this.selecionado,
     required this.onTap,
+    this.lado = 40,
   });
 
   @override
@@ -1177,8 +1264,8 @@ class _BolaNumeroState extends State<_BolaNumero>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOut,
-          width: 40,
-          height: 40,
+          width: widget.lado,
+          height: widget.lado,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
