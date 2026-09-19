@@ -57,15 +57,19 @@ class _PixInfoState extends State<PixInfo> {
         borderRadius: AppRadii.circularMd,
         border: Border.all(color: cores.bordaCampo, width: 1.5),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (_aparelhoMovel) return _buildCopiaECola(context);
-          final mostrarQrCode = constraints.maxWidth >= 330;
-          return mostrarQrCode
-              ? _buildComQrCode(context, constraints.maxWidth)
-              : _buildSemQrCode(context);
-        },
-      ),
+      // No celular a decisão sai ANTES do LayoutBuilder, que não mede altura
+      // natural: o formulário da aposta precisa dela para esticar o resumo
+      // (ver preencherAltura em MinhaApostaCard).
+      child: _aparelhoMovel
+          ? _buildCopiaECola(context)
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final mostrarQrCode = constraints.maxWidth >= 330;
+                return mostrarQrCode
+                    ? _buildComQrCode(context, constraints.maxWidth)
+                    : _buildSemQrCode(context);
+              },
+            ),
     );
   }
 
@@ -256,7 +260,6 @@ class _PixInfoState extends State<PixInfo> {
     final valor = widget.valor;
     final comValor = valor != null && valor > 0;
     final codigoCopiado = _copiado == _Copiado.codigo;
-    final chaveCopiada = _copiado == _Copiado.chave;
     final corBotao = codigoCopiado ? cores.verde : cores.azul;
 
     return Padding(
@@ -292,7 +295,31 @@ class _PixInfoState extends State<PixInfo> {
               height: 1.3,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          // A chave fica à vista, acima do botão: quem paga confere para quem
+          // está mandando antes de copiar, e o código Copia e Cola é um
+          // amontoado de caracteres onde ela não se reconhece.
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: 'Chave PIX: ',
+                  style: TextStyle(color: cores.textoSuave),
+                ),
+                TextSpan(
+                  text: widget.chavePix,
+                  style: TextStyle(
+                    color: cores.texto,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 10),
           SizedBox(
             height: 46,
             child: OutlinedButton.icon(
@@ -319,20 +346,6 @@ class _PixInfoState extends State<PixInfo> {
                   borderRadius: AppRadii.circularXl,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          // Chave em texto, tocável: segunda opção, sem peso de botão.
-          TextButton(
-            onPressed: () => _copiar(widget.chavePix, _Copiado.chave),
-            style: TextButton.styleFrom(foregroundColor: cores.textoSuave),
-            child: Text(
-              chaveCopiada
-                  ? 'Chave copiada!'
-                  : 'Ou copie só a chave: ${widget.chavePix}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12.5),
             ),
           ),
         ],

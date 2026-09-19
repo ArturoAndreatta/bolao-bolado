@@ -9,6 +9,7 @@ import 'package:bolao_bolado/components/shared/custom_fields.dart';
 import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/components/shared/snackbar_deslizante.dart';
+import 'package:bolao_bolado/core/aparelho.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
@@ -328,7 +329,37 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     // No celular o formulário é a tela inteira, então os blocos ganham
     // altura de alvo de toque (~48px) e mais respiro entre si; no desktop
     // ficam compactos para caber ao lado da tabela.
-    final espaco = widget.mobile ? 14.0 : 10.0;
+    final espaco = widget.mobile ? _espacoMobile : 10.0;
+
+    // No celular o formulário quase nunca preenche a tela, e o que sobrava
+    // virava um vão embaixo (ou no meio, quando o Pix ficou ancorado no
+    // rodapé; e esticar um bloco para cobrir o espaço deixou uma caixa grande
+    // e vazia). A sobra agora é REPARTIDA entre os espaços entre os blocos:
+    // cada um cresce até [_folgaMaximaEntreBlocos] a mais, então o
+    // formulário respira por igual. Em tela baixa, ou com o teclado aberto,
+    // os espaços ficam no mínimo e a página rola.
+    //
+    // Só com o Pix no modo Copia e Cola (celular/tablet de verdade): repartir
+    // exige medir a altura natural do formulário inteiro, e o Pix do
+    // computador escolhe o layout com um LayoutBuilder, que não permite essa
+    // medição. Numa janela estreita do computador o formulário fica no
+    // tamanho natural.
+    final preencherAltura = widget.apenasConteudo && aparelhoMovel;
+    // Dois filhos DIRETOS da coluna: o Flexible só recebe parte da sobra se
+    // estiver na mesma Column que os blocos. Frouxo, recebe a parte dele,
+    // mas o SizedBox só aceita até o teto.
+    List<Widget> espacoEntre(double minimo) => [
+      SizedBox(height: minimo),
+      if (preencherAltura)
+        const Flexible(child: SizedBox(height: _folgaMaximaEntreBlocos)),
+    ];
+
+    final resumo = _ResumoAposta(
+      premio: _meuPremio,
+      cotas: _minhasCotas,
+      precoCota: _precoCota,
+    );
+
     final camposTopo = [
       const SizedBox(height: 12),
       FocusTraversalOrder(
@@ -345,7 +376,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           autofocus: !_apostaExistente,
         ),
       ),
-      SizedBox(height: espaco),
+      ...espacoEntre(espaco),
       FocusTraversalOrder(
         order: const NumericFocusOrder(2),
         child: CustomField(
@@ -370,28 +401,28 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           ),
         ),
       ),
-      SizedBox(height: espaco),
-      ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: larguraConteudo),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _DisplayInfo(
-              titulo: 'Prêmio estimado',
-              valor: Formatters.moeda.format(_meuPremio),
-              dinheiro: true,
-              alto: widget.mobile,
-            ),
-            SizedBox(height: espaco - 4),
-            _DisplayInfo(
-              titulo: 'Cotas',
-              valor: _minhasCotas.toString(),
-              alto: widget.mobile,
-            ),
-          ],
+      if (widget.mobile) ...[
+        ...espacoEntre(espaco),
+        resumo,
+      ] else ...[
+        SizedBox(height: espaco),
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: larguraConteudo),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _DisplayInfo(
+                titulo: 'Prêmio estimado',
+                valor: Formatters.moeda.format(_meuPremio),
+                dinheiro: true,
+              ),
+              const SizedBox(height: 6),
+              _DisplayInfo(titulo: 'Cotas', valor: _minhasCotas.toString()),
+            ],
+          ),
         ),
-      ),
-      SizedBox(height: espaco),
+      ],
+      ...espacoEntre(espaco),
       ConstrainedBox(
         constraints: BoxConstraints(maxWidth: larguraConteudo),
         child: _BotaoEscolherJogos(
@@ -402,7 +433,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           alto: widget.mobile,
         ),
       ),
-      const SizedBox(height: 12),
+      ...espacoEntre(widget.mobile ? _espacoMobile : 12),
       FocusTraversalOrder(
         order: const NumericFocusOrder(3),
         child: PrimaryButton(
@@ -422,28 +453,36 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
             child: PixInfo(chavePix: _chavePix, valor: _valorApostado),
           );
 
+    final colunaMobile = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...camposTopo,
+        if (blocoApenasPix != null) ...[
+          ...espacoEntre(_espacoMobile),
+          blocoApenasPix,
+        ],
+      ],
+    );
+
     final form = Form(
       key: _formKey,
       child: FocusTraversalGroup(
         policy: OrderedTraversalPolicy(),
         child: widget.apenasConteudo
-            // Tudo em fluxo, de cima para baixo, e a sobra de altura fica no
-            // FIM da tela. O Pix já ficou ancorado no rodapé (e esticado para
-            // cobrir a folga), mas sobre o fundo da página, sem card em volta,
-            // o que se via era um buraco no meio do formulário; e esticado
-            // com QR code, os textos quebravam no meio da palavra.
-            ? SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ...camposTopo,
-                    if (blocoApenasPix != null) ...[
-                      const SizedBox(height: 16),
-                      blocoApenasPix,
-                    ],
-                  ],
-                ),
-              )
+            // Tudo em fluxo, de cima para baixo, com o Pix logo abaixo do
+            // Confirmar. SliverFillRemaining dá à coluna no mínimo a altura
+            // da tela (é o que deixa o resumo esticar) e, se ela for mais
+            // alta que isso, rola.
+            ? preencherAltura
+                  ? CustomScrollView(
+                      slivers: [
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: colunaMobile,
+                        ),
+                      ],
+                    )
+                  : SingleChildScrollView(child: colunaMobile)
             : CustomCard(
                 isChild: true,
                 height: alturaCard,
@@ -875,21 +914,18 @@ class _DisplayInfo extends StatelessWidget {
   /// Valor em dinheiro: ganha a cor do dinheiro do tema, a mesma da coluna de
   /// prêmio na tabela de participantes.
   final bool dinheiro;
-  // Altura de alvo de toque do celular (ver camposTopo).
-  final bool alto;
 
   const _DisplayInfo({
     required this.titulo,
     required this.valor,
     this.dinheiro = false,
-    this.alto = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: alto ? 13 : 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: cores.campo,
         borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
@@ -924,3 +960,91 @@ class _DisplayInfo extends StatelessWidget {
     );
   }
 }
+
+/// Resultado do valor digitado, no celular: prêmio estimado e, logo abaixo,
+/// quantas cotas isso compra, numa caixa só. Mesma superfície dos outros
+/// blocos de leitura ([_DisplayInfo]) — sem cor própria, porque uma caixa
+/// tingida era a única coisa colorida da tela e não combinava com tema
+/// nenhum. O destaque do prêmio vem só do texto verde, a cor do dinheiro no
+/// app (mesma da coluna de prêmio na tabela).
+class _ResumoAposta extends StatelessWidget {
+  final double premio;
+  final int cotas;
+  final double precoCota;
+
+  const _ResumoAposta({
+    required this.premio,
+    required this.cotas,
+    required this.precoCota,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    // Números que mudam a cada tecla no campo de valor: sem dígitos
+    // tabulares, o valor "dança" de largura enquanto se digita.
+    const tabular = [FontFeature.tabularFigures()];
+    final rotuloCotas = cotas == 1 ? 'cota' : 'cotas';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: cores.campo,
+        borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
+      ),
+      child: Row(
+        children: [
+          // O rótulo fica no tamanho dele e o prêmio leva o resto da linha:
+          // é o número que precisa de largura (13 dígitos na Mega acumulada).
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Prêmio estimado',
+                style: TextStyle(fontSize: 13.5, color: cores.textoSuave),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$cotas $rotuloCotas de ${Formatters.moeda.format(precoCota)}',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: cores.textoFraco,
+                  fontFeatures: tabular,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                Formatters.moeda.format(premio),
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: cores.verde,
+                  fontFeatures: tabular,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Espaço entre os blocos do formulário no celular. Vale para TODOS eles, e a
+// sobra da tela é repartida igualmente entre os cinco: espaços de tamanhos
+// diferentes deixavam o prêmio parecer solto no meio do formulário, com folga
+// maior em volta dele do que entre nome e valor.
+const double _espacoMobile = 14;
+
+// Quanto cada espaço pode crescer além do mínimo. São cinco, então cobrem até
+// ~125px de sobra — o que um celular comum deixa. Acima disso o espaçamento
+// passaria a parecer vazio em vez de respiro.
+const double _folgaMaximaEntreBlocos = 25;
