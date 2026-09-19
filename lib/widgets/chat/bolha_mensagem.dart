@@ -364,7 +364,8 @@ class _BolhaMensagemState extends State<BolhaMensagem>
   /// Mouse por cima (desktop) e toque longo (mobile) abrem a mesma barra —
   /// são os gestos que cada plataforma já ensinou. Botão direito continua
   /// indo direto ao menu de ações, que é o que ele significa no desktop.
-  /// Clique/toque simples segue livre para a seleção de texto do SelectionArea.
+  /// Clique simples segue livre para a seleção de texto do SelectionArea, que
+  /// só existe no computador (ver ChatSala).
   Widget _comGestos(Widget bolha) {
     // Sem permissão, a bolha fica só leitura: nem barra nem menu. O clique
     // simples continua livre para a seleção de texto.

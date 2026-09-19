@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shared/custom_confirm_dialog.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
+import 'package:bolao_bolado/core/aparelho.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
@@ -602,7 +603,12 @@ class _ChatSalaState extends State<ChatSala> {
               },
             );
 
-            return SelectionArea(child: lista);
+            // Seleção de texto só no computador (arrastar com o mouse). No
+            // celular, segurar o dedo é o gesto de SELECIONAR, e ele disputava
+            // o toque longo que abre a barra de reações: as duas coisas
+            // aconteciam juntas, com a lupa de seleção por cima da bolha.
+            // Copiar continua no menu "…" da barra (Copiar texto).
+            return aparelhoMovel ? lista : SelectionArea(child: lista);
           },
         );
       },
