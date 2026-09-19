@@ -41,9 +41,8 @@ class MinhaApostaCard extends StatefulWidget {
   // Esconde o título "Minha Aposta" e o subtítulo, para quando quem monta o
   // card em volta já desenha o próprio cabeçalho.
   final bool mostrarCabecalho;
-  // Quando true (mobile), renderiza só o conteúdo, sem nenhum CustomCard: a
-  // página monta o card da seção em volta, com o mesmo título e subtítulo
-  // do desktop, e um CustomCard aqui dentro duplicaria a moldura.
+  // Quando true (mobile), renderiza só o conteúdo, sem nenhum CustomCard nem
+  // cabeçalho: no celular as seções ficam direto sobre o fundo da página.
   final bool apenasConteudo;
 
   const MinhaApostaCard({
@@ -452,7 +451,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     final larguraConteudo = widget.mobile ? 730.0 : _larguraConteudo;
 
     // Campos do form: extraídos numa lista simples para poderem ser usados
-    // tanto soltos (apenasConteudo, no card de seção do mobile) quanto
+    // tanto soltos (apenasConteudo, na seção do mobile) quanto
     // envoltos num CustomCard(isChild:true) (desktop).
     // camposTopo fica com o formulário (nome/valor/prêmio/botão); o bloco
     // Pix é montado à parte para poder ser empurrado até o fim do card
@@ -564,7 +563,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       child: FocusTraversalGroup(
         policy: OrderedTraversalPolicy(),
         child: widget.apenasConteudo
-            // Ocupa a altura cedida pelo card de seção (alturaCard): quando o
+            // Ocupa a altura cedida pela seção do mobile (alturaCard): quando o
             // conteúdo é mais curto que isso, MainAxisAlignment.spaceBetween
             // empurra o bloco Pix/Como Funciona para o fim do card — usa
             // minHeight (não uma altura fixa) para não quebrar quando o
@@ -600,13 +599,20 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
                   // Medir custa 7 layouts fora da árvore (com 7 QR codes),
                   // então o resultado é memoizado pelas condições que o
                   // determinam — ver [_escalaPix].
-                  final escalaPix = _escalaPix(
-                    context: context,
-                    blocoPix: blocoPix,
-                    largura: larguraDisponivel,
-                    alturaDisponivel: constraints.maxHeight,
-                    alturaTopo: alturaTopo,
-                  );
+                  //
+                  // Só o layout SEM QR code (tela estreita) cresce. O com QR
+                  // divide a largura entre o código e o texto, e escalado as
+                  // fontes quebram no meio da palavra ("Pagamen/to via PIX")
+                  // — ele fica no tamanho do desenho, ancorado embaixo.
+                  final escalaPix = PixInfo.mostraQrCode(larguraDisponivel)
+                      ? 1.0
+                      : _escalaPix(
+                          context: context,
+                          blocoPix: blocoPix,
+                          largura: larguraDisponivel,
+                          alturaDisponivel: constraints.maxHeight,
+                          alturaTopo: alturaTopo,
+                        );
 
                   return SingleChildScrollView(
                     child: ConstrainedBox(
@@ -657,9 +663,9 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     );
 
     if (widget.apenasConteudo) {
-      // Sem padding próprio: o card de seção da página já tem o mesmo
-      // respiro interno do desktop, e somar outro aqui deixava os campos
-      // mais estreitos que a lista da seção Participantes.
+      // Sem padding próprio: a página já dá o respiro das bordas, e somar
+      // outro aqui deixava os campos mais estreitos que a lista da seção
+      // Participantes.
       return mostrarSkeleton
           ? SizedBox(
               height: alturaCard,

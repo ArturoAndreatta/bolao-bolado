@@ -26,6 +26,17 @@ class PixInfo extends StatefulWidget {
     this.escala = 1,
   });
 
+  // Largura INTERNA a partir da qual cabe o layout com QR code ao lado do
+  // texto; abaixo dela o card mostra só a chave.
+  static const double _larguraMinimaQrCode = 330;
+  // Padding horizontal (16 de cada lado) + borda (1.5 de cada lado).
+  static const double _paddingHorizontal = 16;
+  static const double _recuoHorizontal = 2 * (_paddingHorizontal + 1.5);
+
+  /// Se um PixInfo com [largura] externa desenha o layout com QR code.
+  static bool mostraQrCode(double largura) =>
+      largura - _recuoHorizontal >= _larguraMinimaQrCode;
+
   @override
   State<PixInfo> createState() => _PixInfoState();
 }
@@ -54,7 +65,10 @@ class _PixInfoState extends State<PixInfo> {
       width: double.infinity,
       // Horizontal sem escala: a largura do card é dada pelo pai, então
       // inflar padding lateral só rouba espaço da chave PIX ao lado do QR.
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: _e(8)),
+      padding: EdgeInsets.symmetric(
+        horizontal: PixInfo._paddingHorizontal,
+        vertical: _e(8),
+      ),
       decoration: BoxDecoration(
         color: cores.campo,
         borderRadius: AppRadii.circularMd,
@@ -62,7 +76,8 @@ class _PixInfoState extends State<PixInfo> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final mostrarQrCode = constraints.maxWidth >= 330;
+          final mostrarQrCode =
+              constraints.maxWidth >= PixInfo._larguraMinimaQrCode;
           return mostrarQrCode
               ? _buildComQrCode(context, constraints.maxWidth)
               : _buildSemQrCode(context);

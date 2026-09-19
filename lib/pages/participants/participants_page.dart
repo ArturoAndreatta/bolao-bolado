@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:bolao_bolado/components/shared/custom_card.dart';
 import 'package:bolao_bolado/components/shared/header_card.dart';
 import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/components/shell/drawer.dart';
@@ -537,11 +536,7 @@ class _ParticipantsState extends State<Participants> {
           height: altura,
           child: _salaId == null
               ? const SkeletonChatSala()
-              : ChatSala(
-                  salaId: _salaId!,
-                  mostrarCabecalho: false,
-                  compacto: true,
-                ),
+              : ChatSala(salaId: _salaId!, mostrarCabecalho: false),
         );
     }
   }
