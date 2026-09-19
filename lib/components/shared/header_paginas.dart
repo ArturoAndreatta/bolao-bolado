@@ -29,11 +29,14 @@ class HeaderPaginas extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (showBackButton) BackScreenButton(floating: false, onTap: onBack),
-          const SizedBox(width: 14),
-          Container(width: 1, height: isMobile ? 50 : 40, color: cores.borda),
-
-          const SizedBox(width: 14),
+          // O traço vertical separa o botão do título; sem o botão, ele e os
+          // espaços ao redor viravam uma linha solta no começo do cabeçalho.
+          if (showBackButton) ...[
+            BackScreenButton(floating: false, onTap: onBack),
+            const SizedBox(width: 14),
+            Container(width: 1, height: isMobile ? 50 : 40, color: cores.borda),
+            const SizedBox(width: 14),
+          ],
 
           Expanded(
             child: Padding(

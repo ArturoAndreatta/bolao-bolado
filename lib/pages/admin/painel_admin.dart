@@ -264,6 +264,10 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
           child: HeaderPaginas(
             text: 'Painel ADM',
             subtitle: 'Gerencie apostas, participantes e a sala',
+            // O painel é uma tela de destino (chega-se pelo menu), não um
+            // passo de um fluxo: não há "de onde voltar", e o menu continua
+            // no canto para sair dele.
+            showBackButton: false,
             trailing: IconButton(
               onPressed: () => _abrirConfiguracoes(context),
               icon: const Icon(Icons.settings_outlined),
