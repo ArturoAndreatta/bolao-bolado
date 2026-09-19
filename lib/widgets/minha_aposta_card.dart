@@ -21,7 +21,6 @@ import 'package:bolao_bolado/widgets/selecao_jogos_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 // Card "Minha Aposta": formulário onde o usuário informa nome e valor,
 // vê quantas cotas aquilo compra e o prêmio estimado, e confirma a aposta.
@@ -94,15 +93,6 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
   // deixar por conta de quem compra os bilhetes). Vazio = não escolheu.
   // Cada jogo consome cotas conforme o tamanho — ver jogos_aposta.dart.
   List<List<int>> _jogos = [];
-  // Altura real do bloco de campos (até o botão Confirmar), informada pelo
-  // próprio layout — ver _MedidorDeAltura e o cálculo de escalaPix.
-  double? _alturaTopoMedida;
-
-  // Última escala do Pix calculada, e a chave das condições que a produziram
-  // (ver _escalaPix). Memoizar é o que tira a medição do caminho do teclado.
-  String? _chaveEscalaPix;
-  double _escalaPixMemo = 1;
-
   @override
   void initState() {
     super.initState();
@@ -308,127 +298,6 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
   // Largura dos campos/botão dentro do card (descontando padding interno).
   static const double _larguraConteudo = 420;
 
-  // Recebe do layout a altura real do bloco de campos. Roda DURANTE o
-  // layout, então o setState é adiado para depois do frame; o limiar de 1px
-  // evita rebuild infinito por variação de arredondamento.
-  void _registrarAlturaTopo(double altura) {
-    if (_alturaTopoMedida != null &&
-        (_alturaTopoMedida! - altura).abs() < 1.0) {
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(() => _alturaTopoMedida = altura);
-    });
-  }
-
-  // Mede a altura que `widget` teria com a largura dada, sem exibi-lo: monta
-  // uma árvore de layout descartável (fora da árvore visível) só para ler o
-  // tamanho. É o que permite descobrir a folga vertical sobrando no card
-  // antes de decidir o quanto esticar o Pix — a alternativa seria pintar uma
-  // vez errado e corrigir no frame seguinte, o que piscaria na tela.
-  double _alturaDe(BuildContext context, Widget widget, double largura) {
-    if (largura <= 0 || !largura.isFinite) return 0;
-    final pipelineOwner = PipelineOwner();
-    final buildOwner = BuildOwner(focusManager: FocusManager());
-    // RenderView dá o passe de layout completo (com constraints de raiz) que
-    // o LayoutBuilder dentro do PixInfo exige.
-    final raiz = _RaizDeMedicao(largura: largura);
-    try {
-      final elemento = RenderObjectToWidgetAdapter<RenderBox>(
-        container: raiz,
-        debugShortDescription: '[medição de altura]',
-        child: Directionality(
-          textDirection: Directionality.of(context),
-          child: MediaQuery(
-            data: MediaQuery.of(context),
-            child: DefaultTextStyle(
-              style: DefaultTextStyle.of(context).style,
-              child: Theme(data: Theme.of(context), child: widget),
-            ),
-          ),
-        ),
-      ).attachToRenderTree(buildOwner);
-      buildOwner
-        ..buildScope(elemento)
-        ..finalizeTree();
-      // flushLayout (e não raiz.layout direto): PixInfo usa LayoutBuilder
-      // internamente, e o callback dele só pode rodar dentro de um passe de
-      // layout de verdade do PipelineOwner.
-      pipelineOwner.rootNode = raiz;
-      raiz.scheduleInitialLayout();
-      pipelineOwner.flushLayout();
-      final medido = raiz.child;
-      return medido == null || !medido.hasSize ? 0 : medido.size.height;
-    } catch (_) {
-      // Medição é otimização visual: se algo no subwidget não tolerar o
-      // layout fora da árvore, cai no comportamento antigo (escala 1).
-      return 0;
-    }
-  }
-
-  /// Quanto esticar o bloco Pix para ele absorver a folga vertical do card —
-  /// **memoizado pelas condições que realmente mudam essa conta**.
-  ///
-  /// A memoização não é micro-otimização. Descobrir a escala custa SETE
-  /// chamadas de [_alturaDe] (uma para a altura natural + seis passos da busca
-  /// binária), e cada uma monta o `PixInfo` inteiro numa árvore descartável —
-  /// incluindo o `QrImageView`, que codifica o QR code no próprio build. Sem
-  /// cache isso rodava a cada rebuild do card: **toda tecla digitada no campo
-  /// Valor** (o listener do controller chama setState), toda emissão de
-  /// `streamBets()` e toda mudança na sala. Digitar um valor de dois dígitos
-  /// gerava e jogava no lixo 14 QR codes.
-  ///
-  /// Nada disso depende do valor apostado: ele entra só no payload do QR, que
-  /// ocupa o mesmo espaço em pixels qualquer que seja o conteúdo. O que mexe
-  /// na altura é a CHAVE Pix (o texto ao lado do QR), o espaço disponível, a
-  /// altura já ocupada pelos campos e a escala de fonte do sistema — e é por
-  /// esses quatro que a conta é chaveada.
-  double _escalaPix({
-    required BuildContext context,
-    required Widget Function({double escalaPix}) blocoPix,
-    required double largura,
-    required double alturaDisponivel,
-    required double alturaTopo,
-  }) {
-    if (_chavePix.isEmpty || !alturaDisponivel.isFinite) return 1;
-
-    // Arredondado para pixel inteiro: variação sub-pixel de constraint não
-    // muda a escala de forma perceptível, e sem isso o cache erraria sempre.
-    final chave =
-        '$_chavePix|${largura.round()}|${alturaDisponivel.round()}'
-        '|${alturaTopo.round()}|${MediaQuery.textScalerOf(context).scale(14)}';
-    if (chave == _chaveEscalaPix) return _escalaPixMemo;
-
-    var escala = 1.0;
-    final alturaBloco = _alturaDe(context, blocoPix(), largura);
-    // Reserva 12px para o Pix não colar no botão Confirmar.
-    final folga = alturaDisponivel - alturaTopo - alturaBloco - 12;
-    if (alturaBloco > 0 && folga > 0) {
-      // A altura do card NÃO é linear na escala (o QR tem teto de largura,
-      // textos quebram em linhas), então em vez de calcular a escala por regra
-      // de três faz-se uma busca binária medindo o bloco realmente escalado. 6
-      // passos já chegam a ~1% do alvo.
-      final alvo = alturaBloco + folga;
-      var min = 1.0;
-      var max = 1.6;
-      for (var i = 0; i < 6; i++) {
-        final meio = (min + max) / 2;
-        final altura = _alturaDe(context, blocoPix(escalaPix: meio), largura);
-        if (altura <= alvo) {
-          min = meio;
-        } else {
-          max = meio;
-        }
-      }
-      escala = min;
-    }
-
-    _chaveEscalaPix = chave;
-    _escalaPixMemo = escala;
-    return escala;
-  }
-
   @override
   Widget build(BuildContext context) {
     // forcarSkeletonGlobal (toggle do Painel ADM) força o skeleton mesmo já
@@ -456,6 +325,10 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     // camposTopo fica com o formulário (nome/valor/prêmio/botão); o bloco
     // Pix é montado à parte para poder ser empurrado até o fim do card
     // (ver `blocoPix` mais abaixo).
+    // No celular o formulário é a tela inteira, então os blocos ganham
+    // altura de alvo de toque (~48px) e mais respiro entre si; no desktop
+    // ficam compactos para caber ao lado da tabela.
+    final espaco = widget.mobile ? 14.0 : 10.0;
     final camposTopo = [
       const SizedBox(height: 12),
       FocusTraversalOrder(
@@ -472,7 +345,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           autofocus: !_apostaExistente,
         ),
       ),
-      const SizedBox(height: 10),
+      SizedBox(height: espaco),
       FocusTraversalOrder(
         order: const NumericFocusOrder(2),
         child: CustomField(
@@ -497,7 +370,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           ),
         ),
       ),
-      const SizedBox(height: 10),
+      SizedBox(height: espaco),
       ConstrainedBox(
         constraints: BoxConstraints(maxWidth: larguraConteudo),
         child: Column(
@@ -507,13 +380,18 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
               titulo: 'Prêmio estimado',
               valor: Formatters.moeda.format(_meuPremio),
               dinheiro: true,
+              alto: widget.mobile,
             ),
-            const SizedBox(height: 8),
-            _DisplayInfo(titulo: 'Cotas', valor: _minhasCotas.toString()),
+            SizedBox(height: espaco - 4),
+            _DisplayInfo(
+              titulo: 'Cotas',
+              valor: _minhasCotas.toString(),
+              alto: widget.mobile,
+            ),
           ],
         ),
       ),
-      const SizedBox(height: 10),
+      SizedBox(height: espaco),
       ConstrainedBox(
         constraints: BoxConstraints(maxWidth: larguraConteudo),
         child: _BotaoEscolherJogos(
@@ -521,6 +399,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           cotasUsadas: _cotasDosJogos,
           cotasDisponiveis: _minhasCotas,
           onTap: _abrirSelecaoJogos,
+          alto: widget.mobile,
         ),
       ),
       const SizedBox(height: 12),
@@ -535,22 +414,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       ),
     ];
 
-    // Bloco Pix (altura natural): usado no mobile (apenasConteudo), logo
-    // abaixo do botão Confirmar. `escalaPix` estica proporcionalmente o
-    // card do Pix para ele absorver a folga vertical que sobraria acima
-    // dele — sem o ComoFunciona ao lado, o Pix é livre para ocupar a
-    // largura toda do card e crescer mais antes de precisar da escala.
-    Widget blocoPix({double escalaPix = 1}) => ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: larguraConteudo),
-      child: PixInfo(
-        chavePix: _chavePix,
-        valor: _valorApostado,
-        escala: escalaPix,
-      ),
-    );
-
-    // Card do Pix isolado, altura natural: usado no desktop, onde só o QR
-    // code/chave aparece.
+    // Card do Pix, altura natural, logo abaixo do botão Confirmar.
     final blocoApenasPix = _chavePix.isEmpty
         ? null
         : ConstrainedBox(
@@ -563,81 +427,23 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       child: FocusTraversalGroup(
         policy: OrderedTraversalPolicy(),
         child: widget.apenasConteudo
-            // Ocupa a altura cedida pela seção do mobile (alturaCard): quando o
-            // conteúdo é mais curto que isso, MainAxisAlignment.spaceBetween
-            // empurra o bloco Pix/Como Funciona para o fim do card — usa
-            // minHeight (não uma altura fixa) para não quebrar quando o
-            // conteúdo é mais alto (nomes longos etc.), caso em que apenas
-            // rola dentro do card em vez de estourar por baixo dele.
-            ? LayoutBuilder(
-                builder: (context, constraints) {
-                  // O card do Pix fica ancorado embaixo (spaceBetween), mas
-                  // cresce para cima até quase encostar no botão Confirmar:
-                  // mede-se a folga que sobraria e converte-se em escala. A
-                  // medição é feita com um layout "seco" (_alturaDe) no mesmo
-                  // BoxConstraints do card, então o valor já considera o
-                  // tamanho real dos textos/campos nesta tela.
-                  final larguraDisponivel = constraints.maxWidth;
-                  final conteudo = Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [...camposTopo, const SizedBox(height: 12)],
-                  );
-
-                  // Escala do Pix: parte da altura sobrando entre o topo (que
-                  // termina no botão Confirmar) e o bloco ancorado embaixo.
-                  //
-                  // A altura do topo NÃO pode ser medida com _alturaDe: os
-                  // campos carregam GlobalKey/FocusNode já montados na árvore
-                  // visível, e reconstruí-los numa árvore paralela devolve um
-                  // tamanho inválido (não lança — só mente). Por isso quem
-                  // informa a altura real do topo é o próprio layout, via
-                  // _MedidorDeAltura; só o bloco de baixo (widgets sem estado
-                  // compartilhado) passa por _alturaDe.
-                  final alturaTopo =
-                      _alturaTopoMedida ?? constraints.maxHeight * 0.55;
-                  // Medir custa 7 layouts fora da árvore (com 7 QR codes),
-                  // então o resultado é memoizado pelas condições que o
-                  // determinam — ver [_escalaPix].
-                  //
-                  // Só o layout SEM QR code (tela estreita) cresce. O com QR
-                  // divide a largura entre o código e o texto, e escalado as
-                  // fontes quebram no meio da palavra ("Pagamen/to via PIX")
-                  // — ele fica no tamanho do desenho, ancorado embaixo.
-                  final escalaPix = PixInfo.mostraQrCode(larguraDisponivel)
-                      ? 1.0
-                      : _escalaPix(
-                          context: context,
-                          blocoPix: blocoPix,
-                          largura: larguraDisponivel,
-                          alturaDisponivel: constraints.maxHeight,
-                          alturaTopo: alturaTopo,
-                        );
-
-                  return SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _MedidorDeAltura(
-                            onMedida: _registrarAlturaTopo,
-                            child: conteudo,
-                          ),
-                          blocoPix(escalaPix: escalaPix),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+            // Tudo em fluxo, de cima para baixo, e a sobra de altura fica no
+            // FIM da tela. O Pix já ficou ancorado no rodapé (e esticado para
+            // cobrir a folga), mas sobre o fundo da página, sem card em volta,
+            // o que se via era um buraco no meio do formulário; e esticado
+            // com QR code, os textos quebravam no meio da palavra.
+            ? SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ...camposTopo,
+                    if (blocoApenasPix != null) ...[
+                      const SizedBox(height: 16),
+                      blocoApenasPix,
+                    ],
+                  ],
+                ),
               )
-            // Form dentro do MESMO CustomCard(isChild: true). No desktop só
-            // o card do Pix aparece (com QR code) — "Como funciona" é
-            // exclusivo do layout mobile (apenasConteudo).
             : CustomCard(
                 isChild: true,
                 height: alturaCard,
@@ -983,12 +789,15 @@ class _BotaoEscolherJogos extends StatelessWidget {
   final int cotasUsadas;
   final int cotasDisponiveis;
   final VoidCallback onTap;
+  // Altura de alvo de toque do celular (ver camposTopo).
+  final bool alto;
 
   const _BotaoEscolherJogos({
     required this.jogos,
     required this.cotasUsadas,
     required this.cotasDisponiveis,
     required this.onTap,
+    this.alto = false,
   });
 
   @override
@@ -1005,7 +814,7 @@ class _BotaoEscolherJogos extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: alto ? 14 : 10),
         decoration: BoxDecoration(
           color: cores.campo,
           borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
@@ -1066,18 +875,21 @@ class _DisplayInfo extends StatelessWidget {
   /// Valor em dinheiro: ganha a cor do dinheiro do tema, a mesma da coluna de
   /// prêmio na tabela de participantes.
   final bool dinheiro;
+  // Altura de alvo de toque do celular (ver camposTopo).
+  final bool alto;
 
   const _DisplayInfo({
     required this.titulo,
     required this.valor,
     this.dinheiro = false,
+    this.alto = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: alto ? 13 : 8),
       decoration: BoxDecoration(
         color: cores.campo,
         borderRadius: BorderRadius.circular(CustomFieldDecoration.radius),
@@ -1110,69 +922,5 @@ class _DisplayInfo extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-// Raiz da árvore descartável usada por _alturaDe: é seu próprio relayout
-// boundary (sizedByParent com constraints fixas), o que permite chamar
-// scheduleInitialLayout + flushLayout — o passe completo do PipelineOwner de
-// que o LayoutBuilder dentro do PixInfo precisa para rodar seu callback.
-class _RaizDeMedicao extends RenderBox
-    with RenderObjectWithChildMixin<RenderBox> {
-  _RaizDeMedicao({required this.largura});
-
-  final double largura;
-
-  @override
-  bool get sizedByParent => true;
-
-  @override
-  Size computeDryLayout(BoxConstraints constraints) => Size(largura, 0);
-
-  @override
-  void performLayout() {
-    child?.layout(BoxConstraints(maxWidth: largura), parentUsesSize: true);
-  }
-
-  // Nunca é pintada nem testada por toque: existe só para medir.
-  @override
-  void paint(PaintingContext context, Offset offset) {}
-}
-
-// Reporta ao pai a altura que seu filho ocupou de fato, sem alterar o
-// layout (repassa constraints e tamanho inalterados).
-//
-// Existe porque o bloco de campos NÃO pode ser medido fora da árvore: ele
-// carrega GlobalKey (_formKey) e FocusNodes já montados, e reconstruí-lo
-// numa árvore paralela devolve altura inválida silenciosamente, sem lançar
-// exceção. Aqui a altura vem do único lugar onde ela é confiável — o layout
-// real do widget que está na tela.
-class _MedidorDeAltura extends SingleChildRenderObjectWidget {
-  const _MedidorDeAltura({required this.onMedida, required super.child});
-
-  final ValueChanged<double> onMedida;
-
-  @override
-  _RenderMedidorDeAltura createRenderObject(BuildContext context) =>
-      _RenderMedidorDeAltura(onMedida: onMedida);
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    _RenderMedidorDeAltura renderObject,
-  ) {
-    renderObject.onMedida = onMedida;
-  }
-}
-
-class _RenderMedidorDeAltura extends RenderProxyBox {
-  _RenderMedidorDeAltura({required this.onMedida});
-
-  ValueChanged<double> onMedida;
-
-  @override
-  void performLayout() {
-    super.performLayout();
-    onMedida(size.height);
   }
 }
