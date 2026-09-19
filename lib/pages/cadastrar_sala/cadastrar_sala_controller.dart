@@ -54,8 +54,19 @@ class CadastrarSalaController {
     chavePixController.dispose();
   }
 
+  /// Doc que guarda a senha de acesso da sala, fora do doc público.
+  ///
+  /// Regra do Firestore libera ou nega o documento inteiro, e `Salas/{id}` é
+  /// lido por qualquer sessão (anônima inclusive): no doc da sala, a senha
+  /// ficava à vista de todo visitante. Em `Privado/acesso` só o admin lê.
+  DocumentReference<Map<String, dynamic>> _acessoDe(String id) =>
+      firestore.collection('Salas').doc(id).collection('Privado').doc('acesso');
+
   Future<void> carregarSala() async {
-    final doc = await firestore.collection('Salas').doc(salaId).get();
+    final (doc, acesso) = await (
+      firestore.collection('Salas').doc(salaId).get(),
+      _acessoDe(salaId!).get(),
+    ).wait;
     final dados = doc.data();
     if (dados != null) {
       nameController.text = dados['nome']?.toString() ?? '';
@@ -83,7 +94,10 @@ class CadastrarSalaController {
             .format(valorMaximo)
             .trim();
       }
-      senhaSalaController.text = dados['senha']?.toString() ?? '';
+      // `dados['senha']` cobre sala antiga ainda não migrada: o valor
+      // aparece no formulário e, ao salvar, vai para o doc privado.
+      senhaSalaController.text =
+          (acesso.data()?['senha'] ?? dados['senha'])?.toString() ?? '';
       chavePixController.text = dados['chavePix']?.toString() ?? '';
     }
     loadingSala = false;
@@ -98,13 +112,23 @@ class CadastrarSalaController {
       'dataHora': Timestamp.fromDate(dataHora),
       'premio': MoneyInputFormat.parse(premioController.text),
       'valorMaximo': MoneyInputFormat.parse(valorMaximoApostaController.text),
-      'senha': senhaSalaController.text,
       'chavePix': chavePixController.text,
     };
+    final acesso = {'senha': senhaSalaController.text};
+
+    // Sala e senha num batch só: sem ele, uma falha entre as duas escritas
+    // deixaria sala criada sem a senha que o admin acabou de digitar.
+    final batch = firestore.batch();
     if (editando) {
-      await firestore.collection('Salas').doc(salaId).update(dados);
+      final ref = firestore.collection('Salas').doc(salaId);
+      // Apaga a `senha` que salas antigas ainda carregam no doc público.
+      batch.update(ref, {...dados, 'senha': FieldValue.delete()});
+      batch.set(_acessoDe(ref.id), acesso);
     } else {
-      await firestore.collection('Salas').add(dados);
+      final ref = firestore.collection('Salas').doc();
+      batch.set(ref, dados);
+      batch.set(_acessoDe(ref.id), acesso);
     }
+    await batch.commit();
   }
 }

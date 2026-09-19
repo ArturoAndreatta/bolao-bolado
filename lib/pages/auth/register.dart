@@ -194,6 +194,18 @@ class _RegisterState extends State<Register> {
       CustomShowDialog.show(context, "As senhas não coincidem!");
       return;
     }
+    final problemaSenha = problemaDaSenha(senhaController.text);
+    if (problemaSenha != null) {
+      CustomShowDialog.show(context, problemaSenha);
+      return;
+    }
+    if (nomeController.text.trim().length > kTamanhoMaximoNome) {
+      CustomShowDialog.show(
+        context,
+        'O nome pode ter no máximo $kTamanhoMaximoNome caracteres.',
+      );
+      return;
+    }
 
     setState(() => _loading = true);
 
@@ -247,8 +259,12 @@ class _RegisterState extends State<Register> {
   String _traduzirErro(String erro) {
     if (erro.contains('email-already-in-use')) {
       return 'Este e-mail já está cadastrado.';
-    } else if (erro.contains('weak-password')) {
-      return 'Senha muito fraca. Use pelo menos 6 caracteres.';
+    } else if (erro.contains('weak-password') ||
+        erro.contains('password-does-not-meet-requirements')) {
+      // O segundo código vem da política de senha do console, que o
+      // servidor aplica mesmo quando a checagem local já passou.
+      return 'Senha muito fraca. Use pelo menos 8 caracteres, com letras e '
+          'números.';
     } else if (erro.contains('invalid-email')) {
       return 'E-mail inválido.';
     } else if (erro.contains('account-exists-with-different-credential')) {

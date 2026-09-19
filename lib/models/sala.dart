@@ -8,7 +8,6 @@ class Sala {
   final DateTime? dataHora;
   final double premio;
   final double? valorMaximo; // limite de valor por aposta na sala, se houver
-  final String? senha; // null/vazio = sala pública, sem senha de acesso
   final String chavePix;
 
   Sala({
@@ -19,7 +18,6 @@ class Sala {
     this.dataHora,
     required this.premio,
     this.valorMaximo,
-    this.senha,
     required this.chavePix,
   });
 
@@ -39,7 +37,6 @@ class Sala {
       dataHora: (data['dataHora'] as Timestamp?)?.toDate(),
       premio: (data['premio'] as num?)?.toDouble() ?? 0,
       valorMaximo: (data['valorMaximo'] as num?)?.toDouble(),
-      senha: data['senha'],
       chavePix: data['chavePix'] ?? '',
     );
   }

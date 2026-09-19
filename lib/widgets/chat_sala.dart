@@ -7,6 +7,7 @@ import 'package:bolao_bolado/core/aparelho.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
+import 'package:bolao_bolado/core/pre_carga_emoji.dart';
 import 'package:bolao_bolado/models/mensagem.dart';
 import 'package:bolao_bolado/pages/participants/participants_skeletons.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
@@ -17,6 +18,7 @@ import 'package:bolao_bolado/services/chat/rotulo_data_chat.dart';
 import 'package:bolao_bolado/widgets/chat/bolha_mensagem.dart';
 import 'package:bolao_bolado/widgets/chat/campo_envio_chat.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 class ChatSala extends StatefulWidget {
@@ -109,15 +111,22 @@ class _ChatSalaState extends State<ChatSala> {
     _apostasSub = streamBets().listen(
       (apostas) {
         if (!mounted) return;
+        final participantes = [
+          for (final aposta in apostas)
+            if (aposta['uid'] case final String uid)
+              if (aposta['nome'] case final String nome)
+                if (nome.trim().isNotEmpty) (uid: uid, nome: nome.trim()),
+        ];
+        // Do que a stream de apostas traz, o chat só usa uid e nome. Ela
+        // emite a cada valor alterado, verificação do admin e leva de avatares
+        // carregados — e cada setState aqui reconstruía TODAS as bolhas
+        // visíveis. Records comparam por valor, então listas iguais em
+        // conteúdo significam que nada do chat mudou.
+        if (listEquals(participantes, _participantes)) return;
         setState(() {
-          _participantes = [
-            for (final aposta in apostas)
-              if (aposta['uid'] case final String uid)
-                if (aposta['nome'] case final String nome)
-                  if (nome.trim().isNotEmpty) (uid: uid, nome: nome.trim()),
-          ];
+          _participantes = participantes;
           _nomesPorUid = {
-            for (final participante in _participantes)
+            for (final participante in participantes)
               participante.uid: participante.nome,
           };
         });
@@ -154,6 +163,9 @@ class _ChatSalaState extends State<ChatSala> {
         _isAdmin = admin;
         _verificandoPermissao = false;
       });
+      // Só quem pode reagir abre o seletor de reações: é a hora de adiantar a
+      // fonte do catálogo inteiro (ver pre_carga_emoji.dart).
+      if (pode || admin) preCarregarCatalogoEmoji();
       // O campo de texto só é montado depois que a permissão é conhecida;
       // o foco automático fica restrito ao chat sobreposto no desktop
       // (mobile abre via aba, sem necessidade de puxar o teclado sozinho).
@@ -348,7 +360,9 @@ class _ChatSalaState extends State<ChatSala> {
       await _chatService.enviarMensagem(
         salaId: widget.salaId,
         texto: texto,
-        autorNome: user.displayName ?? 'Participante',
+        // As regras recusam nome vazio ou acima do teto, e o displayName de
+        // conta antiga (ou do Google) não passou pela validação do app.
+        autorNome: limitarNome(user.displayName ?? 'Participante'),
         mencoesEscolhidas: mencoes,
       );
     } catch (_) {
@@ -422,12 +436,23 @@ class _ChatSalaState extends State<ChatSala> {
                 // (como o papel de parede dos apps de conversa). A
                 // RepaintBoundary isola a pintura dela: rolar a lista não
                 // repinta a estampa.
+                //
+                // A boundary de FORA faz o inverso: sem ela a estampa era
+                // pintada na mesma camada do cabeçalho, do banner fixado e do
+                // campo de envio, então qualquer repintura deles (a lista de
+                // sugestões de menção abrindo, o botão de enviar trocando de
+                // estado) redesenhava as centenas de bolinhas do fundo junto.
                 Expanded(
-                  child: CustomPaint(
-                    painter: _EstampaChat(
-                      cor: cores.texto.withValues(alpha: 0.045),
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _EstampaChat(
+                        cor: cores.texto.withValues(alpha: 0.045),
+                      ),
+                      // Desenho estático e repetitivo: vale o motor guardar
+                      // a imagem pronta em vez de refazer os traços.
+                      isComplex: true,
+                      child: RepaintBoundary(child: _lista(fixada)),
                     ),
-                    child: RepaintBoundary(child: _lista(fixada)),
                   ),
                 ),
                 if (_sugestoes.isNotEmpty)

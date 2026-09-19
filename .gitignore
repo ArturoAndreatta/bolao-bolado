@@ -54,3 +54,7 @@ app.*.map.json
 
 # Cache do Firebase CLI: regravado a cada deploy, nunca é código.
 /.firebase/
+
+# Chave de conta de serviço do Firebase (usada por email_api/scripts). Nunca
+# versionar: dá acesso de admin a todo o projeto.
+*firebase-adminsdk*.json

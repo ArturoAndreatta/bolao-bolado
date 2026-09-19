@@ -7,6 +7,37 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 
+/// Maior nome aceito para perfil, aposta e autor de mensagem — o mesmo teto
+/// que `firestore.rules` impõe. Sem ele, um nome de milhares de caracteres
+/// quebrava a lista de participantes e o chat de todo mundo.
+const int kTamanhoMaximoNome = 60;
+
+/// Corta [nome] no teto aceito pelas regras. Usado onde o nome vem de fora
+/// (conta Google) e o usuário não teve como digitar outro.
+String limitarNome(String nome) {
+  final limpo = nome.trim();
+  if (limpo.isEmpty) return 'Usuário';
+  return limpo.length <= kTamanhoMaximoNome
+      ? limpo
+      : limpo.substring(0, kTamanhoMaximoNome);
+}
+
+/// Regra mínima de senha do cadastro.
+///
+/// O Firebase aceita qualquer senha de 6 caracteres, e o bloqueio por
+/// tentativas do servidor não segura senha como `123456`, que cai nas
+/// primeiras tentativas de qualquer lista pronta. Devolve a mensagem de erro,
+/// ou null se a senha serve. A mesma política deve estar ligada no console
+/// (Authentication > Configurações > Política de senha), que é quem vale
+/// para quem chama a API direto.
+String? problemaDaSenha(String senha) {
+  if (senha.length < 8) return 'A senha precisa ter pelo menos 8 caracteres.';
+  if (!RegExp(r'[A-Za-z]').hasMatch(senha) || !RegExp(r'\d').hasMatch(senha)) {
+    return 'A senha precisa ter letras e números.';
+  }
+  return null;
+}
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -55,9 +86,11 @@ class AuthService {
     final corAleatoria = AvatarService.sortearCorAleatoria();
     final emojiAleatorio = AvatarService.sortearEmojiAleatorio();
 
+    // Sem `email`: `usuarios/{uid}` é legível por qualquer sessão (nome e
+    // avatar aparecem antes do login), então o que entra aqui é público. O
+    // e-mail já fica guardado no Firebase Auth, e as regras recusam o campo.
     await _firestore.collection('usuarios').doc(credential.user!.uid).set({
       'nome': nome,
-      'email': email,
       'avatarColor': corAleatoria,
       'avatarEmoji': emojiAleatorio,
       'criadoEm': FieldValue.serverTimestamp(),
@@ -122,8 +155,7 @@ class AuthService {
       final emojiAleatorio = AvatarService.sortearEmojiAleatorio();
 
       await _firestore.collection('usuarios').doc(credential.user!.uid).set({
-        'nome': credential.user!.displayName ?? 'Usuário',
-        'email': credential.user!.email,
+        'nome': limitarNome(credential.user!.displayName ?? 'Usuário'),
         'avatarColor': corAleatoria,
         'avatarEmoji': emojiAleatorio,
         'criadoEm': FieldValue.serverTimestamp(),
@@ -211,7 +243,10 @@ class AuthService {
     final memoizado = _perfilPorUid[uid];
     if (memoizado != null) return memoizado;
 
-    final future = getDadosUsuario(uid);
+    final future = getDadosUsuario(uid).then((dados) {
+      _limparDadoPrivadoLegado(uid, dados);
+      return dados;
+    });
     _perfilPorUid[uid] = future;
 
     // Falha de rede não pode ficar memoizada: sem isto um erro na primeira
@@ -234,6 +269,29 @@ class AuthService {
     );
 
     return future;
+  }
+
+  /// Apaga o `email` que contas antigas ainda têm em `usuarios/{uid}`.
+  ///
+  /// O cadastro gravava o e-mail nesse documento, que qualquer visitante lê.
+  /// O cadastro parou de gravar, mas quem já tinha conta continua exposto
+  /// até alguém apagar o campo — e o único que pode fazer isso pelo app é o
+  /// próprio dono, na primeira vez que abre depois da atualização. O script
+  /// `email_api/scripts/limpar_dados_privados.js` cobre quem não voltar.
+  ///
+  /// Fica fora do caminho crítico (sem await) e engole erro: é limpeza, e
+  /// falhar agora só adia para a próxima abertura.
+  void _limparDadoPrivadoLegado(String uid, Map<String, dynamic>? dados) {
+    if (dados == null || !dados.containsKey('email')) return;
+    if (_auth.currentUser?.uid != uid) return;
+    dados.remove('email');
+    unawaited(
+      _firestore
+          .collection('usuarios')
+          .doc(uid)
+          .update({'email': FieldValue.delete()})
+          .catchError((Object _) {}),
+    );
   }
 
   /// Atualiza o cache depois de uma escrita feita pelo próprio app (nome,

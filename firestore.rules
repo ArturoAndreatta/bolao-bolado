@@ -21,18 +21,55 @@ service cloud.firestore {
 
     // ── Coleção de usuários ──────────────────────────────────────────────
     match /usuarios/{uid} {
+      // Leitura aberta a qualquer sessão, anônima inclusive: nome e avatar
+      // aparecem na lista de participantes e no chat antes do login. É
+      // justamente por isso que este documento NÃO pode guardar nada
+      // privado — ver perfilSemDadoPrivado() abaixo.
       allow read: if estaLogado();
+
+      // `email` ficava aqui e, com a leitura aberta, qualquer visitante
+      // baixava a lista de e-mails de todos os usuários. O e-mail já mora no
+      // Firebase Auth; aqui ele não pode mais entrar. Doc antigo que ainda o
+      // tem pode mantê-lo intacto ou removê-lo (é o que a limpeza do app
+      // faz ao logar), nunca gravar um valor novo.
+      function perfilSemDadoPrivado() {
+        return !('email' in request.resource.data)
+               || (resource != null
+                   && request.resource.data.email == resource.data.get('email', null));
+      }
+
+      // Nome curto e não vazio: ele aparece em lista, chat e menção. Doc só
+      // de avatar (sem `nome`) continua válido.
+      function nomeValido() {
+        let nome = request.resource.data.get('nome', 'x');
+        return nome is string && nome.size() > 0 && nome.size() <= 60;
+      }
+
+      // kCorBaseAdmin (0xFF7400C7) é o que identifica o admin de relance no
+      // chat e na lista. Um usuário comum gravando essa cor se passaria por
+      // ele. O get() de temPermissaoAdmin() só roda quando a cor é a do
+      // admin — no caso comum a comparação curta-circuita antes.
+      function corPermitida() {
+        return request.resource.data.get('avatarColor', 0) != 4285792455
+               || temPermissaoAdmin();
+      }
 
       // Criação do próprio documento: não pode nascer já como admin.
       allow create: if estaLogado()
                      && request.auth.uid == uid
-                     && request.resource.data.get('isAdmin', false) == false;
+                     && request.resource.data.get('isAdmin', false) == false
+                     && perfilSemDadoPrivado()
+                     && nomeValido()
+                     && corPermitida();
 
       // Atualização: o próprio usuário pode editar seus dados, mas não pode
       // alterar seu próprio campo isAdmin (só via console/admin SDK).
       allow update: if estaLogado()
                      && request.auth.uid == uid
-                     && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false);
+                     && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)
+                     && perfilSemDadoPrivado()
+                     && nomeValido()
+                     && corPermitida();
 
       // Admin pode criar/editar doc de avatar de participante SIMULADO
       // (uid prefixado "sim-", ver kPrefixoUidSimulado em simulador_apostas.dart)
@@ -57,15 +94,39 @@ service cloud.firestore {
       // sequestrá-lo permitiria desviar todos os pagamentos. Só admin pode
       // definir a sala principal (via console/admin SDK ou regra de update
       // abaixo, que já exige isAdmin).
+      //
+      // Criar sala também passou a ser só do admin. Aberto a qualquer conta,
+      // qualquer um publicava uma sala com nome de oficial e a PRÓPRIA chave
+      // PIX, listada em Consultar Salas lado a lado com a verdadeira — golpe
+      // pronto, sem precisar tocar na sala principal. Quando existirem salas
+      // de usuários de verdade, isso volta a abrir com alguma aprovação.
+      //
+      // `senha` não pode viver aqui: este documento é lido por qualquer
+      // sessão, anônima inclusive. Ela fica em Privado/acesso (abaixo).
       allow create: if naoAnonimo()
-                     && request.resource.data.get('principal', false) == false;
+                     && temPermissaoAdmin()
+                     && request.resource.data.get('principal', false) == false
+                     && !('senha' in request.resource.data);
 
       // Atualização: apenas admin (edição de sala pelo painel admin, e o
       // campo `configuracoes` — ritmo/estilo/aposta dupla do simulador,
       // ver services/configuracoes/configuracoes_service.dart).
-      allow update: if naoAnonimo() && temPermissaoAdmin();
+      // `senha` pode sair (limpeza dos docs antigos) ou ficar como estava —
+      // senão sala ainda não migrada travaria toda edição do painel —, mas
+      // nunca receber valor novo.
+      allow update: if naoAnonimo() && temPermissaoAdmin()
+                     && (!('senha' in request.resource.data)
+                         || request.resource.data.senha == resource.data.get('senha', null));
 
       allow delete: if false; // ajuste futuro: apenas o criador da sala
+
+      // ── Dados privados da sala ─────────────────────────────────────────
+      // Hoje só a senha de acesso (doc `acesso`). Separada do doc da sala
+      // porque regra do Firestore libera ou nega o DOCUMENTO inteiro, não
+      // campo a campo: no doc público, qualquer visitante lia a senha.
+      match /Privado/{docId} {
+        allow read, write: if naoAnonimo() && temPermissaoAdmin();
+      }
 
       // ── Participantes (apostas) ────────────────────────────────────────
       match /Participantes/{uid} {
@@ -133,6 +194,22 @@ service cloud.firestore {
                  && numeros.toSet().size() == numeros.size();
         }
 
+        // Formato do doc que o próprio participante pode gravar. Sem
+        // `hasOnly`, dava para pendurar qualquer campo na aposta (inclusive
+        // `criadoPeloAdmin`, que o painel usa para distinguir aposta manual).
+        // `data-hora` precisa ser a hora do servidor: é ela que ordena a
+        // lista, e uma data inventada furava a fila.
+        function formatoApostaValido() {
+          let dados = request.resource.data;
+          return dados.keys().hasOnly(['nome', 'valor', 'uid', 'data-hora', 'verificado',
+                                       'editadoAposVerificacao', 'jogos', 'numeros'])
+                 && dados.get('uid', uid) == uid
+                 && dados.nome is string
+                 && dados.nome.size() > 0
+                 && dados.nome.size() <= 60
+                 && dados['data-hora'] == request.time;
+        }
+
         // Criação da PRÓPRIA aposta: o usuário comum não pode nascer
         // `verificado: true` — essa flag define quem entra no rateio do
         // prêmio, e só o admin pode aprová-la. Sem isso, qualquer um poderia
@@ -143,7 +220,8 @@ service cloud.firestore {
                        && request.resource.data.get('verificado', false) == false
                        && request.resource.data.valor is string
                        && apostaCabeNaSala()
-                       && numerosValidos();
+                       && numerosValidos()
+                       && formatoApostaValido();
 
         // Edição da PRÓPRIA aposta. Além de não poder se auto-verificar, o
         // usuário não pode apagar o rastro de uma edição feita DEPOIS da
@@ -161,8 +239,17 @@ service cloud.firestore {
                        && request.resource.data.valor is string
                        && apostaCabeNaSala()
                        && numerosValidos()
+                       && formatoApostaValido()
                        && (
                             resource.data.get('verificado', false) == false
+                            || request.resource.data.get('editadoAposVerificacao', false) == true
+                          )
+                       // A marca, uma vez posta, só sai pela mão do admin
+                       // (ao aprovar de novo). Sem isto, uma segunda edição
+                       // regravava `false` e a aposta voltava a parecer nova
+                       // para quem confere, apagando o rastro da primeira.
+                       && (
+                            resource.data.get('editadoAposVerificacao', false) == false
                             || request.resource.data.get('editadoAposVerificacao', false) == true
                           );
 
@@ -229,8 +316,18 @@ service cloud.firestore {
         // `jogos` na aposta —, então uid e posições ficam por conta da UI. O
         // estrago possível é cosmético: menção torta acende o pedaço errado do
         // texto de quem a escreveu, e nada mais.
+        //
+        // `criadoEm` é obrigatoriamente a hora do servidor (a ordem do chat
+        // sai dele: data inventada punha a mensagem fora de lugar) e os
+        // campos são só os que o app grava. `autorNome` é texto livre porque
+        // o nome do perfil também é — o que a regra garante é o tamanho.
         allow create: if naoAnonimo()
                        && request.auth.uid == request.resource.data.autorUid
+                       && request.resource.data.keys().hasOnly(['texto', 'autorUid', 'autorNome', 'criadoEm', 'mencoes'])
+                       && request.resource.data.criadoEm == request.time
+                       && request.resource.data.autorNome is string
+                       && request.resource.data.autorNome.size() > 0
+                       && request.resource.data.autorNome.size() <= 60
                        && request.resource.data.texto is string
                        && request.resource.data.texto.size() > 0
                        && request.resource.data.texto.size() <= 200

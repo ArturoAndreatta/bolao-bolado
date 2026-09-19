@@ -40,6 +40,10 @@ dependencies:
   firebase_core: ^4.3.0
   cloud_firestore: ^6.1.1
   firebase_auth: ^6.1.4
+  # Prova ao Firebase que o pedido saiu do app publicado, e não de um script
+  # usando a chave de API. Fixo em 0.4.1: as versões seguintes exigem subir
+  # todo o firebase_* junto, e essa troca merece uma sessão própria.
+  firebase_app_check: ^0.4.1
   # Chama o backend próprio de e-mail transacional (repo separado
   # bolao-bolado-email-api) no fluxo de recuperação de senha, no lugar do
   # `sendPasswordResetEmail` padrão do Firebase — cujo e-mail sai sem a cara
@@ -100,12 +104,16 @@ flutter:
   # `images/2.0x/logo_appbar.png` e `images/3.0x/logo_appbar.png` NÃO entram na
   # lista de propósito: variante de resolução é achada sozinha a partir do
   # arquivo principal já declarado. Listá-las à mão duplicaria as entradas.
+  #
+  # `images/logo.png` também ficou de fora: é opaco (fundo branco chapado) e
+  # nenhuma tela o usa desde que o Logo passou para o logo4.png — eram 750 KB
+  # no precache sem aparecer em lugar nenhum. O mesmo vale para
+  # `images/icone.png` (860 KB): ele é só a arte-fonte dos ícones em
+  # web/icons/, que o index.html e o manifest usam já reduzidos.
   assets:
-    - images/logo.png
     - images/logo4.png
     - images/logo_appbar.png
     - images/pix_logo.png
-    - images/icone.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

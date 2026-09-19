@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:bolao_bolado/bolao_bolado.dart';
+import 'package:bolao_bolado/core/app_check.dart';
 import 'package:bolao_bolado/core/app_tema.dart';
+import 'package:bolao_bolado/core/pre_carga_emoji.dart';
 import 'package:bolao_bolado/core/splash_web.dart';
 import 'package:bolao_bolado/core/tema_controller.dart';
 import 'package:bolao_bolado/core/ultima_rota_admin.dart';
@@ -85,6 +87,10 @@ class _AppInitState extends State<_AppInit> {
       carregarUltimaRotaAdmin(),
     ).wait;
 
+    // Antes de qualquer pedido ao Firestore/Auth (ver app_check.dart). Sem
+    // chave configurada volta na hora, sem custo.
+    await ativarAppCheck();
+
     _configurarFirestore();
 
     // Aguarda o primeiro evento real de authStateChanges (em vez de só
@@ -154,7 +160,13 @@ class _AppInitState extends State<_AppInit> {
     // `SplashScreen` deixou de estar por baixo do splash HTML. Avisar antes
     // faria o HTML esmaecer revelando a cópia Flutter do mesmo splash, e a
     // troca entre os dois apareceria como uma piscada.
-    WidgetsBinding.instance.addPostFrameCallback((_) => dispensarSplashWeb());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      dispensarSplashWeb();
+      // Logo depois do primeiro quadro, e não antes: o download dos pedaços da
+      // fonte de emoji não pode disputar a conexão com o login e com o próprio
+      // motor subindo. Ver pre_carga_emoji.dart.
+      preCarregarEmojisIniciais();
+    });
   }
 
   @override

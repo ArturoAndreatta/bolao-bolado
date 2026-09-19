@@ -157,11 +157,22 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
         if (!mounted) return;
         final uid = FirebaseAuth.instance.currentUser?.uid;
         final minha = bets.where((item) => item['uid'] == uid).firstOrNull;
+        final situacao = _Situacao.de(minha);
+        final totalCotasOutros = bets
+            .where((item) => item['uid'] != uid)
+            .fold<int>(0, (soma, item) => soma + (item['cotas'] as int));
+        // A stream compartilhada emite muito mais do que este card precisa:
+        // qualquer aposta de outra pessoa, e a lista inteira de novo a cada
+        // leva de avatares que chega do Firestore. Das emissões, o card só
+        // usa esses dois números — reconstruir o formulário inteiro quando
+        // nenhum deles mudou era trabalho jogado fora, repetido várias vezes
+        // na primeira carga.
+        if (situacao == _situacao && totalCotasOutros == _totalCotasOutros) {
+          return;
+        }
         setState(() {
-          _situacao = _Situacao.de(minha);
-          _totalCotasOutros = bets
-              .where((item) => item['uid'] != uid)
-              .fold<int>(0, (soma, item) => soma + (item['cotas'] as int));
+          _situacao = situacao;
+          _totalCotasOutros = totalCotasOutros;
         });
       },
       // Falha na stream de apostas só congela o "Prêmio estimado" no último
@@ -185,7 +196,17 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     super.dispose();
   }
 
-  void _onValorAlterado() => setState(() {});
+  // O controller avisa também quando só o cursor ou a seleção mudam (clicar
+  // no campo, arrastar o mouse, cada seta do teclado). O card depende só do
+  // TEXTO, então reconstruí-lo nesses casos não mudava nada na tela.
+  String _ultimoTextoValor = '';
+
+  void _onValorAlterado() {
+    final texto = valueController.text;
+    if (texto == _ultimoTextoValor) return;
+    _ultimoTextoValor = texto;
+    setState(() {});
+  }
 
   double get _valorApostado {
     final valor = valueController.text.trim();
@@ -619,6 +640,13 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     }
 
     final nome = nameController.text.trim();
+    if (nome.length > kTamanhoMaximoNome) {
+      CustomShowDialog.show(
+        context,
+        'O nome pode ter no máximo $kTamanhoMaximoNome caracteres.',
+      );
+      return;
+    }
     final valor = valueController.text.trim();
     final valorEditado = valor.replaceAll('.', '').replaceAll(',', '.');
 
@@ -681,6 +709,12 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
         const GetOptions(source: Source.server),
       );
       final jaEstavaVerificada = apostaAnterior.data()?['verificado'] == true;
+      // Aposta que já perdeu a aprovação por edição continua marcada nas
+      // edições seguintes: sem isto a segunda edição gravava `false`, e o
+      // admin via uma aposta "nova" em vez de uma alterada depois de aprovada
+      // (a regra agora também recusa tirar a marca).
+      final jaEstavaMarcada =
+          apostaAnterior.data()?['editadoAposVerificacao'] == true;
       final isAdmin = await _authService.isAdmin(user.uid);
 
       await apostaRef.set({
@@ -689,7 +723,9 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
         'uid': user.uid,
         'data-hora': FieldValue.serverTimestamp(),
         'verificado': isAdmin ? true : false,
-        'editadoAposVerificacao': isAdmin ? false : jaEstavaVerificada,
+        'editadoAposVerificacao': isAdmin
+            ? false
+            : jaEstavaVerificada || jaEstavaMarcada,
         'jogos': jogosParaDados(_jogos),
       });
 

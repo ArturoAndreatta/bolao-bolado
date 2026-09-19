@@ -31,6 +31,16 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
   bool _obscure = true;
   bool _loading = false;
   bool _carregandoGoogle = false;
+
+  // Pausa crescente depois de senhas erradas seguidas. Quem segura ataque de
+  // verdade é o servidor do Firebase (responde `too-many-requests`), já que
+  // um script fala com a API direto e nunca passa por este botão. Isto aqui
+  // só impede que a própria tela sirva de martelo: sem a pausa, dava para
+  // clicar em Logar sem parar e cada clique virava uma tentativa.
+  static const _tentativasLivres = 3;
+  int _falhasSeguidas = 0;
+  DateTime? _bloqueadoAte;
+
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
   late final VigiaAutofill _vigiaAutofill;
@@ -298,6 +308,16 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       return;
     }
 
+    final bloqueadoAte = _bloqueadoAte;
+    if (bloqueadoAte != null && DateTime.now().isBefore(bloqueadoAte)) {
+      final segundos = bloqueadoAte.difference(DateTime.now()).inSeconds + 1;
+      CustomShowDialog.show(
+        context,
+        'Muitas tentativas. Aguarde $segundos segundos para tentar de novo.',
+      );
+      return;
+    }
+
     setState(() => _loading = true);
 
     try {
@@ -305,6 +325,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         email: emailController.text.trim(),
         senha: senhaController.text,
       );
+      _falhasSeguidas = 0;
+      _bloqueadoAte = null;
 
       // Fecha o contexto de autofill só depois do login dar certo: é isso que
       // faz o navegador oferecer "salvar/atualizar senha". Chamar antes faria
@@ -315,12 +337,32 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         context.go(AppRoutes.participants);
       }
     } catch (e) {
+      _registrarFalha(e.toString());
       if (mounted) {
         CustomShowDialog.show(context, _traduzirErro(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Conta só erro de credencial: queda de rede não é palpite de senha, e
+  /// travar a pessoa por causa do wi-fi seria castigo sem motivo. A pausa
+  /// dobra a cada erro depois das tentativas livres (5s, 10s, 20s...), com
+  /// teto de 5 minutos.
+  void _registrarFalha(String erro) {
+    final credencialErrada =
+        erro.contains('wrong-password') ||
+        erro.contains('invalid-credential') ||
+        erro.contains('user-not-found') ||
+        erro.contains('too-many-requests');
+    if (!credencialErrada) return;
+
+    _falhasSeguidas++;
+    final excedentes = _falhasSeguidas - _tentativasLivres;
+    if (excedentes <= 0) return;
+    final segundos = math.min(5 * (1 << math.min(excedentes - 1, 6)), 300);
+    _bloqueadoAte = DateTime.now().add(Duration(seconds: segundos));
   }
 
   void _entrarComGoogle() async {

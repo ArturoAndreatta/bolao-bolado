@@ -108,7 +108,7 @@ extras existem por causa do peso do carregamento inicial:
 
 O service worker do Flutter baixa **todo** o `RESOURCES` em segundo plano na
 primeira visita, então cada MB desnecessário ali é banda disputando com as
-leituras do Firestore na primeira carga. Hoje esse precache está em ~21 MB
+leituras do Firestore na primeira carga. Hoje esse precache está em ~19 MB
 (era ~52 MB). Se ele voltar a crescer, conferir com:
 
 ```bash
@@ -390,6 +390,25 @@ mexer em qualquer escrita):
 - Só admin pode criar/editar sala `principal: true` (a sala principal define a
   chave PIX que recebe o dinheiro).
 - `isAdmin` nunca pode ser alterado pelo próprio usuário (só via console/admin SDK).
+- **Documento legível por anônimo é público — nada privado entra nele.**
+  `usuarios/{uid}` e `Salas/{salaId}` são lidos por qualquer sessão, e regra
+  do Firestore libera o documento inteiro, não campo a campo. Por isso o
+  `email` saiu do perfil (as regras recusam o campo; o e-mail vive no
+  Firebase Auth) e a senha da sala mora em `Salas/{salaId}/Privado/acesso`,
+  que só admin lê. Dado privado novo vai para um doc separado com regra
+  própria.
+- **Criar sala é só do admin.** Aberto a qualquer conta, dava para publicar
+  uma sala com cara de oficial e a própria chave PIX.
+- Aposta e mensagem do próprio usuário têm formato fechado nas regras
+  (`hasOnly`), nome de até 60 caracteres (`kTamanhoMaximoNome`) e data
+  obrigatoriamente igual à hora do servidor (`FieldValue.serverTimestamp()`).
+  Campo novo gravado pelo app precisa entrar na lista da regra, senão a
+  escrita é recusada.
+- A cor de avatar do admin (`kCorBaseAdmin`) é recusada para os demais, e a
+  marca `editadoAposVerificacao` só sai pela mão do admin.
+- Configurações de segurança que vivem nos painéis (Vercel, Firebase, Google
+  Cloud) e ainda estão pendentes ficam em
+  [PENDENCIAS_SEGURANCA.md](PENDENCIAS_SEGURANCA.md), com o passo a passo.
 
 **O modelo já prevê múltiplas salas no futuro** (hoje só existe a principal,
 mas o schema é por-sala desde o início) — dado que só faz sentido para "o
@@ -591,6 +610,10 @@ atualize/adicione testes em `test/services/bet_service_test.dart`.
   projeto. O app chama `/api/redefinir-senha` a partir de
   [auth_service.dart](lib/services/authentication/auth_service.dart).
   Credenciais só nas variáveis de ambiente da Vercel — ver o README da pasta.
+  **A Vercel publica a partir do repositório separado
+  `ArturoAndreatta/bolao-bolado-email-api`, não desta pasta**, que é só uma
+  cópia de referência: mudança na API precisa ir para lá (e ser copiada
+  para cá, para as duas não divergirem).
 - Flags de debug de runtime (ex: forçar skeleton de loading) ficam em
   `core/debug_flags.dart` e só são acionáveis pelo Painel ADM — não persistem
   entre sessões.
