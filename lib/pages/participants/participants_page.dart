@@ -13,7 +13,7 @@ import 'package:bolao_bolado/router/app_router.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/services/bet/preco_cota.dart';
-import 'package:bolao_bolado/widgets/chat_sala.dart';
+import 'package:bolao_bolado/widgets/chat/chat_ou_convite.dart';
 import 'package:bolao_bolado/widgets/minha_aposta_card.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -330,7 +330,7 @@ class _ParticipantsState extends State<Participants> {
                         onTap: () {},
                         child: _loading
                             ? const SkeletonChatSala()
-                            : ChatSala(
+                            : ChatOuConvite(
                                 salaId: _salaId!,
                                 mostrarCabecalho: false,
                                 flutuante: true,
@@ -494,7 +494,7 @@ class _ParticipantsState extends State<Participants> {
           height: altura,
           child: _salaId == null
               ? const SkeletonChatSala()
-              : ChatSala(salaId: _salaId!, mostrarCabecalho: false),
+              : ChatOuConvite(salaId: _salaId!, mostrarCabecalho: false),
         );
     }
   }

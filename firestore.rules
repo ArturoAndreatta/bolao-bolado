@@ -280,8 +280,11 @@ service cloud.firestore {
 
       // ── Mensagens do chat ───────────────────────────────────────────────
       match /Mensagens/{mensagemId} {
-        // Leitura: qualquer usuário autenticado (mesmo anônimo) pode LER
-        allow read: if estaLogado();
+        // Leitura: só quem tem conta. O chat é conversa entre quem está no
+        // bolão; o visitante (sessão anônima) vê a lista de participantes,
+        // mas não as mensagens — no app ele recebe um convite para entrar no
+        // lugar do chat (ver widgets/chat/chat_ou_convite.dart).
+        allow read: if naoAnonimo();
 
         function ehParticipante() {
           return exists(/databases/$(database)/documents/Salas/$(salaId)/Participantes/$(request.auth.uid));
