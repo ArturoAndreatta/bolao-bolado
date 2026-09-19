@@ -2,3 +2,6 @@ node_modules/
 .vercel
 .env
 .env.local
+# Gerado pelo npm install do script de limpeza. O repositório que a Vercel
+# publica (bolao-bolado-email-api) não versiona lockfile, e esta pasta é cópia dele.
+package-lock.json

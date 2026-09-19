@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/models/mensagem.dart';
 import 'package:bolao_bolado/services/chat/formatacao_mensagem.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -64,7 +65,7 @@ class _TextoMensagemState extends State<TextoMensagem> {
     _limparRecognizers();
 
     final base = TextStyle(fontSize: 14, height: 1.3, color: widget.corTexto);
-    final trechos = formatarMensagem(widget.texto, mencoes: widget.mencoes);
+    final trechos = _trechos();
 
     return Text.rich(
       TextSpan(
@@ -80,6 +81,33 @@ class _TextoMensagemState extends State<TextoMensagem> {
         ],
       ),
       style: base,
+    );
+  }
+
+  // Resultado da última análise do texto e as entradas que o produziram.
+  //
+  // Achar menções, links e marcação percorre o texto inteiro com regex, e a
+  // bolha é reconstruída muito mais vezes do que o texto muda: a cada
+  // mensagem nova (que recria todas as mensagens da stream), a cada mudança
+  // na lista de participantes e em cada quadro da troca de tema animada.
+  // Mensagem publicada não muda de texto, então quase sempre a conta é a
+  // mesma da vez anterior.
+  List<TrechoMensagem>? _trechosCache;
+  String? _textoDoCache;
+  List<Mencao>? _mencoesDoCache;
+
+  List<TrechoMensagem> _trechos() {
+    final cache = _trechosCache;
+    if (cache != null &&
+        _textoDoCache == widget.texto &&
+        listEquals(_mencoesDoCache, widget.mencoes)) {
+      return cache;
+    }
+    _textoDoCache = widget.texto;
+    _mencoesDoCache = widget.mencoes;
+    return _trechosCache = formatarMensagem(
+      widget.texto,
+      mencoes: widget.mencoes,
     );
   }
 

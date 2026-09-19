@@ -49,10 +49,16 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Bolão Bolado">
-  <link rel="apple-touch-icon" href="assets/images/icone.png">
+  <!--
+    Ícones no tamanho em que são exibidos, gerados a partir de
+    images/icone.png (805px, 860 KB). Apontar para o original fazia o
+    navegador baixar 860 KB para desenhar 16px na aba — e, por estar em
+    assets/, o arquivo ainda entrava no precache do service worker.
+  -->
+  <link rel="apple-touch-icon" href="icons/icone192.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="assets/images/icone.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/icone32.png" />
 
   <!--
     Prévia do link (Discord, WhatsApp, Telegram, X). Sem estas tags o Discord
@@ -66,9 +72,10 @@
     build/web), 1200x630, o tamanho que o `summary_large_image` espera — é o
     que faz o embed virar banner largo em vez de miniatura no canto.
 
-    O `?v=1` existe para furar cache: Discord e WhatsApp guardam a prévia por
-    URL durante horas. Ao trocar a arte, suba o número, senão o cartão antigo
-    continua aparecendo.
+    O `?v=N` existe para furar cache: Discord e WhatsApp guardam a prévia por
+    URL (dias, não horas — a arte trocada sem subir o número seguiu aparecendo
+    antiga por mais de uma semana). Ao trocar a arte, suba o número, senão o
+    cartão antigo continua aparecendo.
   -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Bolão Bolado">
@@ -76,7 +83,7 @@
   <meta property="og:description" content="Organize e participe de bolões com seus amigos de forma simples e divertida.">
   <meta property="og:url" content="https://bolaobolado-app.web.app/">
   <meta property="og:locale" content="pt_BR">
-  <meta property="og:image" content="https://bolaobolado-app.web.app/banner.jpg?v=1">
+  <meta property="og:image" content="https://bolaobolado-app.web.app/banner.jpg?v=2">
   <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -84,7 +91,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Bolão Bolado">
   <meta name="twitter:description" content="Organize e participe de bolões com seus amigos de forma simples e divertida.">
-  <meta name="twitter:image" content="https://bolaobolado-app.web.app/banner.jpg?v=1">
+  <meta name="twitter:image" content="https://bolaobolado-app.web.app/banner.jpg?v=2">
 
   <!--
     O Discord pinta a listra lateral do cartão com esta cor. Vale também para

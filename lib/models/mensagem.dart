@@ -53,6 +53,20 @@ class Mencao {
     'inicio': inicio,
     'fim': fim,
   };
+
+  // Igualdade por valor: cada snapshot do chat recria as mensagens do zero,
+  // e o texto formatado de uma bolha só é reaproveitado entre rebuilds se
+  // der para reconhecer que as menções são as mesmas (ver TextoMensagem).
+  @override
+  bool operator ==(Object other) =>
+      other is Mencao &&
+      other.uid == uid &&
+      other.nome == nome &&
+      other.inicio == inicio &&
+      other.fim == fim;
+
+  @override
+  int get hashCode => Object.hash(uid, nome, inicio, fim);
 }
 
 /// Recado que o admin prendeu no topo do chat da sala.
