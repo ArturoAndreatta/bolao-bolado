@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:bolao_bolado/components/formatters/formatters.dart';
 import 'package:bolao_bolado/components/shared/avatar_emoji.dart';
 import 'package:bolao_bolado/components/shared/custom_confirm_dialog.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
@@ -13,6 +12,7 @@ import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/services/chat/chat_service.dart';
 import 'package:bolao_bolado/services/chat/formatacao_mensagem.dart';
+import 'package:bolao_bolado/services/chat/rotulo_data_chat.dart';
 import 'package:bolao_bolado/widgets/chat/bolha_mensagem.dart';
 import 'package:bolao_bolado/widgets/chat/campo_envio_chat.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -541,8 +541,14 @@ class _ChatSalaState extends State<ChatSala> {
                 // Separador de data acima da primeira mensagem de
                 // cada dia. Como a lista é invertida, "primeira do
                 // dia" é aquela cujo vizinho mais antigo (index+1)
-                // caiu em outro dia.
-                if (!_mesmoDia(anterior?.criadoEm, msg.criadoEm)) {
+                // caiu em outro dia — OU que não tem vizinho mais
+                // antigo nenhum. Esse segundo caso precisa ser
+                // explícito: `_mesmoDia(null, x)` é true (serve ao
+                // agrupamento de bolhas), e a mensagem mais antiga da
+                // conversa ficava sem separador; com todas no mesmo
+                // dia, o chat não mostrava data nenhuma.
+                if (anterior == null ||
+                    !_mesmoDia(anterior.criadoEm, msg.criadoEm)) {
                   return Column(
                     children: [
                       _SeparadorData(dataHora: msg.criadoEm),
@@ -772,40 +778,34 @@ class _SeparadorData extends StatelessWidget {
 
   const _SeparadorData({required this.dataHora});
 
-  String _rotulo(DateTime data) {
-    final agora = DateTime.now();
-    final hoje = DateTime(agora.year, agora.month, agora.day);
-    final dia = DateTime(data.year, data.month, data.day);
-    final diferenca = hoje.difference(dia).inDays;
-
-    if (diferenca == 0) return 'Hoje';
-    if (diferenca == 1) return 'Ontem';
-    return Formatters.data.format(data);
-  }
-
   @override
   Widget build(BuildContext context) {
+    // Mensagem ainda sem horário do servidor (acabou de ser enviada): ela é
+    // de agora, e o separador certo aparece quando o horário chegar.
     if (dataHora == null) return const SizedBox.shrink();
 
     final cores = AppCores.de(context);
+    // Selo centralizado, sem linhas dos lados: é o separador que os apps de
+    // chat usam, e se lê como marcação da conversa, não como divisória de
+    // formulário.
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Expanded(child: Divider(color: cores.borda, height: 1)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(
-              _rotulo(dataHora!),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: cores.textoFraco,
-              ),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: cores.superficieAlta,
+            borderRadius: AppRadii.circularPill,
+          ),
+          child: Text(
+            rotuloDataChat(dataHora!),
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: cores.textoSuave,
             ),
           ),
-          Expanded(child: Divider(color: cores.borda, height: 1)),
-        ],
+        ),
       ),
     );
   }
