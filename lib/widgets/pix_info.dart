@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
+import 'package:bolao_bolado/core/aparelho.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/services/pix/pix_payload.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -39,13 +39,10 @@ class _PixInfoState extends State<PixInfo> {
   }
 
   // Celular ou tablet: o aparelho que mostra o QR é o mesmo que teria de
-  // escaneá-lo, então o QR não serve para nada. Decide pelo SISTEMA, e não
+  // escaneá-lo, então o QR não serve para nada. Decide pelo APARELHO, e não
   // pela largura da tela: uma janela estreita no computador continua podendo
-  // ser escaneada pelo celular. Na web o Flutter já informa o sistema do
-  // aparelho (Android/iOS), então isto vale para o site aberto no celular.
-  static bool get _aparelhoMovel =>
-      defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.iOS;
+  // ser escaneada pelo celular.
+  static bool get _aparelhoMovel => aparelhoMovel;
 
   @override
   Widget build(BuildContext context) {
