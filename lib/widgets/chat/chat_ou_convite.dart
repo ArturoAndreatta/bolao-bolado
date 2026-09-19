@@ -14,9 +14,10 @@ import 'package:go_router/go_router.dart';
 /// Quem garante isso é `firestore.rules` (leitura de `Mensagens` exige conta);
 /// este widget só evita montar um [ChatSala] que ia receber permissão negada.
 ///
-/// O lugar do chat continua na tela (a aba no celular, o botão e o painel no
-/// desktop) de propósito: sumir com ele mudaria o layout da barra de seções e
-/// esconderia do visitante que existe um chat esperando por ele.
+/// Hoje o visitante nem vê as entradas do chat (aba, botão e item do menu
+/// somem para ele — ver `_logado` em participants_page.dart). O convite fica
+/// como rede de segurança: se a sessão cair para anônima com o chat aberto,
+/// aparece ele em vez de um chat quebrado por permissão negada.
 class ChatOuConvite extends StatelessWidget {
   final String salaId;
   final bool mostrarCabecalho;

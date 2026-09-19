@@ -45,6 +45,11 @@ class _ParticipantsState extends State<Participants> {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _salaSubscription;
   final SimuladorApostas _simulador = SimuladorApostas();
 
+  // Visitante (sessão anônima) não tem aposta nem chat: as duas opções nem
+  // aparecem para ele, e um `?aba=chat` vindo de link cai em Participantes.
+  static bool get _logado =>
+      FirebaseAuth.instance.currentUser?.isAnonymous == false;
+
   // Seção ativa no mobile, pelo `indice` de [_SecaoMobile].
   static int _secaoDe(String? aba) => switch (aba) {
     'aposta' => _SecaoMobile.aposta.indice,
@@ -64,7 +69,7 @@ class _ParticipantsState extends State<Participants> {
   // de Chat — o painel é sobreposto —, então o MESMO `?aba=chat` que escolhe
   // a seção no mobile precisa abrir o painel aqui; sem isto, clicar em Chat no
   // Drawer levava para Participantes e parava por aí.
-  late bool _chatAbertoDesktop = widget.abaInicial == 'chat';
+  late bool _chatAbertoDesktop = widget.abaInicial == 'chat' && _logado;
 
   // Mantém o ChatSala montado durante a animação de fechamento; some da
   // árvore só quando a animação termina (evita "sumir" abrupto).
@@ -98,7 +103,7 @@ class _ParticipantsState extends State<Participants> {
         // No desktop o mesmo parâmetro decide o painel sobreposto. Ir para
         // "Participantes" ou "Minha Aposta" fecha o chat de propósito: o
         // painel cobre parte do grid, e quem pediu a tabela quer ver a tabela.
-        _chatAbertoDesktop = widget.abaInicial == 'chat';
+        _chatAbertoDesktop = widget.abaInicial == 'chat' && _logado;
         if (_chatAbertoDesktop) _chatVisivelDesktop = true;
       });
     }
@@ -352,7 +357,7 @@ class _ParticipantsState extends State<Participants> {
       children: [
         if (_isAdmin) ...[_botaoSimularApostas(), _botaoEditarSala()],
         const SizedBox(width: 4),
-        _botaoChatDesktop(),
+        if (_logado) _botaoChatDesktop(),
       ],
     );
   }
@@ -419,11 +424,10 @@ class _ParticipantsState extends State<Participants> {
   // kLarguraMinimaLadoALado).
 
   List<_SecaoMobile> _secoesMobile() => [
-    // Visitante não tem aposta: a seção nem aparece na barra.
-    if (FirebaseAuth.instance.currentUser?.isAnonymous == false)
-      _SecaoMobile.aposta,
+    // Visitante não tem aposta nem chat: as seções nem aparecem na barra.
+    if (_logado) _SecaoMobile.aposta,
     _SecaoMobile.participantes,
-    _SecaoMobile.chat,
+    if (_logado) _SecaoMobile.chat,
   ];
 
   // Deep link para uma seção que o usuário não tem (visitante abrindo
