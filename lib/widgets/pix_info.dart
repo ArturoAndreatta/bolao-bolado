@@ -254,11 +254,10 @@ class _PixInfoState extends State<PixInfo> {
   // principal. O código é o MESMO payload do QR (ver PixPayload), e colado no
   // app do banco ele já chega com o valor da aposta preenchido — copiando só
   // a chave, a pessoa digita o valor na mão, e é aí que se paga errado. A
-  // chave continua disponível embaixo, para banco que não aceite o código.
+  // chave aparece em texto acima do botão, para conferir o destinatário.
   Widget _buildCopiaECola(BuildContext context) {
     final cores = AppCores.de(context);
     final valor = widget.valor;
-    final comValor = valor != null && valor > 0;
     final codigoCopiado = _copiado == _Copiado.codigo;
     final corBotao = codigoCopiado ? cores.verde : cores.azul;
 
@@ -281,19 +280,6 @@ class _PixInfoState extends State<PixInfo> {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            comValor
-                ? 'Copie o código e cole no app do seu banco, em Pix Copia e '
-                      'Cola. O valor já vai preenchido.'
-                : 'Copie o código e cole no app do seu banco, em Pix Copia e '
-                      'Cola.',
-            style: TextStyle(
-              fontSize: 13,
-              color: cores.textoSuave,
-              height: 1.3,
-            ),
           ),
           const SizedBox(height: 10),
           // A chave fica à vista, acima do botão: quem paga confere para quem

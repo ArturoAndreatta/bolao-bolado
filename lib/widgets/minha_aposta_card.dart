@@ -331,13 +331,14 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     // ficam compactos para caber ao lado da tabela.
     final espaco = widget.mobile ? _espacoMobile : 10.0;
 
-    // No celular o formulário quase nunca preenche a tela, e o que sobrava
-    // virava um vão embaixo (ou no meio, quando o Pix ficou ancorado no
-    // rodapé; e esticar um bloco para cobrir o espaço deixou uma caixa grande
-    // e vazia). A sobra agora é REPARTIDA entre os espaços entre os blocos:
-    // cada um cresce até [_folgaMaximaEntreBlocos] a mais, então o
-    // formulário respira por igual. Em tela baixa, ou com o teclado aberto,
-    // os espaços ficam no mínimo e a página rola.
+    // No celular o formulário quase nunca preenche a tela. A sobra vai para
+    // as margens do card do Pix (metade acima, metade abaixo), e os campos
+    // ficam com o espaçamento fixo, juntos. Já se tentou: ancorar o Pix no
+    // rodapé (vão no meio), esticar o bloco do prêmio (caixa grande e vazia)
+    // e repartir a sobra entre todos os campos (formulário esparramado). O
+    // Pix é um bloco à parte do formulário, e é o único lugar onde folga em
+    // volta lê como separação e não como buraco. Em tela baixa, ou com o
+    // teclado aberto, as margens ficam no mínimo e a página rola.
     //
     // Só com o Pix no modo Copia e Cola (celular/tablet de verdade): repartir
     // exige medir a altura natural do formulário inteiro, e o Pix do
@@ -345,14 +346,6 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     // medição. Numa janela estreita do computador o formulário fica no
     // tamanho natural.
     final preencherAltura = widget.apenasConteudo && aparelhoMovel;
-    // Dois filhos DIRETOS da coluna: o Flexible só recebe parte da sobra se
-    // estiver na mesma Column que os blocos. Frouxo, recebe a parte dele,
-    // mas o SizedBox só aceita até o teto.
-    List<Widget> espacoEntre(double minimo) => [
-      SizedBox(height: minimo),
-      if (preencherAltura)
-        const Flexible(child: SizedBox(height: _folgaMaximaEntreBlocos)),
-    ];
 
     final resumo = _ResumoAposta(
       premio: _meuPremio,
@@ -376,7 +369,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           autofocus: !_apostaExistente,
         ),
       ),
-      ...espacoEntre(espaco),
+      SizedBox(height: espaco),
       FocusTraversalOrder(
         order: const NumericFocusOrder(2),
         child: CustomField(
@@ -402,7 +395,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
         ),
       ),
       if (widget.mobile) ...[
-        ...espacoEntre(espaco),
+        SizedBox(height: espaco),
         resumo,
       ] else ...[
         SizedBox(height: espaco),
@@ -422,7 +415,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           ),
         ),
       ],
-      ...espacoEntre(espaco),
+      SizedBox(height: espaco),
       ConstrainedBox(
         constraints: BoxConstraints(maxWidth: larguraConteudo),
         child: _BotaoEscolherJogos(
@@ -433,7 +426,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           alto: widget.mobile,
         ),
       ),
-      ...espacoEntre(widget.mobile ? _espacoMobile : 12),
+      SizedBox(height: widget.mobile ? _espacoMobile : 12),
       FocusTraversalOrder(
         order: const NumericFocusOrder(3),
         child: PrimaryButton(
@@ -458,8 +451,10 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       children: [
         ...camposTopo,
         if (blocoApenasPix != null) ...[
-          ...espacoEntre(_espacoMobile),
+          const SizedBox(height: 20),
+          if (preencherAltura) const Spacer(),
           blocoApenasPix,
+          if (preencherAltura) const Spacer(),
         ],
       ],
     );
@@ -1038,13 +1033,6 @@ class _ResumoAposta extends StatelessWidget {
   }
 }
 
-// Espaço entre os blocos do formulário no celular. Vale para TODOS eles, e a
-// sobra da tela é repartida igualmente entre os cinco: espaços de tamanhos
-// diferentes deixavam o prêmio parecer solto no meio do formulário, com folga
-// maior em volta dele do que entre nome e valor.
+// Espaço entre os blocos do formulário no celular: mais que os 10 do
+// desktop, para os alvos de toque não ficarem colados.
 const double _espacoMobile = 14;
-
-// Quanto cada espaço pode crescer além do mínimo. São cinco, então cobrem até
-// ~125px de sobra — o que um celular comum deixa. Acima disso o espaçamento
-// passaria a parecer vazio em vez de respiro.
-const double _folgaMaximaEntreBlocos = 25;
