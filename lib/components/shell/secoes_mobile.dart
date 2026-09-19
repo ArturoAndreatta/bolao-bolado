@@ -120,14 +120,130 @@ class FolhaSecoesMobile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  builder: (context, pedido, child) => Visibility(
-                    visible:
-                        item.indice == (resolverAtiva?.call(pedido) ?? pedido),
-                    maintainState: true,
-                    child: child!,
-                  ),
+                  builder: (context, pedido, child) {
+                    final indiceAtivo = resolverAtiva?.call(pedido) ?? pedido;
+                    return _SecaoAnimada(
+                      ativa: item.indice == indiceAtivo,
+                      posicao: itens.indexOf(item),
+                      posicaoAtiva: itens.indexWhere(
+                        (i) => i.indice == indiceAtivo,
+                      ),
+                      child: child!,
+                    );
+                  },
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Troca de seção com transição: a que sai esmaece e desliza um pouco para o
+/// lado oposto, a que entra esmaece de volta vindo do lado da barra em que o
+/// dedo tocou — tocar numa seção à direita traz o conteúdo da direita. O
+/// deslize é curto (6% da largura) de propósito: é o bastante para o olho
+/// ler direção, sem parecer que a tela inteira está se mexendo.
+///
+/// Fora da transição, a seção inativa sai do layout e da pintura como antes
+/// (Visibility com maintainState): continua montada, com streams, rolagem e
+/// texto digitado intactos, mas não custa nada por quadro. Só durante os
+/// 260ms da troca as duas são pintadas juntas.
+class _SecaoAnimada extends StatefulWidget {
+  final bool ativa;
+  final int posicao;
+  final int posicaoAtiva;
+  final Widget child;
+
+  const _SecaoAnimada({
+    required this.ativa,
+    required this.posicao,
+    required this.posicaoAtiva,
+    required this.child,
+  });
+
+  @override
+  State<_SecaoAnimada> createState() => _SecaoAnimadaState();
+}
+
+class _SecaoAnimadaState extends State<_SecaoAnimada>
+    with SingleTickerProviderStateMixin {
+  static const _duracao = Duration(milliseconds: 260);
+  static const _deslize = 0.06;
+
+  late final AnimationController _controle = AnimationController(
+    vsync: this,
+    duration: _duracao,
+    value: widget.ativa ? 1 : 0,
+  );
+  late final CurvedAnimation _curva = CurvedAnimation(
+    parent: _controle,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+
+  // Lado de onde a seção entra (ou para onde sai): -1 esquerda, 1 direita.
+  double _lado = 1;
+
+  @override
+  void didUpdateWidget(covariant _SecaoAnimada antiga) {
+    super.didUpdateWidget(antiga);
+    if (widget.ativa == antiga.ativa) return;
+    if (widget.ativa) {
+      // Entrando: vem do lado em que ela está em relação à que saiu.
+      _lado = widget.posicao >= antiga.posicaoAtiva ? 1 : -1;
+      _controle.forward();
+    } else {
+      // Saindo: vai para o lado oposto ao da que está entrando.
+      _lado = widget.posicaoAtiva >= widget.posicao ? -1 : 1;
+      _controle.reverse();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Reconstrói só nas pontas da animação (começo e fim), que é quando a
+    // visibilidade muda. Os quadros do meio ficam por conta das transições
+    // abaixo, sem rebuild.
+    _controle.addStatusListener(_aoMudarStatus);
+  }
+
+  void _aoMudarStatus(AnimationStatus status) {
+    if (status.isDismissed || status == AnimationStatus.forward) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _controle.removeStatusListener(_aoMudarStatus);
+    _curva.dispose();
+    _controle.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Visibility(
+      // Totalmente fora (inativa e parada em 0): some do layout e da
+      // pintura, mantendo o estado.
+      visible: widget.ativa || !_controle.isDismissed,
+      maintainState: true,
+      child: IgnorePointer(
+        // A que está saindo não pode receber o toque que era para a nova.
+        ignoring: !widget.ativa,
+        // FadeTransition e não Opacity: a transparência vai para a camada de
+        // composição, em vez de repintar a seção inteira (lista, chat) a cada
+        // quadro da troca.
+        child: FadeTransition(
+          opacity: _curva,
+          child: SlideTransition(
+            position: _curva.drive(
+              Tween(begin: Offset(_lado * _deslize, 0), end: Offset.zero),
+            ),
+            child: widget.child,
           ),
         ),
       ),
@@ -219,19 +335,60 @@ class BarraSecoesMobile extends StatelessWidget {
                 ),
               ],
             ),
-            child: Row(
-              // stretch: cada item ocupa a altura toda da barra. Sem isto a
-              // cápsula do item ativo encolhia para a altura do ícone e virava
-              // uma tarja fina no meio da pílula.
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final item in itens)
-                  _ItemBarra(
-                    item: item,
-                    ativo: item.indice == ativa,
-                    onTap: () => onSelecionar(item.indice),
-                  ),
-              ],
+            // A cápsula é UMA peça só, que desliza de um item para o outro
+            // (e muda de largura no caminho) — antes cada item pintava a
+            // própria, e trocar de seção só apagava uma e acendia outra.
+            // Para ela saber aonde ir, as larguras dos itens são calculadas
+            // aqui (o ativo pesa 5, os outros 3) em vez de deixadas a um
+            // Expanded, e itens e cápsula animam juntos, com a mesma curva.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const pesoAtivo = 5.0;
+                const pesoInativo = 3.0;
+                final posicaoAtiva = itens.indexWhere((i) => i.indice == ativa);
+                final pesoTotal = pesoAtivo + pesoInativo * (itens.length - 1);
+                final unidade = constraints.maxWidth / pesoTotal;
+                double larguraDe(int posicao) =>
+                    (posicao == posicaoAtiva ? pesoAtivo : pesoInativo) *
+                    unidade;
+                var esquerdaCapsula = 0.0;
+                for (var p = 0; p < posicaoAtiva; p++) {
+                  esquerdaCapsula += larguraDe(p);
+                }
+
+                return Stack(
+                  children: [
+                    if (posicaoAtiva >= 0)
+                      AnimatedPositioned(
+                        duration: _duracaoBarra,
+                        curve: _curvaBarra,
+                        top: 0,
+                        bottom: 0,
+                        left: esquerdaCapsula + 2,
+                        width: larguraDe(posicaoAtiva) - 4,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: cores.acaoPrimaria,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                        ),
+                      ),
+                    Row(
+                      // stretch: cada item ocupa a altura toda da barra.
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var p = 0; p < itens.length; p++)
+                          _ItemBarra(
+                            item: itens[p],
+                            ativo: p == posicaoAtiva,
+                            largura: larguraDe(p),
+                            onTap: () => onSelecionar(itens[p].indice),
+                          ),
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -240,31 +397,34 @@ class BarraSecoesMobile extends StatelessWidget {
   }
 }
 
+// Duração e curva da troca na barra, iguais para a cápsula, a largura dos
+// itens, a cor do ícone e a entrada do rótulo — tudo precisa chegar junto,
+// senão a cápsula termina antes do texto caber nela.
+const Duration _duracaoBarra = Duration(milliseconds: 320);
+const Curve _curvaBarra = Curves.easeOutCubic;
+
 class _ItemBarra extends StatelessWidget {
   final ItemSecaoMobile item;
   final bool ativo;
+  final double largura;
   final VoidCallback onTap;
 
   const _ItemBarra({
     required this.item,
     required this.ativo,
+    required this.largura,
     required this.onTap,
   });
-
-  // Curta de propósito: a cápsula crescendo é o charme da barra, mas as
-  // abas antigas já mostraram que troca de seção animada acima de ~200ms lê
-  // como atraso do toque.
-  static const _duracao = Duration(milliseconds: 180);
 
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
     final corConteudo = ativo ? cores.textoSobreAcao : cores.textoSuave;
 
-    return Expanded(
-      // O item ativo pega mais largura para caber o rótulo; os outros
-      // dividem o resto.
-      flex: ativo ? 5 : 3,
+    return AnimatedContainer(
+      duration: _duracaoBarra,
+      curve: _curvaBarra,
+      width: largura,
       child: Semantics(
         button: true,
         selected: ativo,
@@ -277,40 +437,37 @@ class _ItemBarra extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onTap,
-            child: AnimatedContainer(
-              duration: _duracao,
-              curve: Curves.easeOutCubic,
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(
-                color: ativo
-                    ? cores.acaoPrimaria
-                    : cores.acaoPrimaria.withValues(alpha: 0),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
+            // Cor do ícone e do rótulo acompanha a cápsula: clareia enquanto
+            // ela chega, escurece enquanto ela sai.
+            child: TweenAnimationBuilder<Color?>(
+              tween: ColorTween(end: corConteudo),
+              duration: _duracaoBarra,
+              curve: _curvaBarra,
+              builder: (context, cor, _) => Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _IconeComContador(
                     icone: item.icone,
-                    cor: corConteudo,
+                    cor: cor ?? corConteudo,
                     contador: item.contador,
                   ),
                   // Rótulo só no ativo, entrando com a largura da cápsula.
                   Flexible(
                     child: AnimatedSize(
-                      duration: _duracao,
-                      curve: Curves.easeOutCubic,
+                      duration: _duracaoBarra,
+                      curve: _curvaBarra,
                       child: ativo
                           ? Padding(
                               padding: const EdgeInsets.only(left: 8),
                               child: Text(
                                 item.rotulo,
                                 maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                overflow: TextOverflow.clip,
+                                softWrap: false,
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
-                                  color: corConteudo,
+                                  color: cor ?? corConteudo,
                                 ),
                               ),
                             )
