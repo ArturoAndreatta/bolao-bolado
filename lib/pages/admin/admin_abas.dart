@@ -1246,18 +1246,7 @@ class _AbaSalaState extends State<AbaSala> {
   @override
   Widget build(BuildContext context) {
     if (widget.carregando) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: SkeletonFormulario(
-          maxWidth: double.infinity,
-          linhas: [
-            [double.infinity],
-            [double.infinity],
-            [double.infinity, double.infinity],
-            [double.infinity],
-          ],
-        ),
-      );
+      return _skeletonSala(context);
     }
 
     final cores = AdminCores.de(context);
@@ -1293,6 +1282,114 @@ class _AbaSalaState extends State<AbaSala> {
                   dadosSala: widget.dadosSala,
                   quantidadeApostas: widget.quantidadeApostas,
                   cotasVendidas: widget.cotasVendidas,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// Placeholder da seção enquanto os dados da sala chegam.
+  ///
+  /// Repete o arranjo do formulário real: largura travada em 680, campos com
+  /// o mesmo espaçamento, o botão compacto à direita e — quando há espaço —
+  /// o card de resumo da sala ao lado. Antes eram quatro campos largos e um
+  /// botão do tamanho da tela, e a seção inteira se reorganizava ao carregar.
+  Widget _skeletonSala(BuildContext context) {
+    final formulario = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 680),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.mostrarCabecalho) ...[
+            const Shimmer(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SkeletonBox(width: 180, height: 18),
+                  SizedBox(height: 6),
+                  SkeletonBox(width: 320, height: 13),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          const SkeletonFormulario(
+            maxWidth: double.infinity,
+            gap: 14,
+            linhas: [
+              [double.infinity],
+              [double.infinity],
+              [double.infinity, double.infinity],
+              [double.infinity],
+            ],
+            // O botão real é compacto (170x38) e fica à direita.
+            botao: Align(
+              alignment: Alignment.centerRight,
+              child: SkeletonBox(width: 170, height: 38, radius: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: LayoutBuilder(
+        builder: (context, restricoes) {
+          // Mesmo limiar do conteúdo real: abaixo dele o resumo não aparece.
+          if (restricoes.maxWidth < 1040) {
+            return Align(alignment: Alignment.topLeft, child: formulario);
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(child: formulario),
+              const SizedBox(width: 24),
+              SizedBox(
+                width: 320,
+                child: AdminSecaoCard(
+                  child: Shimmer(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: const [
+                            SkeletonBox(width: 20, height: 20, radius: 5),
+                            SizedBox(width: 10),
+                            SkeletonBox(width: 150, height: 16),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        for (var i = 0; i < 4; i++) ...[
+                          if (i > 0) const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              SkeletonBox(
+                                width: [64, 44, 70, 130][i].toDouble(),
+                                height: 13,
+                              ),
+                              const Spacer(),
+                              SkeletonBox(
+                                width: [80, 56, 40, 96][i].toDouble(),
+                                height: 14,
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        SkeletonBox(
+                          width: double.infinity,
+                          height: 58,
+                          radius: AppRadii.md,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],

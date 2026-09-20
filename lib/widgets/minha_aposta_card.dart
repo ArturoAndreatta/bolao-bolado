@@ -583,27 +583,55 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     );
   }
 
-  List<Widget> _camposSkeleton(double largura) {
+  /// Placeholder do formulário, bloco a bloco, nas MESMAS alturas do
+  /// conteúdo real: dois campos, o resumo do prêmio (um campo no celular,
+  /// dois mostradores no computador), o campo de jogos e o botão.
+  ///
+  /// O campo de jogos faltava aqui, e o botão vinha 6px mais baixo que o
+  /// real — o formulário inteiro pulava para cima quando os dados chegavam.
+  List<Widget> _camposSkeleton(double largura, {required bool mobile}) {
+    final espaco = mobile ? _espacoMobile : 10.0;
+    Widget campo() =>
+        Shimmer(child: SkeletonCampoFormulario(maxWidth: largura));
+
     return [
       const SizedBox(height: 12),
-      Shimmer(child: SkeletonCampoFormulario(maxWidth: largura)),
-      const SizedBox(height: 10),
-      Shimmer(child: SkeletonCampoFormulario(maxWidth: largura)),
-      const SizedBox(height: 10),
-      ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: largura),
-        child: Shimmer(
-          child: Column(
-            children: [
-              const SkeletonBox(width: double.infinity, height: 48, radius: 10),
-              const SizedBox(height: 8),
-              const SkeletonBox(width: double.infinity, height: 48, radius: 10),
-            ],
+      campo(),
+      SizedBox(height: espaco),
+      campo(),
+      SizedBox(height: espaco),
+      if (mobile)
+        // _ResumoAposta é um InputDecorator com a mesma decoração dos
+        // campos, então tem a mesma altura deles.
+        campo()
+      else
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: largura),
+          child: Shimmer(
+            child: Column(
+              children: const [
+                SkeletonBox(
+                  width: double.infinity,
+                  height: _alturaDisplayInfo,
+                  radius: 10,
+                ),
+                SizedBox(height: 6),
+                SkeletonBox(
+                  width: double.infinity,
+                  height: _alturaDisplayInfo,
+                  radius: 10,
+                ),
+              ],
+            ),
           ),
         ),
+      SizedBox(height: espaco),
+      // Campo "Meus jogos" — também um InputDecorator de 54.
+      campo(),
+      SizedBox(height: mobile ? _espacoMobile : 12),
+      Shimmer(
+        child: SkeletonBox(width: largura, height: _alturaBotao, radius: 12),
       ),
-      const SizedBox(height: 12),
-      Shimmer(child: SkeletonBox(width: largura, height: 48, radius: 12)),
       const SizedBox(height: 12),
     ];
   }
@@ -612,14 +640,29 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     return CustomCard(
       isChild: true,
       height: altura,
-      children: _camposSkeleton(largura),
+      children: _camposSkeleton(largura, mobile: widget.mobile),
     );
   }
 
   Widget _buildSkeletonConteudo(double largura) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: _camposSkeleton(largura),
+      children: [
+        // No celular o formulário não vem sozinho: o bloco da situação do
+        // sorteio fica acima dele, e sem reservá-lo aqui os campos nascem no
+        // topo da tela e descem de uma vez quando a sala chega.
+        if (widget.mobile) ...[
+          const Shimmer(
+            child: SkeletonBox(
+              width: double.infinity,
+              height: _alturaSituacao,
+              radius: 14,
+            ),
+          ),
+          const SizedBox(height: _folgaPix - 12),
+        ],
+        ..._camposSkeleton(largura, mobile: widget.mobile),
+      ],
     );
   }
 
@@ -1085,6 +1128,17 @@ class _ResumoAposta extends StatelessWidget {
 // Espaço entre os blocos do formulário no celular: mais que os 10 do
 // desktop, para os alvos de toque não ficarem colados.
 const double _espacoMobile = 14;
+
+// Alturas dos blocos do formulário, usadas pelo skeleton para reservar
+// exatamente o espaço que o conteúdo real vai ocupar.
+//
+// _DisplayInfo: padding vertical 8 + a linha do valor (corpo 16).
+// PrimaryButton não-compacto tem 54 (ver buttons.dart) — o skeleton usava
+// 48 e o botão saltava ao aparecer.
+// _SituacaoAposta: a folhinha de 96 mais o padding de 14 do bloco.
+const double _alturaDisplayInfo = 38;
+const double _alturaBotao = 54;
+const double _alturaSituacao = 124;
 
 // Folga mínima entre os três blocos da aposta no celular (sorteio,
 // formulário, Pix) — e abaixo do Pix. Quase o dobro do espaço entre os

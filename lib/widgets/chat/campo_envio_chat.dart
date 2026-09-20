@@ -66,17 +66,36 @@ class CampoEnvioChat extends StatelessWidget {
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
     if (verificandoPermissao) {
+      // Mesma moldura e a MESMA altura do estado liberado (campo redondo de
+      // 38 mais o botão de enviar), e não a faixa baixa do aviso de bloqueio:
+      // é o estado que a maioria vê a seguir, e a diferença de altura entre
+      // os dois fazia o rodapé do chat pular quando a permissão chegava.
       return Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: cores.borda, width: 1)),
         ),
-        child: const Shimmer(
+        child: Shimmer(
           child: Row(
             children: [
-              Icon(Icons.lock_outline, size: 16, color: Colors.transparent),
-              SizedBox(width: 8),
-              Expanded(child: SkeletonBox(width: double.infinity, height: 12)),
+              Expanded(
+                child: Container(
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: cores.campo,
+                    borderRadius: AppRadii.circularPill,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: cores.campo,
+                  shape: BoxShape.circle,
+                ),
+              ),
             ],
           ),
         ),

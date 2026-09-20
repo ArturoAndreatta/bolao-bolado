@@ -283,6 +283,39 @@ class _ChanceFracaoRevealState extends State<ChanceFracaoReveal> {
 
 enum DestaqueCor { amarelo, verde, azul }
 
+/// Par fundo/borda/texto de um card de estatística, por cor de destaque.
+///
+/// Fica aqui, e não inline no [CardEstatistica], porque o SKELETON do card
+/// desenha a mesma moldura ([SkeletonCardEstatistica]): com a regra copiada
+/// nos dois, o placeholder nasce de uma cor e a tela troca para outra quando
+/// os dados chegam.
+({Color fundo, Color borda, Color texto}) paletaDestaque(
+  AppCores cores,
+  DestaqueCor cor, {
+  bool destaque = true,
+}) {
+  if (!destaque) {
+    return (fundo: cores.card, borda: cores.borda, texto: cores.textoSuave);
+  }
+  return switch (cor) {
+    DestaqueCor.verde => (
+      fundo: cores.fundoVerde,
+      borda: cores.bordaVerde,
+      texto: cores.textoVerde,
+    ),
+    DestaqueCor.azul => (
+      fundo: cores.fundoAzul,
+      borda: cores.bordaAzul,
+      texto: cores.textoAzul,
+    ),
+    DestaqueCor.amarelo => (
+      fundo: cores.fundoAmarelo,
+      borda: cores.bordaAmarelo,
+      texto: cores.textoAmarelo,
+    ),
+  };
+}
+
 class CardEstatistica extends StatelessWidget {
   final String titulo;
   final String valor;
@@ -319,27 +352,14 @@ class CardEstatistica extends StatelessWidget {
     // card escuro é indistinguível do próprio card: os três indicadores
     // sumiam da tela. Quem resolve "quão insinuada" a cor deve ser é a
     // paleta — é lá que dá para calibrar olhando o tema inteiro.
-    final corFundo = !destaque
-        ? cores.card
-        : destaqueCor == DestaqueCor.verde
-        ? cores.fundoVerde
-        : destaqueCor == DestaqueCor.azul
-        ? cores.fundoAzul
-        : cores.fundoAmarelo;
-    final corBorda = !destaque
-        ? cores.borda
-        : destaqueCor == DestaqueCor.verde
-        ? cores.bordaVerde
-        : destaqueCor == DestaqueCor.azul
-        ? cores.bordaAzul
-        : cores.bordaAmarelo;
+    final paleta = paletaDestaque(cores, destaqueCor, destaque: destaque);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
-        color: corFundo,
+        color: paleta.fundo,
         borderRadius: AppRadii.circularSmd,
-        border: Border.all(color: corBorda, width: 1),
+        border: Border.all(color: paleta.borda, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -356,13 +376,7 @@ class CardEstatistica extends StatelessWidget {
               fontWeight: FontWeight.w600,
               // `texto*` de estado é calibrado contra o `fundo*` do mesmo
               // par, nos dois temas — daí não haver ramo por brilho aqui.
-              color: !destaque
-                  ? cores.textoSuave
-                  : destaqueCor == DestaqueCor.verde
-                  ? cores.textoVerde
-                  : destaqueCor == DestaqueCor.azul
-                  ? cores.textoAzul
-                  : cores.textoAmarelo,
+              color: paleta.texto,
             ),
           ),
           if (infoTooltip != null) ...[

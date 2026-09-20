@@ -484,12 +484,18 @@ class _Tile extends StatelessWidget {
   final Widget valor;
   final String? detalhe;
 
+  /// Substitui o texto de [detalhe] por um widget — é o que o skeleton usa
+  /// para reservar a linha de detalhe com um bloco em vez de texto. Sem ela,
+  /// o tile nasceria mais baixo e cresceria quando o dado chegasse.
+  final Widget? detalheWidget;
+
   const _Tile({
     required this.cor,
     required this.rotulo,
     required this.icone,
     required this.valor,
     this.detalhe,
+    this.detalheWidget,
   });
 
   @override
@@ -536,7 +542,10 @@ class _Tile extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: valor,
           ),
-          if (detalhe != null) ...[
+          if (detalheWidget != null) ...[
+            const SizedBox(height: 2),
+            detalheWidget!,
+          ] else if (detalhe != null) ...[
             const SizedBox(height: 2),
             Text(
               detalhe!,
@@ -574,35 +583,53 @@ class _ValorTexto extends StatelessWidget {
   }
 }
 
+/// Placeholder dos indicadores do bolão na tela inicial.
+///
+/// São os TILES REAIS (mesma cor, ícone e rótulo de [_IndicadoresBolao]) com
+/// um bloco no lugar do número: o rótulo "Prêmio" não depende de dado nenhum,
+/// e o que está carregando é só a quantia. Com blocos cinza maciços no lugar
+/// dos três, a tela trocava de cor e de altura ao mesmo tempo.
 class _SkeletonBolao extends StatelessWidget {
   const _SkeletonBolao();
 
   @override
   Widget build(BuildContext context) {
-    return const Shimmer(
+    return Shimmer(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SkeletonBox(width: double.infinity, height: 66, radius: AppRadii.smd),
-          SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: SkeletonBox(
-                  width: double.infinity,
-                  height: 70,
-                  radius: AppRadii.smd,
+          const _Tile(
+            cor: _CorTile.verde,
+            rotulo: 'Prêmio',
+            icone: Icons.emoji_events_outlined,
+            valor: SkeletonBox(width: 186, height: 24),
+          ),
+          const SizedBox(height: 8),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: const [
+                Expanded(
+                  child: _Tile(
+                    cor: _CorTile.azul,
+                    rotulo: 'Sorteio',
+                    icone: Icons.event_outlined,
+                    valor: SkeletonBox(width: 124, height: 17),
+                    detalheWidget: SkeletonBox(width: 78, height: 12),
+                  ),
                 ),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: SkeletonBox(
-                  width: double.infinity,
-                  height: 70,
-                  radius: AppRadii.smd,
+                SizedBox(width: 8),
+                Expanded(
+                  child: _Tile(
+                    cor: _CorTile.amarelo,
+                    rotulo: 'Participantes',
+                    icone: Icons.groups_outlined,
+                    valor: SkeletonBox(width: 40, height: 17),
+                    detalheWidget: SkeletonBox(width: 60, height: 12),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

@@ -113,31 +113,43 @@ class _CadastrarSalaFormState extends State<CadastrarSalaForm> {
               text: 'Editar Sala',
               subtitle: 'Atualize as configurações da sala',
             ),
-            const SizedBox(height: 20),
-            SkeletonFormulario(
-              linhas: isMobile
-                  ? const [
-                      [480],
-                      [480],
-                      [480],
-                      [480],
-                      [480],
-                      [480],
-                      [480],
-                      [480],
-                    ]
-                  : [
-                      [_fieldMaxWidth],
-                      [_fieldMaxWidth],
-                      [_fieldMaxWidth],
-                      [_halfWidth, _halfWidth],
-                      [_halfWidth, _halfWidth],
-                      [_fieldMaxWidth],
-                      [_fieldMaxWidth],
-                    ],
-              maxWidth: maxWidth,
+            // Mesmo card interno que envolve o formulário de verdade: sem
+            // ele o placeholder ficava direto sobre o card externo, e a
+            // moldura aparecia do nada quando os dados chegavam.
+            CustomCard(
+              isChild: true,
+              children: [
+                const SizedBox(height: 20),
+                SkeletonFormulario(
+                  // São NOVE campos no celular (nome, descrição, sorteio, data,
+                  // hora, prêmio, valor máximo, senha e chave PIX) — o skeleton
+                  // reservava oito, e o formulário nascia mais curto.
+                  linhas: isMobile
+                      ? const [
+                          [480],
+                          [480],
+                          [480],
+                          [480],
+                          [480],
+                          [480],
+                          [480],
+                          [480],
+                          [480],
+                        ]
+                      : [
+                          [_fieldMaxWidth],
+                          [_fieldMaxWidth],
+                          [_fieldMaxWidth],
+                          [_halfWidth, _halfWidth],
+                          [_halfWidth, _halfWidth],
+                          [_fieldMaxWidth],
+                          [_fieldMaxWidth],
+                        ],
+                  maxWidth: maxWidth,
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
-            const SizedBox(height: 20),
           ],
         ),
       );

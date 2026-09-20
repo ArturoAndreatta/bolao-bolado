@@ -370,7 +370,9 @@ class _PainelParticipantesState extends State<PainelParticipantes> {
     final linhasFiltradas = _linhasFiltradas();
 
     final conteudo = _loadingEfetivo
-        ? const SkeletonTabela()
+        // Mesmo alturaFixa da tabela real logo abaixo: é ele que decide se a
+        // tabela preenche a altura cedida ou cresce com o conteúdo.
+        ? SkeletonTabela(alturaFixa: widget.expandirConteudo)
         : TabelaApostas(
             rows: linhasFiltradas,
             colunaOrdenada: _colunaOrdenada,

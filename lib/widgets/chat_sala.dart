@@ -783,13 +783,9 @@ class _SkeletonMensagens extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: const [
-            SkeletonBolhaMensagem(isMinha: false, largura: 140),
-            SkeletonBolhaMensagem(isMinha: false, largura: 100),
-            SkeletonBolhaMensagem(isMinha: true, largura: 120),
-            SkeletonBolhaMensagem(isMinha: false, largura: 160),
-            SkeletonBolhaMensagem(isMinha: true, largura: 90),
-          ],
+          // Lista reverse:true: a conversa começa no pé do chat.
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: kConversaSkeleton,
         ),
       ),
     );

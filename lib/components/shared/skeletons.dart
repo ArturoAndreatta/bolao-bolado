@@ -339,10 +339,12 @@ class SkeletonCardSala extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
+                // Nome em corpo 16 e descrição em 14, separados por 4 — as
+                // mesmas medidas do card real.
                 children: const [
                   SkeletonBox(width: 160, height: 16),
-                  SizedBox(height: 6),
-                  SkeletonBox(width: 100, height: 13),
+                  SizedBox(height: 4),
+                  SkeletonBox(width: 108, height: 14),
                 ],
               ),
             ),
@@ -380,10 +382,20 @@ class SkeletonFormulario extends StatelessWidget {
   final List<List<double>> linhas;
   final double maxWidth;
 
+  /// Espaço entre as linhas de campos — o mesmo do formulário que ele
+  /// substitui (15 nos cadastros, 14 no painel admin).
+  final double gap;
+
+  /// Botão do fim do formulário. Null desenha o botão largo padrão; a aba
+  /// Sala do painel, por exemplo, tem um botão compacto alinhado à direita.
+  final Widget? botao;
+
   const SkeletonFormulario({
     super.key,
     required this.linhas,
     this.maxWidth = 480,
+    this.gap = 15,
+    this.botao,
   });
 
   @override
@@ -409,16 +421,17 @@ class SkeletonFormulario extends StatelessWidget {
                   ],
                 ),
               ),
-            const SizedBox(height: 15),
+            SizedBox(height: gap),
           ],
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
-            child: const SkeletonBox(
-              width: double.infinity,
-              height: 48,
-              radius: 12,
-            ),
-          ),
+          botao ??
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: const SkeletonBox(
+                  width: double.infinity,
+                  height: 54,
+                  radius: 12,
+                ),
+              ),
         ],
       ),
     );
