@@ -497,10 +497,7 @@ class _AbaParticipantesState extends State<AbaParticipantes> {
   @override
   Widget build(BuildContext context) {
     if (widget.carregando) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: SkeletonListaApostasPendentes(),
-      );
+      return SkeletonSecaoParticipantes(rolando: widget.rolarLista);
     }
 
     if (!widget.rolarLista) return _conteudo(context, largo: false);
@@ -1005,10 +1002,7 @@ class _AbaRankingState extends State<AbaRanking> {
   Widget build(BuildContext context) {
     final cores = AdminCores.de(context);
     if (widget.carregando) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: SkeletonDashboardStats(),
-      );
+      return SkeletonListaRanking(rolando: widget.rolarLista);
     }
 
     final rankingCompleto = [...widget.bets]

@@ -416,12 +416,23 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
     return precisaScroll ? SingleChildScrollView(child: conteudo) : conteudo;
   }
 
+  /// Placeholder do painel enquanto a permissão e os dados carregam.
+  ///
+  /// [faixa] escolhe entre o painel do desktop inteiro (faixa + menu + a
+  /// seção de Participantes, que é a que abre) e a pilha de números do
+  /// celular, que é a seção Resumo. Os dois desenham o conteúdo NO LUGAR em
+  /// que ele vai aparecer — antes o desktop mostrava só a régua de
+  /// indicadores, esticada no meio de um card vazio, e a tela inteira se
+  /// reorganizava quando os dados chegavam.
   Widget _skeleton({bool faixa = false}) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: faixa
-          ? const SkeletonFaixaIndicadores()
-          : const SkeletonDashboardStats(),
+    if (faixa) {
+      return const SkeletonPainelAdmin(larguraMenu: _larguraMenu);
+    }
+    // Scroll no celular: a pilha de números passa da altura da tela em
+    // aparelhos baixos, e Column sozinho não rola nem clipa.
+    return const SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: SkeletonDashboardStats(),
     );
   }
 }
