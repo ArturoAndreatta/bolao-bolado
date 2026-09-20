@@ -490,9 +490,13 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
         // respiro entre si.
         const SizedBox(height: _folgaPix - 12),
         folga(),
+        const SeparadorBlocosAposta(),
+        folga(),
         ...camposTopo,
         if (blocoApenasPix != null) ...[
           const SizedBox(height: _folgaPix),
+          folga(),
+          const SeparadorBlocosAposta(),
           folga(),
           blocoApenasPix,
           // Menor que a de cima porque a seção já tem 12px de respiro no pé;
@@ -633,37 +637,43 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       Shimmer(
         child: SkeletonBox(width: largura, height: _alturaBotao, radius: 12),
       ),
-      // O card do Pix vem logo abaixo do Confirmar e é o bloco mais alto da
-      // tela — sem reservá-lo, o formulário ficava com um vazio embaixo e o
-      // Pix caía nele de uma vez. No celular ele é outro card (Copia e Cola)
-      // e a coluna reparte a sobra com folgas elásticas, então lá não há
-      // altura fixa para reservar.
-      if (!mobile) ...[
-        const SizedBox(height: 12),
-        ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: largura),
-          child: const _SkeletonPix(),
-        ),
-      ],
       const SizedBox(height: 12),
     ];
   }
+
+  /// O card do Pix, que no conteúdo real vem logo abaixo do Confirmar. É o
+  /// bloco mais alto da tela depois do formulário: sem reservá-lo, a tela
+  /// ficava com um vazio embaixo do botão e o Pix caía nele de uma vez.
+  Widget _pixSkeleton(double largura) => ConstrainedBox(
+    constraints: BoxConstraints(maxWidth: largura),
+    child: _SkeletonPix(mobile: widget.mobile),
+  );
 
   Widget _buildSkeleton(double? altura, double largura) {
     return CustomCard(
       isChild: true,
       height: altura,
-      children: _camposSkeleton(largura, mobile: widget.mobile),
+      children: [
+        ..._camposSkeleton(largura, mobile: widget.mobile),
+        _pixSkeleton(largura),
+        const SizedBox(height: 12),
+      ],
     );
   }
 
   Widget _buildSkeletonConteudo(double largura) {
+    // Mesma montagem da coluna real do celular (ver colunaMobile): situação
+    // do sorteio, formulário e Pix, com a sobra da tela repartida em folgas
+    // elásticas entre os três blocos. Sem elas o placeholder empilhava tudo
+    // no topo e deixava metade da tela vazia — e no instante em que os dados
+    // chegavam, os blocos se espalhavam de uma vez.
+    final preencherAltura = aparelhoMovel;
+    Widget folga() =>
+        preencherAltura ? const Spacer() : const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // No celular o formulário não vem sozinho: o bloco da situação do
-        // sorteio fica acima dele, e sem reservá-lo aqui os campos nascem no
-        // topo da tela e descem de uma vez quando a sala chega.
         if (widget.mobile) ...[
           const Shimmer(
             child: SkeletonBox(
@@ -673,8 +683,18 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
             ),
           ),
           const SizedBox(height: _folgaPix - 12),
+          folga(),
+          const SeparadorBlocosAposta(),
+          folga(),
         ],
         ..._camposSkeleton(largura, mobile: widget.mobile),
+        const SizedBox(height: _folgaPix - 12),
+        folga(),
+        const SeparadorBlocosAposta(),
+        folga(),
+        _pixSkeleton(largura),
+        const SizedBox(height: _folgaPix - 12),
+        folga(),
       ],
     );
   }
@@ -1019,12 +1039,61 @@ class _BotaoEscolherJogos extends StatelessWidget {
 /// quadrado do QR à esquerda, as linhas da chave à direita e o botão de
 /// copiar embaixo. Um retângulo cinza do tamanho certo reservava o espaço,
 /// mas não parecia o card que chega.
+/// Linha fina que separa os três blocos da tela de aposta no celular
+/// (situação do sorteio, formulário e Pix).
+///
+/// Fica no MEIO do vão, entre as duas folgas elásticas que repartem a sobra
+/// da tela: encostada num dos blocos, ela leria como parte dele, e não como
+/// a fronteira entre os dois. O mesmo widget entra no placeholder, senão a
+/// tela ganharia duas linhas do nada ao terminar de carregar.
+class SeparadorBlocosAposta extends StatelessWidget {
+  const SeparadorBlocosAposta({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(height: 1, thickness: 1, color: AppCores.de(context).borda);
+  }
+}
+
 class _SkeletonPix extends StatelessWidget {
-  const _SkeletonPix();
+  /// No celular o card do Pix é outro (Copia e Cola): logo, título e um
+  /// botão largo de copiar, sem o QR — que ali não serve para nada, já que
+  /// o aparelho que mostra o código é o mesmo que teria de lê-lo.
+  final bool mobile;
+
+  const _SkeletonPix({this.mobile = false});
 
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
+    if (mobile) {
+      return Container(
+        height: _alturaPixDesktop,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cores.campo,
+          borderRadius: AppRadii.circularMd,
+          border: Border.all(color: cores.bordaCampo),
+        ),
+        child: Shimmer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Row(
+                children: [
+                  SkeletonBox(width: 30, height: 30, radius: 9),
+                  SizedBox(width: 10),
+                  SkeletonBox(width: 168, height: 17),
+                ],
+              ),
+              SizedBox(height: 12),
+              SkeletonBox(width: double.infinity, height: 52, radius: 12),
+            ],
+          ),
+        ),
+      );
+    }
     return Container(
       height: _alturaPixDesktop,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

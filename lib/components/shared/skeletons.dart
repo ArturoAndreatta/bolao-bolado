@@ -90,8 +90,8 @@ class SkeletonCampoFormulario extends StatelessWidget {
   final double maxWidth;
 
   /// Altura do campo real (CustomField e os InputDecorator com a mesma
-  /// decoração).
-  static const double altura = 54;
+  /// decoração), medida do widget de verdade.
+  static const double altura = 55;
 
   const SkeletonCampoFormulario({super.key, this.maxWidth = 480});
 
