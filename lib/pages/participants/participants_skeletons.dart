@@ -4,6 +4,7 @@ import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/pages/participants/participants_estatisticas.dart';
 import 'package:bolao_bolado/pages/participants/participants_lista.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart';
+import 'package:bolao_bolado/widgets/chat/campo_envio_chat.dart';
 import 'package:flutter/material.dart';
 
 /// Placeholder de um card de estatística — mesma moldura e as MESMAS cores
@@ -533,30 +534,42 @@ class SkeletonChatSala extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: cores.borda, width: 1)),
               ),
-              child: Shimmer(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 38,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        decoration: BoxDecoration(
-                          color: cores.campo,
-                          borderRadius: AppRadii.circularPill,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      // Mesma altura do campo real (ver kAlturaCampoChat):
+                      // com 38 aqui, a barra de envio inteira ficava 10px
+                      // mais baixa que a de verdade.
+                      height: kAlturaCampoChat,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      alignment: Alignment.centerLeft,
+                      decoration: BoxDecoration(
+                        color: cores.campo,
+                        borderRadius: AppRadii.circularPill,
+                      ),
+                      child: const Shimmer(
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: 0.55,
+                          child: SkeletonBox(
+                            width: double.infinity,
+                            height: 13,
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: cores.campo,
-                        shape: BoxShape.circle,
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: cores.campo,
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],

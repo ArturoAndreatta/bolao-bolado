@@ -33,6 +33,12 @@ class _IntentAceitar extends Intent {
 /// Vive em arquivo próprio, e não dentro de `chat_sala.dart`, para poder ser
 /// montado num teste de widget sem subir o chat inteiro (que depende de
 /// Firebase). O teste que existe hoje trava a regressão descrita em [_campo].
+/// Altura do campo de texto do chat (o TextField com a decoração de pílula).
+/// Medida do campo real: é ela que define a altura da barra de envio, e o
+/// placeholder precisa da mesma, senão o rodapé do chat pula quando a
+/// permissão chega.
+const double kAlturaCampoChat = 48;
+
 class CampoEnvioChat extends StatelessWidget {
   final bool verificandoPermissao;
   final bool podeEnviar;
@@ -75,29 +81,38 @@ class CampoEnvioChat extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: cores.borda, width: 1)),
         ),
-        child: Shimmer(
-          child: Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: cores.campo,
-                    borderRadius: AppRadii.circularPill,
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: kAlturaCampoChat,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.centerLeft,
+                decoration: BoxDecoration(
+                  color: cores.campo,
+                  borderRadius: AppRadii.circularPill,
+                ),
+                child: const Shimmer(
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: 0.55,
+                    child: SkeletonBox(width: double.infinity, height: 13),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: cores.campo,
-                  shape: BoxShape.circle,
-                ),
+            ),
+            const SizedBox(width: 8),
+            // O botão de enviar já existe com a cor de ação; aqui ele fica
+            // apagado, no tamanho de alvo de toque que terá depois.
+            Container(
+              width: compacto ? 44 : 38,
+              height: compacto ? 44 : 38,
+              decoration: BoxDecoration(
+                color: cores.campo,
+                shape: BoxShape.circle,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }

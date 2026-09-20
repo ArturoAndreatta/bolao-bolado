@@ -11,6 +11,7 @@ import 'package:bolao_bolado/components/shared/header_paginas.dart';
 import 'package:bolao_bolado/components/shared/skeletons.dart';
 import 'package:bolao_bolado/components/shared/snackbar_deslizante.dart';
 import 'package:bolao_bolado/core/aparelho.dart';
+import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
@@ -641,13 +642,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
         const SizedBox(height: 12),
         ConstrainedBox(
           constraints: BoxConstraints(maxWidth: largura),
-          child: const Shimmer(
-            child: SkeletonBox(
-              width: double.infinity,
-              height: _alturaPixDesktop,
-              radius: 12,
-            ),
-          ),
+          child: const _SkeletonPix(),
         ),
       ],
       const SizedBox(height: 12),
@@ -1020,6 +1015,58 @@ class _BotaoEscolherJogos extends StatelessWidget {
 /// O rótulo também encolheu (13.5 contra os 14 do campo) e o valor engrossou:
 /// num campo o texto grande é o que a PESSOA escreveu; aqui é o que o app
 /// respondeu.
+/// Placeholder do card do Pix no computador: a moldura do card real com o
+/// quadrado do QR à esquerda, as linhas da chave à direita e o botão de
+/// copiar embaixo. Um retângulo cinza do tamanho certo reservava o espaço,
+/// mas não parecia o card que chega.
+class _SkeletonPix extends StatelessWidget {
+  const _SkeletonPix();
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    return Container(
+      height: _alturaPixDesktop,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: cores.campo,
+        borderRadius: AppRadii.circularMd,
+        border: Border.all(color: cores.bordaCampo, width: 1.5),
+      ),
+      child: Shimmer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  const SkeletonBox(width: 66, height: 66, radius: 8),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        SkeletonBox(width: 54, height: 14),
+                        SizedBox(height: 8),
+                        SkeletonBox(width: double.infinity, height: 12),
+                        SizedBox(height: 6),
+                        SkeletonBox(width: 96, height: 11),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const SkeletonBox(width: double.infinity, height: 30, radius: 10),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DisplayInfo extends StatelessWidget {
   final String titulo;
   final String valor;

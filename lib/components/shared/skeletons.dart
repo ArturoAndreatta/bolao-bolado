@@ -79,36 +79,49 @@ class SkeletonBox extends StatelessWidget {
   }
 }
 
-/// Placeholder de um campo de formulário (ícone + retângulo do tamanho do
-/// campo real), usado em telas com Form que carregam dados antes de exibir.
+/// Placeholder de um campo de formulário: a moldura REAL do campo (mesmo
+/// fundo, raio e altura) com o ícone e a linha de texto brilhando por dentro.
+///
+/// O [Shimmer] fica dentro, e não em volta: envolvendo o campo inteiro, o
+/// gradiente pintava a moldura e o conteúdo com a mesma cor, e o campo virava
+/// um retângulo chapado — um formulário de seis retângulos iguais, que não
+/// lembra em nada o formulário que chega depois.
 class SkeletonCampoFormulario extends StatelessWidget {
   final double maxWidth;
+
+  /// Altura do campo real (CustomField e os InputDecorator com a mesma
+  /// decoração).
+  static const double altura = 54;
 
   const SkeletonCampoFormulario({super.key, this.maxWidth = 480});
 
   @override
   Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: Container(
-        height: 54,
+        height: altura,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: AppCores.de(context).campo,
+          color: cores.campo,
           borderRadius: AppRadii.circularLg,
+          border: Border.all(color: cores.bordaCampo),
         ),
-        child: Row(
-          children: [
-            const SkeletonBox(width: 20, height: 20, radius: 5),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: 0.6,
-                child: const SkeletonBox(width: double.infinity, height: 14),
+        child: Shimmer(
+          child: Row(
+            children: [
+              const SkeletonBox(width: 20, height: 20, radius: 5),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: 0.6,
+                  child: const SkeletonBox(width: double.infinity, height: 14),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -400,40 +413,42 @@ class SkeletonFormulario extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Shimmer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          for (final linha in linhas) ...[
-            if (linha.length == 1)
-              SkeletonCampoFormulario(maxWidth: linha.first)
-            else
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxWidth),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < linha.length; i++) ...[
-                      Expanded(
-                        child: SkeletonCampoFormulario(maxWidth: linha[i]),
-                      ),
-                      if (i != linha.length - 1) const SizedBox(width: 15),
-                    ],
+    // Sem Shimmer em volta: cada campo traz o seu, por dentro da moldura —
+    // envolvendo o formulário todo, o gradiente apagaria as molduras.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (final linha in linhas) ...[
+          if (linha.length == 1)
+            SkeletonCampoFormulario(maxWidth: linha.first)
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Row(
+                children: [
+                  for (var i = 0; i < linha.length; i++) ...[
+                    Expanded(
+                      child: SkeletonCampoFormulario(maxWidth: linha[i]),
+                    ),
+                    if (i != linha.length - 1) const SizedBox(width: 15),
                   ],
-                ),
+                ],
               ),
-            SizedBox(height: gap),
-          ],
-          botao ??
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxWidth),
-                child: const SkeletonBox(
+            ),
+          SizedBox(height: gap),
+        ],
+        botao ??
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: const Shimmer(
+                child: SkeletonBox(
                   width: double.infinity,
                   height: 54,
                   radius: 12,
                 ),
               ),
-        ],
-      ),
+            ),
+      ],
     );
   }
 }
