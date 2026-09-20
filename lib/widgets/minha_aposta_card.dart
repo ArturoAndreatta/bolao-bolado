@@ -494,10 +494,16 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
         folga(),
         ...camposTopo,
         if (blocoApenasPix != null) ...[
-          const SizedBox(height: _folgaPix),
+          // Os 14 acima e abaixo do separador são os mesmos do separador de
+          // cima (que tem 14 de um lado e os 12 do topo do formulário do
+          // outro). Com os 26 de antes só em cima, a linha encostava no card
+          // do Pix e ficava longe do botão — parecia pertencer ao card, não
+          // separar os dois.
+          const SizedBox(height: _folgaPix - 12),
           folga(),
           const SeparadorBlocosAposta(),
           folga(),
+          const SizedBox(height: _folgaPix - 12),
           blocoApenasPix,
           // Menor que a de cima porque a seção já tem 12px de respiro no pé;
           // somadas, as duas folgas do Pix ficam iguais.
@@ -692,6 +698,7 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
         folga(),
         const SeparadorBlocosAposta(),
         folga(),
+        const SizedBox(height: _folgaPix - 12),
         _pixSkeleton(largura),
         const SizedBox(height: _folgaPix - 12),
         folga(),
