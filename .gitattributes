@@ -1,0 +1,31 @@
+# Fim de linha: LF em tudo, inclusive no Windows.
+#
+# Por que: o `flutter pub get` regera os registrants de plugin (linux/,
+# macos/, windows/) escrevendo LF, enquanto o Git no Windows devolve CRLF no
+# checkout (core.autocrlf=true, que é o padrão da instalação). O resultado
+# era esses cinco arquivos aparecendo como modificados depois de todo deploy,
+# com `git diff` VAZIO — a diferença era só o fim de linha, e não dava para
+# commitar nem descartar de forma permanente.
+#
+# LF é o denominador comum: o repositório já guarda tudo assim, o CI roda no
+# Linux e o `dart format` trabalha com LF (um arquivo que chegasse lá com
+# CRLF reprovaria no `--set-exit-if-changed`).
+#
+# Não há nenhum .bat/.cmd/.ps1 versionado aqui, que é o único caso em que
+# CRLF ainda faz falta no Windows.
+* text=auto eol=lf
+
+# Binários: nunca normalizar — a conversão corromperia o arquivo.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.jar binary
+*.keystore binary
