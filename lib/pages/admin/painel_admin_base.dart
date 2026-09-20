@@ -651,7 +651,6 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
       bets: bets,
       carregandoStats: carregandoStats,
       totalPendentes: _totalPendentes(pendentesSnapshot),
-      precoCota: precoCota,
       faixa: faixa,
     );
   }

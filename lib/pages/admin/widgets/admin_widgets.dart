@@ -472,16 +472,22 @@ class AdminBarraDistribuicao extends StatelessWidget {
 
 /// Um número da faixa de indicadores do topo do painel (desktop).
 ///
-/// [progresso] (0..1) troca a linha de apoio por uma barra fina — usado no
+/// [progresso] (0..1) acrescenta uma barra fina abaixo do número — usado no
 /// indicador de apostas verificadas, onde "quanto da fila já foi conferida"
 /// se lê de relance melhor como barra do que como texto.
+///
+/// [valorSecundario] entra na MESMA linha do número, menor e em tom suave —
+/// é o total contra o qual o número se lê (o arrecadado confirmado vem
+/// primeiro, o apostado inteiro logo depois). Fica junto de propósito, e não
+/// numa linha de apoio embaixo: separado, vira legenda que ninguém lê; na
+/// mesma linha, os dois se comparam de uma olhada só.
 @immutable
 class AdminIndicador {
   final IconData icone;
   final String rotulo;
   final String valor;
   final Color cor;
-  final String? apoio;
+  final String? valorSecundario;
   final double? progresso;
 
   const AdminIndicador({
@@ -489,7 +495,7 @@ class AdminIndicador {
     required this.rotulo,
     required this.valor,
     required this.cor,
-    this.apoio,
+    this.valorSecundario,
     this.progresso,
   });
 }
@@ -584,8 +590,21 @@ class _CelulaIndicador extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    item.valor,
+                  child: Text.rich(
+                    TextSpan(
+                      text: item.valor,
+                      children: [
+                        if (item.valorSecundario != null)
+                          TextSpan(
+                            text: ' ${item.valorSecundario}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: cores.textoSuave,
+                            ),
+                          ),
+                      ],
+                    ),
                     maxLines: 1,
                     style: TextStyle(
                       fontSize: 20,
@@ -604,18 +623,6 @@ class _CelulaIndicador extends StatelessWidget {
                       minHeight: 5,
                       backgroundColor: item.cor.withValues(alpha: 0.18),
                       valueColor: AlwaysStoppedAnimation(item.cor),
-                    ),
-                  ),
-                ] else if (item.apoio != null) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    item.apoio!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      height: 1.2,
-                      color: cores.textoSuave,
                     ),
                   ),
                 ],

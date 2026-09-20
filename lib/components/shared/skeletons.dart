@@ -188,10 +188,15 @@ class SkeletonFaixaIndicadores extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: const [
                           SkeletonBox(width: 64, height: 11),
+                          SizedBox(height: 2),
+                          SkeletonBox(width: double.infinity, height: 23),
+                          // A faixa real não tem mais linha de apoio: a
+                          // última barra imita a barrinha de progresso do
+                          // indicador de verificadas, que é o que define a
+                          // altura da régua. Barra de altura errada aqui
+                          // vira salto na hora que os números entram.
                           SizedBox(height: 6),
-                          SkeletonBox(width: double.infinity, height: 20),
-                          SizedBox(height: 6),
-                          SkeletonBox(width: 80, height: 11),
+                          SkeletonBox(width: double.infinity, height: 5),
                         ],
                       ),
                     ),

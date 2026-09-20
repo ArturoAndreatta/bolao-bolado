@@ -96,7 +96,6 @@ class AdminCardStats extends StatelessWidget {
   final List<Map<String, dynamic>> bets;
   final bool carregandoStats;
   final int totalPendentes;
-  final double precoCota;
 
   /// `true` desenha a régua de indicadores do desktop (uma peça só, sempre
   /// visível acima da seção ativa); `false` desenha a pilha do celular, um
@@ -113,7 +112,6 @@ class AdminCardStats extends StatelessWidget {
     required this.bets,
     required this.carregandoStats,
     required this.totalPendentes,
-    required this.precoCota,
     this.faixa = true,
   });
 
@@ -162,21 +160,23 @@ class AdminCardStats extends StatelessWidget {
             rotulo: 'Prêmio total',
             valor: Formatters.moeda.format(totalPremios),
             cor: cores.dourado,
-            apoio: '${Formatters.moeda.format(precoCota)} por cota',
           ),
           AdminIndicador(
             icone: Icons.payments_outlined,
             rotulo: 'Arrecadado',
-            valor: Formatters.moeda.format(totalApostado),
+            // O número em destaque é o dinheiro que JÁ entrou (apostas
+            // verificadas); o apostado inteiro vem atrás, em tom suave. É a
+            // ordem que o admin precisa: o total sozinho promete um caixa
+            // que ainda não existe.
+            valor: Formatters.moeda.format(totalVerificado),
+            valorSecundario: 'de ${Formatters.moeda.format(totalApostado)}',
             cor: cores.verde,
-            apoio: '${Formatters.moeda.format(totalVerificado)} já verificado',
           ),
           AdminIndicador(
             icone: Icons.groups_outlined,
             rotulo: 'Participantes',
             valor: '${bets.length}',
             cor: cores.azul,
-            apoio: '$totalCotas ${totalCotas == 1 ? "cota" : "cotas"} vendidas',
           ),
           AdminIndicador(
             icone: Icons.verified_outlined,
@@ -186,7 +186,6 @@ class AdminCardStats extends StatelessWidget {
             // Sem barra quando não há aposta nenhuma: 0% de nada não é
             // informação, é uma barra vazia pedindo interpretação.
             progresso: fracaoVerificado,
-            apoio: 'nenhuma aposta ainda',
           ),
           AdminIndicador(
             icone: erroPendentes
@@ -195,7 +194,10 @@ class AdminCardStats extends StatelessWidget {
                 ? Icons.pending_actions_outlined
                 : Icons.task_alt,
             rotulo: 'Pendentes',
-            valor: erroPendentes ? '—' : '$totalPendentes',
+            // Sem linha de apoio embaixo, o traço de erro ficaria idêntico
+            // a "não tem pendência": a falha precisa se dizer no próprio
+            // número.
+            valor: erroPendentes ? 'erro' : '$totalPendentes',
             // Vermelho só quando há fila de verdade: pintar de alerta um
             // painel sem pendência nenhuma gasta a cor à toa e, no dia em que
             // ela aparece de verdade, ninguém nota.
@@ -204,11 +206,6 @@ class AdminCardStats extends StatelessWidget {
                 : totalPendentes > 0
                 ? cores.vermelho
                 : cores.verde,
-            apoio: erroPendentes
-                ? 'erro ao carregar'
-                : totalPendentes > 0
-                ? 'aguardando conferência'
-                : 'tudo conferido',
           ),
         ],
       );
@@ -226,7 +223,6 @@ class AdminCardStats extends StatelessWidget {
             label: 'Prêmio total',
             value: Formatters.moeda.format(totalPremios),
             color: cores.dourado,
-            sublabel: '${Formatters.moeda.format(precoCota)} por cota',
           ),
           const SizedBox(height: espacamento),
           _ModuloPendencias(
@@ -530,8 +526,23 @@ class _AbaParticipantesState extends State<AbaParticipantes> {
         ? filtrados
         : filtrados.skip(inicio).take(_porPagina).toList();
 
+    final contagem = Text(
+      filtrados.length == widget.bets.length
+          ? '${widget.bets.length} participantes'
+          : '${filtrados.length} de ${widget.bets.length} participantes',
+      style: TextStyle(fontSize: 12, color: cores.textoSuave),
+    );
+
     return Padding(
-      padding: const EdgeInsets.all(16),
+      // No desktop a lista desce até a base do painel, encostando na mesma
+      // linha do menu lateral ao lado — daí o respiro de baixo ser 0 aqui.
+      // Quem fecha a seção é a borda do próprio card da lista, que nesse
+      // modo carrega a contagem no rodapé (ver abaixo); com o respiro e a
+      // contagem do lado de fora, o card parava ~40px acima do menu e a
+      // diferença lia como desalinho.
+      padding: rolando
+          ? const EdgeInsets.fromLTRB(16, 16, 16, 0)
+          : const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -549,39 +560,51 @@ class _AbaParticipantesState extends State<AbaParticipantes> {
                       vertical: 6,
                       horizontal: 6,
                     ),
-                    child: _lista(cores, visiveis, largo: largo),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: _lista(cores, visiveis, largo: largo)),
+                        if (rolando) ...[
+                          Divider(height: 1, thickness: 1, color: cores.borda),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 7, 10, 3),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: contagem,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
           ),
-          const SizedBox(height: 10),
-          // Contagem no mesmo eixo da paginação (à direita, no lugar do
-          // Spacer quando não há páginas): antes essa linha vinha sozinha
-          // ACIMA da lista, tirando uma linha inteira de altura útil da
-          // seção.
-          Row(
-            children: [
-              if (!rolando && totalPaginas > 1)
-                Expanded(
-                  child: _Paginador(
-                    pagina: pagina,
-                    totalPaginas: totalPaginas,
-                    onAnterior: pagina > 0
-                        ? () => setState(() => _pagina--)
-                        : null,
-                    onProximo: pagina < totalPaginas - 1
-                        ? () => setState(() => _pagina++)
-                        : null,
-                  ),
-                )
-              else
-                const Spacer(),
-              Text(
-                filtrados.length == widget.bets.length
-                    ? '${widget.bets.length} participantes'
-                    : '${filtrados.length} de ${widget.bets.length} participantes',
-                style: TextStyle(fontSize: 12, color: cores.textoSuave),
-              ),
-            ],
-          ),
+          if (!rolando) ...[
+            const SizedBox(height: 10),
+            // Contagem no mesmo eixo da paginação (à direita, no lugar do
+            // Spacer quando não há páginas): antes essa linha vinha sozinha
+            // ACIMA da lista, tirando uma linha inteira de altura útil da
+            // seção.
+            Row(
+              children: [
+                if (totalPaginas > 1)
+                  Expanded(
+                    child: _Paginador(
+                      pagina: pagina,
+                      totalPaginas: totalPaginas,
+                      onAnterior: pagina > 0
+                          ? () => setState(() => _pagina--)
+                          : null,
+                      onProximo: pagina < totalPaginas - 1
+                          ? () => setState(() => _pagina++)
+                          : null,
+                    ),
+                  )
+                else
+                  const Spacer(),
+                contagem,
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1023,7 +1046,11 @@ class _AbaRankingState extends State<AbaRanking> {
     }
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      // Mesma regra da lista de Participantes: no desktop o card desce até a
+      // base do painel, alinhado com o menu lateral.
+      padding: widget.rolarLista
+          ? const EdgeInsets.fromLTRB(16, 16, 16, 0)
+          : const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
