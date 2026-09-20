@@ -14,6 +14,7 @@ import 'package:bolao_bolado/core/responsive.dart';
 import 'package:bolao_bolado/pages/admin/widgets/admin_widgets.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
+import 'package:bolao_bolado/services/bet/preco_cota.dart';
 import 'package:bolao_bolado/services/configuracoes/configuracoes_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -416,235 +417,6 @@ class _ModuloPendencias extends StatelessWidget {
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class AdminCardPendentes extends StatelessWidget {
-  final AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot;
-  final List<Map<String, dynamic>>? fakePendentes;
-  final Future<void> Function(DocumentReference<Map<String, dynamic>>)
-  onConfirmar;
-  final void Function(int) onConfirmarFake;
-  final VoidCallback onLancarManual;
-  final VoidCallback onSimular;
-  final VoidCallback onLimparSimulacao;
-  // Altura fixa do corpo da lista — o card nunca cresce além disso, sempre
-  // rolando por dentro; evita o card esticar sem limite com a quantidade de
-  // pendentes e cortar esquisito no fim da página.
-  final double altura;
-
-  const AdminCardPendentes({
-    super.key,
-    required this.pendentesSnapshot,
-    required this.fakePendentes,
-    required this.onConfirmar,
-    required this.onConfirmarFake,
-    required this.onLancarManual,
-    required this.onSimular,
-    required this.onLimparSimulacao,
-    this.altura = 420,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cores = AdminCores.de(context);
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Apostas pendentes',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: cores.texto,
-                  ),
-                ),
-              ),
-              IconButton(
-                tooltip: 'Lançar aposta manual',
-                onPressed: onLancarManual,
-                icon: const Icon(Icons.person_add_alt_1_outlined, size: 20),
-              ),
-              if (fakePendentes == null)
-                IconButton(
-                  tooltip: 'Simular apostas (dev)',
-                  onPressed: onSimular,
-                  icon: const Icon(Icons.auto_awesome, size: 20),
-                )
-              else
-                IconButton(
-                  tooltip: 'Limpar simulação',
-                  onPressed: onLimparSimulacao,
-                  icon: const Icon(Icons.close, size: 20),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(height: altura, child: _corpoPendentes(context)),
-        ],
-      ),
-    );
-  }
-
-  Widget _corpoPendentes(BuildContext context) {
-    final cores = AdminCores.de(context);
-    if (fakePendentes != null) {
-      return _ListaPendentes(
-        itens: [
-          for (var i = 0; i < fakePendentes!.length; i++)
-            _ItemPendente(
-              nome: fakePendentes![i]['nome']?.toString() ?? '—',
-              valor: (fakePendentes![i]['valor'] as num?)?.toDouble() ?? 0,
-              tooltip: 'Confirmar aposta (simulada)',
-              onConfirmar: () => onConfirmarFake(i),
-            ),
-        ],
-      );
-    }
-
-    if (pendentesSnapshot.connectionState == ConnectionState.waiting) {
-      return const SingleChildScrollView(
-        child: SkeletonListaApostasPendentes(),
-      );
-    }
-
-    if (pendentesSnapshot.hasError) {
-      return AdminEstadoVazio(
-        icon: Icons.error_outline,
-        cor: cores.vermelho,
-        mensagem:
-            'Erro ao carregar apostas pendentes:\n${pendentesSnapshot.error}',
-      );
-    }
-
-    // Ordenado no cliente: 'data-hora' usa serverTimestamp() e fica null no
-    // snapshot otimista local antes da confirmação do servidor.
-    final docs = [...pendentesSnapshot.data?.docs ?? []]
-      ..sort((a, b) {
-        final tsA = a.data()['data-hora'] as Timestamp?;
-        final tsB = b.data()['data-hora'] as Timestamp?;
-        if (tsA == null && tsB == null) return 0;
-        if (tsA == null) return -1;
-        if (tsB == null) return 1;
-        return tsB.compareTo(tsA);
-      });
-
-    if (docs.isEmpty) {
-      return AdminEstadoVazio(
-        icon: Icons.check_circle_outline,
-        cor: cores.verde,
-        mensagem: 'Nenhuma aposta pendente de verificação.',
-      );
-    }
-
-    return _ListaPendentes(
-      itens: [
-        for (final doc in docs)
-          Builder(
-            builder: (_) {
-              final dados = doc.data();
-              return _ItemPendente(
-                nome: dados['nome']?.toString() ?? '—',
-                valor: double.tryParse(dados['valor'].toString()) ?? 0,
-                tooltip: 'Confirmar aposta',
-                onConfirmar: () => onConfirmar(doc.reference),
-              );
-            },
-          ),
-      ],
-    );
-  }
-}
-
-// Lista de itens pendentes, sempre com scroll interno próprio — o card que
-// a contém tem altura fixa (ver AdminCardPendentes.altura), então a lista
-// nunca estica o card, só rola por dentro dele.
-class _ListaPendentes extends StatelessWidget {
-  final List<Widget> itens;
-
-  const _ListaPendentes({required this.itens});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < itens.length; i++) ...[
-            if (i > 0) const SizedBox(height: 12),
-            itens[i],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ItemPendente extends StatelessWidget {
-  final String nome;
-  final double valor;
-  final String tooltip;
-  final VoidCallback onConfirmar;
-
-  const _ItemPendente({
-    required this.nome,
-    required this.valor,
-    required this.tooltip,
-    required this.onConfirmar,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cores = AdminCores.de(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: cores.fundoCard,
-        borderRadius: AppRadii.circularSmd,
-        border: Border.all(color: cores.borda),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  nome,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: cores.texto,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  Formatters.moeda.format(valor),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: cores.verde,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: tooltip,
-            onPressed: onConfirmar,
-            icon: const Text('✅', style: TextStyle(fontSize: 22)),
-          ),
         ],
       ),
     );
@@ -1327,6 +1099,11 @@ class AbaSala extends StatefulWidget {
   /// logo acima — dois títulos empilhados só empurram os campos para baixo.
   final bool mostrarCabecalho;
 
+  /// Números da sala usados só no resumo ao lado do formulário (ver
+  /// [_ResumoSala]): quantas apostas existem e quantas cotas foram vendidas.
+  final int quantidadeApostas;
+  final int cotasVendidas;
+
   const AbaSala({
     super.key,
     required this.salaId,
@@ -1334,6 +1111,8 @@ class AbaSala extends StatefulWidget {
     required this.carregando,
     required this.onSalvo,
     this.mostrarCabecalho = true,
+    this.quantidadeApostas = 0,
+    this.cotasVendidas = 0,
   });
 
   @override
@@ -1465,112 +1244,301 @@ class _AbaSalaState extends State<AbaSala> {
 
     return Padding(
       padding: const EdgeInsets.all(16),
-      // Campo de texto não fica bom com 1100px de largura: no painel do
-      // desktop o formulário para em 680 e encosta à esquerda, alinhado com o
-      // cabeçalho da seção. Num espaço menor que isso (celular) o limite não
-      // tem efeito nenhum.
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.mostrarCabecalho) ...[
-                  AdminTituloSecao(
-                    texto: nomeSala,
-                    icone: Icons.meeting_room_outlined,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Edite os dados principais da sala sem sair do painel.',
-                    style: TextStyle(fontSize: 13, color: cores.textoSuave),
-                  ),
-                  const SizedBox(height: 16),
+      child: LayoutBuilder(
+        builder: (context, restricoes) {
+          // Campo de texto não fica bom com 1100px de largura: o formulário
+          // para em 680 e encosta à esquerda, alinhado com o cabeçalho da
+          // seção. O espaço que sobra no painel do desktop recebe o resumo da
+          // sala, em vez de ficar vazio — e num espaço menor (celular) nada
+          // disso aparece, o formulário ocupa a largura toda como sempre.
+          final cabeResumo = restricoes.maxWidth >= 1040;
+          final formulario = ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: _formulario(context, cores, nomeSala),
+          );
+
+          if (!cabeResumo) {
+            return Align(alignment: Alignment.topLeft, child: formulario);
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(child: formulario),
+              const SizedBox(width: 24),
+              SizedBox(
+                width: 320,
+                child: _ResumoSala(
+                  dadosSala: widget.dadosSala,
+                  quantidadeApostas: widget.quantidadeApostas,
+                  cotasVendidas: widget.cotasVendidas,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _formulario(BuildContext context, AdminCores cores, String nomeSala) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.mostrarCabecalho) ...[
+            AdminTituloSecao(
+              texto: nomeSala,
+              icone: Icons.meeting_room_outlined,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Edite os dados principais da sala sem sair do painel.',
+              style: TextStyle(fontSize: 13, color: cores.textoSuave),
+            ),
+            const SizedBox(height: 16),
+          ],
+          CustomField(
+            hint: 'Prêmio total',
+            icon: Icons.emoji_events_outlined,
+            isNumeric: true,
+            controller: _premioController,
+            maxWidth: double.infinity,
+            prefix: const Text('R\$ '),
+          ),
+          const SizedBox(height: 14),
+          CustomField(
+            hint: 'Valor máximo por aposta',
+            icon: Icons.trending_up,
+            isNumeric: true,
+            controller: _valorMaximoController,
+            maxWidth: double.infinity,
+            prefix: const Text('R\$ '),
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final dataField = CustomDateField(
+                hint: 'Data do sorteio',
+                controller: _dataController,
+                maxWidth: double.infinity,
+                initialDate: _dataSelecionada,
+                onPicked: (d) => _dataSelecionada = d,
+              );
+              final horaField = CustomTimeField(
+                hint: 'Hora',
+                controller: _horaController,
+                maxWidth: double.infinity,
+                initialTime: _horaSelecionada,
+                onPicked: (t) => _horaSelecionada = t,
+              );
+
+              // Lado a lado sobra pouco espaço pra cada campo (data
+              // formatada + ícone) quando o card fica estreito, como no
+              // mobile — empilha em Column abaixo de 340px em vez de
+              // espremer os dois na mesma linha.
+              if (constraints.maxWidth < 340) {
+                return Column(
+                  children: [dataField, const SizedBox(height: 14), horaField],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: dataField),
+                  const SizedBox(width: 12),
+                  Expanded(child: horaField),
                 ],
-                CustomField(
-                  hint: 'Prêmio total',
-                  icon: Icons.emoji_events_outlined,
-                  isNumeric: true,
-                  controller: _premioController,
-                  maxWidth: double.infinity,
-                  prefix: const Text('R\$ '),
-                ),
-                const SizedBox(height: 14),
-                CustomField(
-                  hint: 'Valor máximo por aposta',
-                  icon: Icons.trending_up,
-                  isNumeric: true,
-                  controller: _valorMaximoController,
-                  maxWidth: double.infinity,
-                  prefix: const Text('R\$ '),
-                ),
-                const SizedBox(height: 14),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final dataField = CustomDateField(
-                      hint: 'Data do sorteio',
-                      controller: _dataController,
-                      maxWidth: double.infinity,
-                      initialDate: _dataSelecionada,
-                      onPicked: (d) => _dataSelecionada = d,
-                    );
-                    final horaField = CustomTimeField(
-                      hint: 'Hora',
-                      controller: _horaController,
-                      maxWidth: double.infinity,
-                      initialTime: _horaSelecionada,
-                      onPicked: (t) => _horaSelecionada = t,
-                    );
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          CustomField(
+            hint: 'Chave PIX',
+            icon: Icons.pix,
+            controller: _pixController,
+            maxWidth: double.infinity,
+          ),
+          const SizedBox(height: 20),
+          Align(
+            alignment: Alignment.centerRight,
+            child: PrimaryButton(
+              text: 'Salvar alterações',
+              width: 170,
+              compact: true,
+              onTap: _salvar,
+              loading: _salvando,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-                    // Lado a lado sobra pouco espaço pra cada campo (data
-                    // formatada + ícone) quando o card fica estreito, como no
-                    // mobile — empilha em Column abaixo de 340px em vez de
-                    // espremer os dois na mesma linha.
-                    if (constraints.maxWidth < 340) {
-                      return Column(
-                        children: [
-                          dataField,
-                          const SizedBox(height: 14),
-                          horaField,
-                        ],
-                      );
-                    }
+/// Resumo ao lado do formulário da Sala (só no painel largo do desktop).
+///
+/// Não repete o formulário: mostra o que NÃO se edita ali e que decide o
+/// dinheiro do bolão — o tipo de sorteio (que fixa o preço da cota), quantas
+/// cotas já foram vendidas e quanto cada uma vale hoje. É a conta que o admin
+/// faria de cabeça antes de mexer no prêmio.
+class _ResumoSala extends StatelessWidget {
+  final Map<String, dynamic> dadosSala;
+  final int quantidadeApostas;
+  final int cotasVendidas;
 
-                    return Row(
-                      children: [
-                        Expanded(child: dataField),
-                        const SizedBox(width: 12),
-                        Expanded(child: horaField),
-                      ],
-                    );
-                  },
+  const _ResumoSala({
+    required this.dadosSala,
+    required this.quantidadeApostas,
+    required this.cotasVendidas,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    final sorteio = dadosSala['sorteio']?.toString();
+    // Os três valores que o cadastro de sala oferece (ver opcoesSorteio); o
+    // preço da cota trata qualquer outro como Mega-Sena.
+    final nomeSorteio = isLotofacil(sorteio)
+        ? 'Lotofácil'
+        : sorteio == 'mega'
+        ? 'Mega-Sena'
+        : 'Outro';
+    final precoCota = precoCotaPara(sorteio);
+    final premio = (dadosSala['premio'] as num?)?.toDouble() ?? 0;
+    final principal = dadosSala['principal'] == true;
+    final valorPorCota = cotasVendidas == 0 ? null : premio / cotasVendidas;
+
+    return AdminSecaoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: AdminTituloSecao(
+                  texto: dadosSala['nome']?.toString() ?? 'Sala',
+                  icone: Icons.meeting_room_outlined,
                 ),
-                const SizedBox(height: 14),
-                CustomField(
-                  hint: 'Chave PIX',
-                  icon: Icons.pix,
-                  controller: _pixController,
-                  maxWidth: double.infinity,
-                ),
-                const SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: PrimaryButton(
-                    text: 'Salvar alterações',
-                    width: 170,
-                    compact: true,
-                    onTap: _salvar,
-                    loading: _salvando,
+              ),
+              if (principal) _Badge(texto: 'principal', cor: cores.roxo),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _LinhaResumo(rotulo: 'Sorteio', valor: nomeSorteio, cor: cores.texto),
+          _LinhaResumo(
+            rotulo: 'Cota',
+            valor: Formatters.moeda.format(precoCota),
+            // A cota não é editável no formulário ao lado: ela vem do tipo de
+            // sorteio, que é escolhido na criação da sala.
+            apoio: 'definida pelo tipo de sorteio',
+            cor: cores.dourado,
+          ),
+          _LinhaResumo(
+            rotulo: 'Apostas',
+            valor: '$quantidadeApostas',
+            apoio:
+                '$cotasVendidas ${cotasVendidas == 1 ? "cota vendida" : "cotas vendidas"}',
+            cor: cores.azul,
+          ),
+          if (valorPorCota != null)
+            _LinhaResumo(
+              rotulo: 'Cada cota leva hoje',
+              valor: Formatters.moeda.format(valorPorCota),
+              apoio: 'prêmio dividido pelas cotas vendidas',
+              cor: cores.verde,
+            ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: cores.azul.withValues(alpha: 0.08),
+              borderRadius: AppRadii.circularMd,
+              border: Border.all(color: cores.azul.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 16, color: cores.azul),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Mexer no prêmio muda o rateio na hora: ele é dividido '
+                    'pelas cotas de todo mundo.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: cores.textoSuave,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Uma linha do [_ResumoSala]: rótulo pequeno, valor em destaque e uma linha
+/// de apoio opcional explicando de onde o número vem.
+class _LinhaResumo extends StatelessWidget {
+  final String rotulo;
+  final String valor;
+  final String? apoio;
+  final Color cor;
+
+  const _LinhaResumo({
+    required this.rotulo,
+    required this.valor,
+    required this.cor,
+    this.apoio,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            rotulo,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+              color: cores.textoSuave,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            valor,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+              color: cor,
+            ),
+          ),
+          if (apoio != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              apoio!,
+              style: TextStyle(
+                fontSize: 11,
+                height: 1.25,
+                color: cores.textoSuave,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

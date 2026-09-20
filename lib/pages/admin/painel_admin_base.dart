@@ -8,6 +8,7 @@ import 'package:bolao_bolado/components/shared/snackbar_deslizante.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/pages/admin/admin_abas.dart';
 import 'package:bolao_bolado/pages/admin/widgets/admin_widgets.dart';
+import 'package:bolao_bolado/pages/admin/widgets/exportar_apostas.dart';
 import 'package:bolao_bolado/pages/admin/widgets/moderar_chat.dart';
 import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
@@ -18,6 +19,7 @@ import 'package:bolao_bolado/services/chat/chat_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 /// Toda a lógica de estado e ações do painel admin (acesso, carregamento de
@@ -50,9 +52,6 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
   // O StreamBuilder aceita stream nula e simplesmente fica sem dado até ela
   // existir, então nada precisa mudar em quem consome.
   Stream<QuerySnapshot<Map<String, dynamic>>>? apostasPendentesStream;
-
-  // Apostas fake para testar o layout sem tocar no Firestore.
-  List<Map<String, dynamic>>? fakePendentes;
 
   /// Preço da cota da sala principal, derivado do `sorteio` carregado em
   /// [dadosSala]. Nunca assumir R$6 fixo aqui: em sala de Lotofácil a cota
@@ -177,41 +176,6 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
       carregandoStats = false;
     });
   }
-
-  void gerarApostasFake([int quantidade = 12]) {
-    final nomes = [
-      'João Silva',
-      'Maria Oliveira',
-      'Pedro Santos',
-      'Ana Costa',
-      'Lucas Pereira',
-      'Beatriz Souza',
-      'Rafael Lima',
-      'Camila Alves',
-      'Gustavo Rocha',
-      'Fernanda Dias',
-      'Thiago Martins',
-      'Juliana Ribeiro',
-      'Bruno Carvalho',
-      'Larissa Gomes',
-      'Diego Barbosa',
-    ];
-    final random = DateTime.now().millisecondsSinceEpoch;
-    setState(() {
-      fakePendentes = List.generate(quantidade, (index) {
-        final nome = nomes[(random + index) % nomes.length];
-        final valor = 6.0 * (1 + (index % 5));
-        return {
-          'id': 'fake_$index',
-          'nome': nome,
-          'uid': 'fake_uid_$index',
-          'valor': valor,
-        };
-      });
-    });
-  }
-
-  void limparApostasFake() => setState(() => fakePendentes = null);
 
   // ---------------------------------------------------------------------------
   // Diálogos / ações
@@ -613,6 +577,30 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// Copia a planilha das apostas (nome, valor, cotas, prêmio, verificada)
+  /// para a área de transferência, pronta para colar no Excel/Sheets.
+  ///
+  /// Área de transferência, e não download de arquivo: baixar arquivo exige
+  /// código específico de cada plataforma (o app roda em web, celular e
+  /// desktop), enquanto colar funciona igual nas três — e o destino do CSV é
+  /// justamente uma planilha já aberta.
+  Future<void> copiarCsvApostas() async {
+    if (bets.isEmpty) {
+      CustomShowDialog.show(context, 'Não há apostas para exportar.');
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: montarCsvApostas(bets)));
+    if (!mounted) return;
+    mostrarSnackBarDeslizante(
+      context,
+      corFundo: AdminCores.de(context).verde,
+      conteudo: Text(
+        '${bets.length} ${bets.length == 1 ? "aposta copiada" : "apostas copiadas"} — é só colar na planilha',
+      ),
+    );
+  }
+
   Future<void> recarregarStats() => _carregarStats();
 
   // ---------------------------------------------------------------------------
@@ -646,11 +634,10 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
     return quantidadePendentes;
   }
 
-  /// Apostas ainda não verificadas pelo admin (as fake, quando o teste de
-  /// layout estiver ligado). Também alimenta o selo da seção Apostas na barra
-  /// do celular.
+  /// Apostas ainda não verificadas pelo admin. Alimenta o selo do item
+  /// Participantes no menu do desktop e o da seção Apostas na barra do
+  /// celular.
   int get quantidadePendentes =>
-      fakePendentes?.length ??
       bets.where((b) => b['verificado'] != true).length;
 
   /// Números da sala (participantes, arrecadado, prêmio, cotas, verificadas,
@@ -713,6 +700,11 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
           carregando: carregandoStats,
           onSalvo: _carregarStats,
           mostrarCabecalho: cabecalhoInterno,
+          quantidadeApostas: bets.length,
+          cotasVendidas: bets.fold<int>(
+            0,
+            (soma, item) => soma + ((item['cotas'] as num?)?.toInt() ?? 0),
+          ),
         );
       case AbaAdmin.config:
         return AbaConfig(

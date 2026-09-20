@@ -179,7 +179,11 @@ class _ItemMenu extends StatelessWidget {
 class CabecalhoSecaoAdmin extends StatelessWidget {
   final AbaAdminMeta meta;
 
-  const CabecalhoSecaoAdmin({super.key, required this.meta});
+  /// Ação da seção ativa (ex: copiar a planilha, no Ranking). Fica aqui, e
+  /// não dentro da seção, para não gastar uma linha da altura útil da lista.
+  final Widget? acao;
+
+  const CabecalhoSecaoAdmin({super.key, required this.meta, this.acao});
 
   @override
   Widget build(BuildContext context) {
@@ -216,6 +220,7 @@ class CabecalhoSecaoAdmin extends StatelessWidget {
               ],
             ),
           ),
+          if (acao != null) acao!,
         ],
       ),
     );

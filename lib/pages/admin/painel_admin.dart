@@ -355,7 +355,10 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            CabecalhoSecaoAdmin(meta: kAbasAdmin[indice]),
+            CabecalhoSecaoAdmin(
+              meta: kAbasAdmin[indice],
+              acao: ativa == AbaAdmin.ranking ? _botaoCopiarCsv() : null,
+            ),
             Divider(height: 1, thickness: 1, color: cores.borda),
             // IndexedStack, e não só a seção ativa: trocar de seção não pode
             // apagar o que já foi digitado no formulário da Sala nem zerar a
@@ -374,6 +377,19 @@ class _PainelAdminState extends State<PainelAdmin> with PainelAdminMixin {
           ],
         );
       },
+    );
+  }
+
+  /// Exporta a planilha das apostas pela seção Ranking, que é onde já se
+  /// olha quem tem quanto. É a mesma lista da tela, no formato que o Excel e
+  /// o Sheets abrem colando.
+  Widget _botaoCopiarCsv() {
+    final cores = AdminCores.de(context);
+    return TextButton.icon(
+      onPressed: copiarCsvApostas,
+      icon: const Icon(Icons.copy_all_outlined, size: 18),
+      label: const Text('Copiar planilha'),
+      style: TextButton.styleFrom(foregroundColor: cores.azul),
     );
   }
 
