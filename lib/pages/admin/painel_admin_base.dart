@@ -21,9 +21,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 /// Toda a lógica de estado e ações do painel admin (acesso, carregamento de
-/// dados, diálogos, CRUD de apostas/sala), independente de como o dashboard
-/// é desenhado na tela — [PainelAdmin] aplica este mixin e só monta a grade
-/// de cards, sem duplicar nenhuma regra de negócio aqui.
+/// dados, diálogos, CRUD de apostas/sala), independente de como o painel é
+/// desenhado na tela — [PainelAdmin] aplica este mixin e só monta o layout,
+/// sem duplicar nenhuma regra de negócio aqui.
 mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
   final AuthService _authService = AuthService();
 
@@ -616,7 +616,7 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
   Future<void> recarregarStats() => _carregarStats();
 
   // ---------------------------------------------------------------------------
-  // Conteúdo de cada seção do dashboard
+  // Conteúdo de cada seção do painel
   // ---------------------------------------------------------------------------
 
   /// Quantas apostas aguardam verificação.
@@ -653,40 +653,42 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
       fakePendentes?.length ??
       bets.where((b) => b['verificado'] != true).length;
 
-  /// Card de estatísticas (participantes, arrecadado, prêmio, cotas,
-  /// verificadas, pendentes). [bentoGrid] só vale `true` no layout desktop
-  /// (altura fixa do _CardSecao); no fichário mobile a folha rola dentro de
-  /// um SingleChildScrollView, então o card precisa encolher pro próprio
-  /// conteúdo em vez de usar Expanded (ver AdminCardStats.bentoGrid).
+  /// Números da sala (participantes, arrecadado, prêmio, cotas, verificadas,
+  /// pendentes). [faixa] é a régua do topo do painel no desktop; `false` é a
+  /// pilha de tiles da seção Resumo no celular (ver AdminCardStats.faixa).
   Widget conteudoStats(
     AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot, {
-    bool bentoGrid = true,
+    bool faixa = true,
   }) {
     return AdminCardStats(
       bets: bets,
       carregandoStats: carregandoStats,
       totalPendentes: _totalPendentes(pendentesSnapshot),
       precoCota: precoCota,
-      bentoGrid: bentoGrid,
+      faixa: faixa,
     );
   }
 
-  /// Constrói o conteúdo de uma seção do dashboard (participantes, ranking,
+  /// Constrói o conteúdo de uma seção do painel (participantes, ranking,
   /// sala, configurações). Visão geral tem construtor próprio acima porque
-  /// virou card separado, não uma "aba" única. Card de pendentes foi
-  /// removido do dashboard — verificação individual de aposta segue
-  /// disponível na seção Participantes (onAlternarVerificacao) e o
-  /// lançamento manual pelo botão "Lançar" do mesmo card.
+  /// não é uma seção como as outras: no desktop é a faixa fixa do topo, no
+  /// celular a seção Resumo.
+  ///
+  /// [rolarLista] mostra a lista inteira rolando por dentro em vez de
+  /// paginada (só o desktop, onde nada mais na tela rola) e
+  /// [cabecalhoInterno] desliga o título que a seção desenha por dentro,
+  /// quando quem chama já mostra um logo acima.
   Widget conteudoAba(
     AbaAdmin aba,
-    AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot,
-  ) {
+    AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> pendentesSnapshot, {
+    bool rolarLista = false,
+    bool cabecalhoInterno = true,
+  }) {
     switch (aba) {
       case AbaAdmin.visaoGeral:
-        // Não deveria ser chamado para visaoGeral (ver conteudoStats/
-        // conteudoPendentes), mas resolve para o card de stats por
-        // segurança em vez de lançar, caso algum código futuro itere
-        // kAbasAdmin genericamente sem excluir essa seção.
+        // Não deveria ser chamado para visaoGeral (ver conteudoStats), mas
+        // resolve para os números por segurança em vez de lançar, caso algum
+        // código futuro itere kAbasAdmin genericamente sem excluir essa seção.
         return conteudoStats(pendentesSnapshot);
       case AbaAdmin.participantes:
         return AbaParticipantes(
@@ -696,15 +698,21 @@ mixin PainelAdminMixin<T extends StatefulWidget> on State<T> {
           onEditarValor: abrirDialogEditarValor,
           onRemover: confirmarRemocao,
           onAlternarVerificacao: alternarVerificacaoAposta,
+          rolarLista: rolarLista,
         );
       case AbaAdmin.ranking:
-        return AbaRanking(bets: bets, carregando: carregandoStats);
+        return AbaRanking(
+          bets: bets,
+          carregando: carregandoStats,
+          rolarLista: rolarLista,
+        );
       case AbaAdmin.sala:
         return AbaSala(
           salaId: salaId,
           dadosSala: dadosSala,
           carregando: carregandoStats,
           onSalvo: _carregarStats,
+          mostrarCabecalho: cabecalhoInterno,
         );
       case AbaAdmin.config:
         return AbaConfig(

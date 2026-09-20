@@ -151,12 +151,6 @@ class AdminStatTile extends StatelessWidget {
   final String value;
   final Color color;
   final VoidCallback? onTap;
-  // Estica o tile pra ocupar toda a altura da célula do bento grid da Visão
-  // geral, em vez de encolher pro tamanho do próprio conteúdo — sem isso o
-  // Container fica baixinho dentro do Expanded e sobra espaço vazio na
-  // célula (o card inteiro já tem altura fixa, então a célula tem altura de
-  // verdade pra preencher).
-  final bool preencherAltura;
 
   const AdminStatTile({
     super.key,
@@ -165,28 +159,16 @@ class AdminStatTile extends StatelessWidget {
     required this.value,
     required this.color,
     this.onTap,
-    this.preencherAltura = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final cores = AdminCores.de(context);
-    // preencherAltura hoje só é usado nas células do bento grid da Visão
-    // geral, onde o tile estica para a altura da célula. A diferença de
-    // tamanho é pequena de propósito: ela existe para o conteúdo não ficar
-    // perdido no meio da célula, não para preencher a célula. Enquanto a
-    // Visão geral reservava 560px, esses números eram 30/26/14 e o bloco
-    // inteiro parecia inflado — o excesso era a altura, não a fonte.
-    final tamanhoIcone = preencherAltura ? 22.0 : 20.0;
-    final tamanhoValor = preencherAltura ? 19.0 : 17.0;
-    final tamanhoLabel = preencherAltura ? 12.0 : 12.0;
+    const tamanhoIcone = 20.0;
+    const tamanhoValor = 17.0;
+    const tamanhoLabel = 12.0;
     final conteudo = Container(
-      width: preencherAltura ? double.infinity : null,
-      height: preencherAltura ? double.infinity : null,
-      padding: EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: preencherAltura ? 0 : 14,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: cores.fundoTile,
         borderRadius: AppRadii.circularMd,
@@ -219,11 +201,8 @@ class AdminStatTile extends StatelessWidget {
               children: [
                 // `height` explícito nos dois: sem ele a entrelinha vem do
                 // tema (~1.43), e o tile fica mais alto do que a soma das
-                // fontes sugere. Numa célula de altura fixa como a do bento
-                // grid da Visão geral isso é a diferença entre caber e
-                // estourar — já custou um overflow de 1.6px ali. Com o valor
-                // fixo aqui, a conta documentada em kAlturaVisaoGeral é a
-                // conta de verdade.
+                // fontes sugere — o que já custou um overflow de 1.6px quando
+                // ele vivia dentro de uma célula de altura fixa.
                 Text(
                   value,
                   style: TextStyle(
@@ -278,12 +257,9 @@ class AdminStatDestaque extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  // Ver AdminStatTile.preencherAltura — mesma ideia, pro destaque ocupar a
-  // altura toda quando vive numa célula alta do bento grid da Visão geral.
-  final bool preencherAltura;
   // Linha extra abaixo do rótulo, só quando faz sentido (ex: preço da cota
-  // junto do prêmio total) — usa o espaço vertical que sobra numa célula
-  // alta sem inventar uma métrica nova só pra preencher.
+  // junto do prêmio total) — dá contexto ao número sem inventar uma métrica
+  // nova só pra preencher espaço.
   final String? sublabel;
 
   const AdminStatDestaque({
@@ -292,23 +268,19 @@ class AdminStatDestaque extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
-    this.preencherAltura = false,
     this.sublabel,
   });
 
   @override
   Widget build(BuildContext context) {
     final cores = AdminCores.de(context);
-    // Ver AdminStatTile.preencherAltura. O valor continua bem acima do dos
-    // tiles normais — é essa assimetria que sinaliza qual número manda na
-    // tela —, mas sem os 46pt de antes, que existiam só para tapar a altura
-    // de 560px que a seção reservava.
-    final tamanhoIcone = preencherAltura ? 32.0 : 28.0;
-    final tamanhoValor = preencherAltura ? 30.0 : 26.0;
-    final tamanhoLabel = preencherAltura ? 14.0 : 13.0;
+    // O valor fica bem acima do dos tiles normais — é essa assimetria que
+    // sinaliza qual número manda na tela.
+    const tamanhoIcone = 28.0;
+    const tamanhoValor = 26.0;
+    const tamanhoLabel = 13.0;
     return Container(
       width: double.infinity,
-      height: preencherAltura ? double.infinity : null,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
@@ -494,6 +466,164 @@ class AdminBarraDistribuicao extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Um número da faixa de indicadores do topo do painel (desktop).
+///
+/// [progresso] (0..1) troca a linha de apoio por uma barra fina — usado no
+/// indicador de apostas verificadas, onde "quanto da fila já foi conferida"
+/// se lê de relance melhor como barra do que como texto.
+@immutable
+class AdminIndicador {
+  final IconData icone;
+  final String rotulo;
+  final String valor;
+  final Color cor;
+  final String? apoio;
+  final double? progresso;
+
+  const AdminIndicador({
+    required this.icone,
+    required this.rotulo,
+    required this.valor,
+    required this.cor,
+    this.apoio,
+    this.progresso,
+  });
+}
+
+/// Faixa de indicadores do topo do painel no desktop: uma única régua com os
+/// números da sala, separados por linhas finas.
+///
+/// É uma peça só, e não seis cards soltos, de propósito: com card próprio
+/// cada número virava um bloco disputando atenção com a seção de trabalho
+/// logo abaixo. Numa régua contínua eles leem como o painel de instrumentos
+/// da tela — sempre visível, nunca no caminho.
+///
+/// Aqui o rótulo fica EM CIMA do valor (o contrário do [AdminStatTile], que
+/// põe os dois na mesma linha). Não é incoerência: o tile é largo e baixo, a
+/// célula da faixa é estreita e alta — empilhado é o que cabe sem cortar
+/// "Participantes" no meio.
+class AdminFaixaIndicadores extends StatelessWidget {
+  final List<AdminIndicador> itens;
+
+  const AdminFaixaIndicadores({super.key, required this.itens});
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: cores.fundoSecao,
+        borderRadius: AppRadii.circularLg,
+        border: Border.all(color: cores.borda),
+      ),
+      // IntrinsicHeight porque os divisores precisam da altura da célula mais
+      // alta (só uma traz barra de progresso). É uma linha de cinco filhos
+      // simples — o custo do segundo passe de layout aqui é irrelevante.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < itens.length; i++) ...[
+              if (i > 0) Container(width: 1, color: cores.borda),
+              Expanded(child: _CelulaIndicador(item: itens[i])),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CelulaIndicador extends StatelessWidget {
+  final AdminIndicador item;
+
+  const _CelulaIndicador({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AdminCores.de(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: item.cor.withValues(alpha: 0.12),
+              borderRadius: AppRadii.circularSmd,
+            ),
+            child: Icon(item.icone, color: item.cor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item.rotulo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                    height: 1.2,
+                    color: cores.textoSuave,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                // O número ENCOLHE em vez de virar reticências: cortar
+                // "R$ 1.2..." entrega uma quantia errada, e a faixa aperta
+                // conforme a janela. O rótulo acima é que pode elipsar.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    item.valor,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      height: 1.15,
+                      color: item.cor,
+                    ),
+                  ),
+                ),
+                if (item.progresso != null) ...[
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: AppRadii.circularPill,
+                    child: LinearProgressIndicator(
+                      value: item.progresso!.clamp(0.0, 1.0),
+                      minHeight: 5,
+                      backgroundColor: item.cor.withValues(alpha: 0.18),
+                      valueColor: AlwaysStoppedAnimation(item.cor),
+                    ),
+                  ),
+                ] else if (item.apoio != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    item.apoio!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.2,
+                      color: cores.textoSuave,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

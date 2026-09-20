@@ -151,12 +151,66 @@ class SkeletonStatTile extends StatelessWidget {
   }
 }
 
-/// Skeleton dos 4 cards de estatística do painel admin.
+/// Skeleton da faixa de indicadores do topo do painel admin (desktop).
+///
+/// Tem a altura da faixa real (ícone de 38 + as três linhas de texto ao
+/// lado): se o placeholder fosse mais baixo, a seção inteira abaixo dele
+/// pularia para cima no instante em que os números chegassem.
+class SkeletonFaixaIndicadores extends StatelessWidget {
+  /// Mesma quantidade de indicadores da faixa real.
+  static const int _celulas = 5;
+
+  const SkeletonFaixaIndicadores({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cores.cardExterno,
+        borderRadius: AppRadii.circularLg,
+        border: Border.all(color: cores.borda),
+      ),
+      child: Shimmer(
+        child: Row(
+          children: [
+            for (var i = 0; i < _celulas; i++) ...[
+              if (i > 0) const SizedBox(width: 28),
+              Expanded(
+                child: Row(
+                  children: [
+                    const SkeletonBox(width: 38, height: 38, radius: 10),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          SkeletonBox(width: 64, height: 11),
+                          SizedBox(height: 6),
+                          SkeletonBox(width: double.infinity, height: 20),
+                          SizedBox(height: 6),
+                          SkeletonBox(width: 80, height: 11),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Skeleton dos cards de estatística da seção Resumo no celular.
 class SkeletonDashboardStats extends StatelessWidget {
   const SkeletonDashboardStats({super.key});
 
-  /// Alturas dos blocos, espelhando o bento grid da Visão geral (ver
-  /// `kAlturaVisaoGeral`): a linha de cima é o par prêmio/verificado, a de
+  /// Alturas dos blocos: a linha de cima é o par prêmio/verificado, a de
   /// baixo são os quatro tiles em duas fileiras.
   ///
   /// Eram quatro tiles empilhados, que somavam ~332 e cabiam porque a seção
