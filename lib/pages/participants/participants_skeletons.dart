@@ -133,6 +133,12 @@ class SkeletonTabela extends StatelessWidget {
   static const List<double> blocos = [150, 74, 30, 112, 96];
   static const List<double> larguras = [wNome, wValor, wCotas, wPremio, wData];
 
+  /// Altura da linha de texto de uma célula (corpo 13) e da do rodapé
+  /// (corpo 12) — medidas da tabela real: célula de 33 e rodapé de 25, com
+  /// os paddings verticais de 7 e 4.
+  static const double _alturaLinhaTexto = 19;
+  static const double _alturaLinhaRodape = 17;
+
   @override
   Widget build(BuildContext context) {
     final corBorda = TabelaApostas.corBorda(context);
@@ -214,9 +220,20 @@ class SkeletonTabela extends StatelessWidget {
               border: Border(right: BorderSide(color: cores.borda, width: 1)),
             ),
       alignment: indice == 0 ? Alignment.centerLeft : Alignment.centerRight,
-      child: bloco == 0
-          ? const SizedBox(height: 12)
-          : SkeletonBox(width: bloco, height: rodape ? 11 : 12),
+      // A célula tem a altura da LINHA DE TEXTO da tabela real, não a do
+      // bloco: a real mede 33 (7 de padding + 19 da linha + 7), e com a
+      // altura do bloco ela saía 26. Os 7px que faltavam deixavam a borda
+      // de coluna mais curta que a linha, então a grade aparecia partida,
+      // e o divisor caía no meio da linha em vez do fim dela.
+      child: SizedBox(
+        height: rodape ? _alturaLinhaRodape : _alturaLinhaTexto,
+        child: Align(
+          alignment: indice == 0 ? Alignment.centerLeft : Alignment.centerRight,
+          child: bloco == 0
+              ? const SizedBox.shrink()
+              : SkeletonBox(width: bloco, height: rodape ? 11 : 12),
+        ),
+      ),
     );
   }
 }

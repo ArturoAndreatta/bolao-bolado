@@ -183,7 +183,9 @@ class CampoEnvioChat extends StatelessWidget {
       // do lugar quando o teclado abre.
       style: TextStyle(fontSize: compacto ? 16 : 14),
       decoration: InputDecoration(
-        hintText: 'Escreva algo... use @ para marcar alguém',
+        // Sem reticências (elas sugerem que a frase continua) e com o @
+        // dito como atalho, não como instrução de manual.
+        hintText: 'Fala aí! Use @ para marcar alguém',
         hintStyle: TextStyle(
           fontSize: compacto ? 15 : 14,
           color: cores.textoFraco,

@@ -632,6 +632,24 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       Shimmer(
         child: SkeletonBox(width: largura, height: _alturaBotao, radius: 12),
       ),
+      // O card do Pix vem logo abaixo do Confirmar e é o bloco mais alto da
+      // tela — sem reservá-lo, o formulário ficava com um vazio embaixo e o
+      // Pix caía nele de uma vez. No celular ele é outro card (Copia e Cola)
+      // e a coluna reparte a sobra com folgas elásticas, então lá não há
+      // altura fixa para reservar.
+      if (!mobile) ...[
+        const SizedBox(height: 12),
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: largura),
+          child: const Shimmer(
+            child: SkeletonBox(
+              width: double.infinity,
+              height: _alturaPixDesktop,
+              radius: 12,
+            ),
+          ),
+        ),
+      ],
       const SizedBox(height: 12),
     ];
   }
@@ -1139,6 +1157,10 @@ const double _espacoMobile = 14;
 const double _alturaDisplayInfo = 38;
 const double _alturaBotao = 54;
 const double _alturaSituacao = 124;
+
+/// Card do Pix no computador (QR + chave + botão de copiar). Medido do
+/// PixInfo real: ele não muda de altura com a largura do card.
+const double _alturaPixDesktop = 120;
 
 // Folga mínima entre os três blocos da aposta no celular (sorteio,
 // formulário, Pix) — e abaixo do Pix. Quase o dobro do espaço entre os
