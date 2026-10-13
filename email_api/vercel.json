@@ -2,8 +2,17 @@
   "functions": {
     "api/redefinir-senha.js": {
       "maxDuration": 10
+    },
+    "api/manter-redis.js": {
+      "maxDuration": 10
     }
   },
+  "crons": [
+    {
+      "path": "/api/manter-redis",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
