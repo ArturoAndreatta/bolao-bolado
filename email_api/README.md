@@ -37,6 +37,7 @@ no painel da Vercel, adicione:
 | `ALLOWED_ORIGIN` | Origens que podem chamar o endpoint, separadas por vírgula: `https://bolaobolado-app.web.app,https://bolaobolado-app.firebaseapp.com` (some `http://localhost:PORTA` enquanto testa local). |
 | `APP_SHARED_SECRET` | **Obrigatória**: sem ela o endpoint recusa tudo. Precisa ser igual a `_segredoRecuperarSenha` em `lib/services/authentication/auth_service.dart` do app, que manda esse valor no header `x-app-secret`. É só uma barreira contra bot varrendo endpoints, não segredo forte (ver aviso no código). |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Redis grátis do Upstash (integração no marketplace da Vercel ou upstash.com, aba **REST API**). Guarda os contadores do limite de pedidos (3 por e-mail/hora, 10 por IP/hora, 300 no dia). Sem elas o limite só vale dentro de uma instância da função. |
+| `CRON_SECRET` | Qualquer texto aleatório longo (ex.: `openssl rand -hex 32`). A Vercel manda ele no cron diário que chama `/api/manter-redis`, que grava no Redis pra ele não ser arquivado por falta de tráfego — sem isso o limite de pedidos desliga em silêncio. Sem a variável o endpoint recusa e o cron aparece com erro na aba **Cron Jobs**. |
 
 Depois de configurar, faça um redeploy (a Vercel não aplica env var nova em
 deploy já existente).
