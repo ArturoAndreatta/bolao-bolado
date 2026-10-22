@@ -3,6 +3,12 @@
     "api/redefinir-senha.js": {
       "maxDuration": 10
     },
+    "api/enviar-codigo-login.js": {
+      "maxDuration": 10
+    },
+    "api/entrar-com-codigo.js": {
+      "maxDuration": 10
+    },
     "api/manter-redis.js": {
       "maxDuration": 10
     }

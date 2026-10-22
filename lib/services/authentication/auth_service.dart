@@ -47,15 +47,18 @@ class AuthService {
   // template visual do app — usado no lugar do `sendPasswordResetEmail`
   // padrão do Firebase, cujo e-mail é genérico e cuja customização está
   // quebrada neste projeto Firebase (Console recusa salvar o modelo/URL
-  // acionável).
-  static const _urlRecuperarSenha =
-      'https://bolao-bolado-email-api.vercel.app/api/redefinir-senha';
+  // acionável). O login por código mora no mesmo backend: ele já tinha
+  // Admin SDK, envio de e-mail e Redis para os limites de pedido.
+  static const _urlApiEmail = 'https://bolao-bolado-email-api.vercel.app/api';
+  static const _urlRecuperarSenha = '$_urlApiEmail/redefinir-senha';
+  static const _urlEnviarCodigoLogin = '$_urlApiEmail/enviar-codigo-login';
+  static const _urlEntrarComCodigo = '$_urlApiEmail/entrar-com-codigo';
 
   // Barreira simples contra bot varrendo o endpoint — não é um segredo
   // forte de verdade: o app é web pública, então dá pra extrair esse valor
   // do bundle. Só afasta abuso genérico, não alguém decidido (mesmo aviso
-  // no endpoint em si).
-  static const _segredoRecuperarSenha =
+  // no endpoint em si). Vale para todos os endpoints de [_urlApiEmail].
+  static const _segredoApiEmail =
       '7f3a9c1e5b8d4f26a0c9e7d3b5f8a1c4e6d9b2f7a5c8e1d4b6f9a2c5e8d1b4f7';
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
@@ -340,14 +343,7 @@ class AuthService {
   /// não dá pra usar essa chamada pra descobrir se alguém tem conta no app.
   /// Só erro de rede/infraestrutura chega aqui como falha de verdade.
   Future<void> recuperarSenha(String email) async {
-    final resposta = await http.post(
-      Uri.parse(_urlRecuperarSenha),
-      headers: {
-        'Content-Type': 'application/json',
-        'x-app-secret': _segredoRecuperarSenha,
-      },
-      body: jsonEncode({'email': email}),
-    );
+    final resposta = await _postApiEmail(_urlRecuperarSenha, {'email': email});
 
     if (resposta.statusCode != 200) {
       throw Exception(
@@ -356,8 +352,91 @@ class AuthService {
     }
   }
 
+  /// Pede o código de login por e-mail (login sem senha, ver
+  /// `email_api/api/enviar-codigo-login.js`).
+  ///
+  /// Mesmo cuidado de [recuperarSenha]: o endpoint responde sucesso tenha o
+  /// e-mail conta ou não, então só falha de rede/infraestrutura (ou excesso
+  /// de pedidos do mesmo IP) chega aqui como erro.
+  Future<void> enviarCodigoLogin(String email) async {
+    final resposta = await _postApiEmail(_urlEnviarCodigoLogin, {
+      'email': email,
+    });
+    if (resposta.statusCode != 200) {
+      throw FalhaLoginPorCodigo(
+        _mensagemDoServidor(resposta) ??
+            'Erro ao enviar o código. Tente novamente.',
+      );
+    }
+  }
+
+  /// Confere o [codigo] recebido por e-mail e, se bater, entra na conta.
+  ///
+  /// O backend devolve um custom token do Firebase; daí em diante a sessão é
+  /// igual à de quem entrou com senha (mesmo uid, mesmo `usuarios/{uid}`).
+  /// Por isso não cria documento de perfil: o endpoint só emite token para
+  /// conta que já existe, e quem tem conta já passou pelo cadastro.
+  Future<UserCredential> entrarComCodigo({
+    required String email,
+    required String codigo,
+  }) async {
+    final resposta = await _postApiEmail(_urlEntrarComCodigo, {
+      'email': email,
+      'codigo': codigo,
+    });
+    if (resposta.statusCode != 200) {
+      throw FalhaLoginPorCodigo(
+        _mensagemDoServidor(resposta) ?? 'Erro ao entrar. Tente novamente.',
+      );
+    }
+
+    final token = (jsonDecode(resposta.body) as Map<String, dynamic>)['token'];
+    if (token is! String) {
+      throw const FalhaLoginPorCodigo('Erro ao entrar. Tente novamente.');
+    }
+
+    // Apaga o anônimo só depois do código conferir: errar o código não pode
+    // custar a sessão que mantém as telas públicas lendo o Firestore.
+    if (_auth.currentUser != null && _auth.currentUser!.isAnonymous) {
+      unawaited(_auth.currentUser!.delete().catchError((_) {}));
+    }
+
+    return _auth.signInWithCustomToken(token);
+  }
+
+  Future<http.Response> _postApiEmail(String url, Map<String, String> corpo) {
+    return http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-secret': _segredoApiEmail,
+      },
+      body: jsonEncode(corpo),
+    );
+  }
+
+  /// Mensagem em português que o backend devolve em `error` — ela já foi
+  /// escrita para o usuário ler (código incorreto, muitas tentativas).
+  String? _mensagemDoServidor(http.Response resposta) {
+    try {
+      final erro = (jsonDecode(resposta.body) as Map<String, dynamic>)['error'];
+      return erro is String ? erro : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool get isLoggedIn {
     final user = _auth.currentUser;
     return user != null && !user.isAnonymous;
   }
+}
+
+/// Erro do login por código com a mensagem pronta para mostrar na tela.
+class FalhaLoginPorCodigo implements Exception {
+  final String mensagem;
+  const FalhaLoginPorCodigo(this.mensagem);
+
+  @override
+  String toString() => mensagem;
 }
