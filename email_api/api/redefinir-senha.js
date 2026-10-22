@@ -37,106 +37,28 @@
 //   o app é web pública, então dá pra extrair esse valor do bundle. Serve só
 //   pra afastar bots genéricos varrendo endpoints abertos.
 
-const admin = require('firebase-admin');
-const nodemailer = require('nodemailer');
+const {
+  admin,
+  transportador,
+  NOME_APP,
+  excedeuLimite,
+  excedeuCotaDiariaDeEmails,
+  ipDe,
+  emailDoPedido,
+  prepararPedido,
+} = require('./_comum');
 const { montarHtmlRedefinicaoSenha } = require('./_template');
-
-const NOME_APP = 'Bolão Bolado';
 
 // URL da página customizada de redefinição de senha (hospedada neste mesmo
 // projeto Vercel, arquivo /redefinir-senha.html na raiz do repo).
 const URL_PAGINA_REDEFINICAO = 'https://bolao-bolado-email-api.vercel.app/redefinir-senha.html';
 
-// ── Firebase Admin: inicializa uma vez só, reaproveitado entre invocações
-// da mesma instância quente (padrão recomendado em funções serverless).
-if (!admin.apps.length) {
-  const credencialBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
-  if (credencialBase64) {
-    const credencial = JSON.parse(
-      Buffer.from(credencialBase64, 'base64').toString('utf8')
-    );
-    admin.initializeApp({ credential: admin.credential.cert(credencial) });
-  }
-}
-
-// ── Transporte SMTP do Gmail: também inicializado uma vez só e reaproveitado
-// entre invocações da mesma instância quente. `GMAIL_APP_PASSWORD` é uma
-// senha de app (myaccount.google.com/apppasswords) — não é a senha normal
-// da conta, e exige verificação em duas etapas ativada.
-const transportador = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
-
-const origensPermitidas = (process.env.ALLOWED_ORIGIN || '')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
-
-// Quantos pedidos cabem em cada janela. O teto diário fica abaixo dos 500
-// destinatários/dia do Gmail de propósito: estourar a cota derrubaria a
-// redefinição de todo mundo, e a margem deixa espaço pra outros envios da
-// mesma conta.
+// Quantos pedidos cabem em cada janela. O teto diário de e-mails é
+// compartilhado com o login por código (ver excedeuCotaDiariaDeEmails).
 const LIMITES = {
   porEmail: { maximo: 3, janelaSegundos: 60 * 60 },
   porIp: { maximo: 10, janelaSegundos: 60 * 60 },
-  total: { maximo: 300, janelaSegundos: 24 * 60 * 60 },
 };
-
-// A integração Upstash do marketplace da Vercel cria as variáveis com o
-// prefixo KV_ (herança do antigo Vercel KV); criando o banco direto no
-// Upstash, o nome é UPSTASH_REDIS_. Aceita os dois.
-const urlUpstash = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const tokenUpstash = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-
-// Fallback em memória (ver aviso no topo): chave -> { contagem, expiraEm }.
-const contadoresLocais = new Map();
-
-// Soma 1 ao contador da chave e devolve o total dentro da janela. A janela
-// começa no primeiro pedido (EXPIRE ... NX não renova o prazo a cada INCR),
-// então um abuso contínuo não empurra o fim do bloqueio pra frente.
-async function contar(chave, janelaSegundos) {
-  if (urlUpstash && tokenUpstash) {
-    const resposta = await fetch(`${urlUpstash}/pipeline`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${tokenUpstash}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify([
-        ['INCR', chave],
-        ['EXPIRE', chave, String(janelaSegundos), 'NX'],
-      ]),
-    });
-    if (!resposta.ok) throw new Error(`Upstash respondeu ${resposta.status}`);
-    const [incr] = await resposta.json();
-    return Number(incr.result);
-  }
-
-  const agora = Date.now();
-  const atual = contadoresLocais.get(chave);
-  if (!atual || atual.expiraEm <= agora) {
-    contadoresLocais.set(chave, { contagem: 1, expiraEm: agora + janelaSegundos * 1000 });
-    return 1;
-  }
-  atual.contagem += 1;
-  return atual.contagem;
-}
-
-async function excedeuLimite(tipo, identificador) {
-  const { maximo, janelaSegundos } = LIMITES[tipo];
-  const total = await contar(`redefinir-senha:${tipo}:${identificador}`, janelaSegundos);
-  return total > maximo;
-}
-
-// A Vercel coloca o IP real do cliente no começo do x-forwarded-for.
-function ipDe(req) {
-  const encaminhado = String(req.headers['x-forwarded-for'] || '');
-  return encaminhado.split(',')[0].trim() || req.headers['x-real-ip'] || 'desconhecido';
-}
 
 // Erros do Admin SDK que significam "não há conta com esse e-mail". O SDK
 // devolve `auth/email-not-found` para generatePasswordResetLink — tratar só
@@ -158,17 +80,6 @@ function ehContaInexistente(erro) {
   );
 }
 
-const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function aplicarCors(req, res) {
-  const origin = req.headers.origin;
-  if (origin && origensPermitidas.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-app-secret');
-}
-
 // Troca o domínio padrão do Firebase (firebaseapp.com/__/auth/action) pela
 // nossa página customizada, preservando mode/oobCode/apiKey e demais
 // parâmetros que o Firebase colocou na query string.
@@ -178,34 +89,10 @@ function reescreverLinkParaPaginaCustomizada(linkOriginal) {
 }
 
 module.exports = async function handler(req, res) {
-  aplicarCors(req, res);
+  if (!prepararPedido(req, res)) return;
 
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Método não permitido.' });
-    return;
-  }
-
-  const segredoEsperado = process.env.APP_SHARED_SECRET;
-  if (!segredoEsperado) {
-    console.error('APP_SHARED_SECRET não configurado — recusando pedidos.');
-    res.status(503).json({ error: 'Serviço indisponível.' });
-    return;
-  }
-  if (req.headers['x-app-secret'] !== segredoEsperado) {
-    res.status(401).json({ error: 'Não autorizado.' });
-    return;
-  }
-
-  const email = (req.body && req.body.email ? String(req.body.email) : '')
-    .trim()
-    .toLowerCase();
-
-  if (email.length > 254 || !REGEX_EMAIL.test(email)) {
+  const email = emailDoPedido(req);
+  if (!email) {
     res.status(400).json({ error: 'E-mail inválido.' });
     return;
   }
@@ -223,11 +110,14 @@ module.exports = async function handler(req, res) {
   // e-mail e o total respondem a mensagem genérica, senão o bloqueio de um
   // e-mail específico viraria mais um jeito de sondar a base.
   try {
-    if (await excedeuLimite('porIp', ipDe(req))) {
+    if (await excedeuLimite(`redefinir-senha:porIp:${ipDe(req)}`, LIMITES.porIp)) {
       res.status(429).json({ error: 'Muitos pedidos. Tente de novo mais tarde.' });
       return;
     }
-    if ((await excedeuLimite('porEmail', email)) || (await excedeuLimite('total', 'dia'))) {
+    if (
+      (await excedeuLimite(`redefinir-senha:porEmail:${email}`, LIMITES.porEmail)) ||
+      (await excedeuCotaDiariaDeEmails())
+    ) {
       res.status(200).json(respostaGenerica);
       return;
     }

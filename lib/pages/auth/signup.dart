@@ -236,14 +236,28 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                           ),
                         ),
                       ),
+                      // Login por código fica ao lado do "esqueci a senha" e
+                      // não como terceiro botão grande: é o caminho de quem
+                      // não lembra a senha, então mora onde essa pessoa já
+                      // procura, sem disputar atenção com Logar e Google.
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 480),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: _recuperarSenha,
-                            child: const Text('Esqueci minha senha'),
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: TextButton(
+                                onPressed: _entrarComCodigo,
+                                child: const Text('Entrar com código'),
+                              ),
+                            ),
+                            Flexible(
+                              child: TextButton(
+                                onPressed: _recuperarSenha,
+                                child: const Text('Esqueci minha senha'),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -393,6 +407,15 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     context.go(
       Uri(
         path: AppRoutes.register,
+        queryParameters: {'email': emailController.text},
+      ).toString(),
+    );
+  }
+
+  void _entrarComCodigo() {
+    context.go(
+      Uri(
+        path: AppRoutes.entrarComCodigo,
         queryParameters: {'email': emailController.text},
       ).toString(),
     );

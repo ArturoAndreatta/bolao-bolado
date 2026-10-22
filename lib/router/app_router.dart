@@ -1,6 +1,7 @@
 import 'package:bolao_bolado/core/ultima_rota_admin.dart';
 import 'package:bolao_bolado/models/sala.dart';
 import 'package:bolao_bolado/pages/admin/painel_admin.dart';
+import 'package:bolao_bolado/pages/auth/entrar_com_codigo.dart';
 import 'package:bolao_bolado/pages/auth/forgot_password.dart';
 import 'package:bolao_bolado/pages/auth/register.dart';
 import 'package:bolao_bolado/pages/auth/signup.dart';
@@ -18,6 +19,7 @@ abstract final class AppRoutes {
   static const signup = '/signup';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
+  static const entrarComCodigo = '/entrar-com-codigo';
   static const participants = '/participantes';
   static const informarAposta = '/minha-aposta';
   static const cadastrarSala = '/cadastrar-sala';
@@ -32,11 +34,17 @@ const _publicRoutes = [
   AppRoutes.signup,
   AppRoutes.register,
   AppRoutes.forgotPassword,
+  AppRoutes.entrarComCodigo,
   AppRoutes.participants,
 ];
 
 // Rotas que não fazem sentido para quem já está logado de verdade.
-const _guestOnlyRoutes = [AppRoutes.home, AppRoutes.signup, AppRoutes.register];
+const _guestOnlyRoutes = [
+  AppRoutes.home,
+  AppRoutes.signup,
+  AppRoutes.register,
+  AppRoutes.entrarComCodigo,
+];
 
 // Página sem transição, replicando o PageRouteBuilder com
 // transitionDuration: Duration.zero usado em todo o app antes da migração.
@@ -105,6 +113,13 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.forgotPassword,
       pageBuilder: (context, state) => _noTransitionPage(
         RecuperarSenha(email: state.uri.queryParameters['email']),
+        state,
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.entrarComCodigo,
+      pageBuilder: (context, state) => _noTransitionPage(
+        EntrarComCodigo(email: state.uri.queryParameters['email']),
         state,
       ),
     ),
