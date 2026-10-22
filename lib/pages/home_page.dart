@@ -17,6 +17,7 @@ import 'package:bolao_bolado/services/authentication/auth_service.dart';
 import 'package:bolao_bolado/services/bet/bet_service.dart';
 import 'package:bolao_bolado/services/bet/preco_cota.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -48,31 +49,39 @@ class _HomePageState extends State<HomePage> with RouteAware {
   // `streamBets()` é a MESMA stream compartilhada da tela de Participantes:
   // assinar aqui não abre listener a mais, e de quebra adianta a leitura para
   // quem toca em Só dar uma olhada logo em seguida.
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _subSala;
-  StreamSubscription<List<Map<String, Object?>>>? _subApostas;
+  late final _LeituraResiliente<DocumentSnapshot<Map<String, dynamic>>>
+  _leituraSala;
+  late final _LeituraResiliente<List<Map<String, Object?>>> _leituraApostas;
   Map<String, dynamic>? _dadosSala;
   List<Map<String, Object?>>? _apostas;
   bool _erroSala = false;
+
+  /// Falhas seguidas da sala antes de desistir do skeleton e esconder o
+  /// bloco. A falha comum é passageira (a sessão trocando ao sair da conta) e
+  /// volta na primeira nova tentativa: esconder já na primeira fazia o bloco
+  /// sumir e reaparecer, empurrando os botões.
+  static const _falhasAteEsconder = 3;
 
   @override
   void initState() {
     super.initState();
     _sortearFrase();
-    _subSala = streamSalaPrincipal().listen(
-      (doc) {
-        if (mounted) setState(() => _dadosSala = doc.data());
+    _leituraSala = _LeituraResiliente(
+      abrir: streamSalaPrincipal,
+      aoReceber: (doc) => setState(() {
+        _dadosSala = doc.data();
+        _erroSala = false;
+      }),
+      aoFalhar: (falhas) {
+        if (falhas >= _falhasAteEsconder) setState(() => _erroSala = true);
       },
-      onError: (Object _) {
-        if (mounted) setState(() => _erroSala = true);
-      },
-    );
-    _subApostas = streamBets().listen(
-      (linhas) {
-        if (mounted) setState(() => _apostas = linhas);
-      },
+    )..iniciar();
+    _leituraApostas = _LeituraResiliente(
+      abrir: streamBets,
+      aoReceber: (linhas) => setState(() => _apostas = linhas),
       // Sem as apostas o bloco continua de pé, só sem a contagem.
-      onError: (Object _) {},
-    );
+      aoFalhar: (_) {},
+    )..iniciar();
   }
 
   @override
@@ -85,8 +94,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
   void dispose() {
     routeObserver.unsubscribe(this);
     _stopTimer();
-    unawaited(_subSala?.cancel());
-    unawaited(_subApostas?.cancel());
+    _leituraSala.cancelar();
+    _leituraApostas.cancelar();
     super.dispose();
   }
 
@@ -190,6 +199,70 @@ class _HomePageState extends State<HomePage> with RouteAware {
         ),
       ],
     );
+  }
+}
+
+/// Assinatura de uma stream do Firestore que se reabre sozinha depois de uma
+/// falha.
+///
+/// O listener do Firestore morre no primeiro erro, e a stream compartilhada
+/// de apostas fecha junto. Sem reabrir, uma recusa passageira deixava o bolão
+/// da vez fora da tela até a pessoa sair e voltar — e a recusa acontece de
+/// rotina: ao sair da conta o app cai aqui sem usuário nenhum, porque o login
+/// anônimo que o substitui ainda está a caminho.
+class _LeituraResiliente<T> {
+  final Stream<T> Function() abrir;
+  final void Function(T valor) aoReceber;
+
+  /// Recebe quantas falhas seguidas já houve, contando a atual.
+  final void Function(int falhas) aoFalhar;
+
+  StreamSubscription<T>? _sub;
+  Timer? _espera;
+  int _falhas = 0;
+  bool _cancelada = false;
+
+  _LeituraResiliente({
+    required this.abrir,
+    required this.aoReceber,
+    required this.aoFalhar,
+  });
+
+  void iniciar() {
+    _sub = abrir().listen((valor) {
+      _falhas = 0;
+      aoReceber(valor);
+    }, onError: (Object _) => _falhou());
+  }
+
+  void _falhou() {
+    if (_cancelada) return;
+    _falhas++;
+    aoFalhar(_falhas);
+    unawaited(_sub?.cancel());
+    _sub = null;
+
+    // Espera crescente (1s, 2s, 4s... até 30s): sem rede, tentar em laço
+    // apertado só gasta bateria e cota de leitura.
+    _espera?.cancel();
+    _espera = Timer(
+      Duration(seconds: min(30, 1 << min(_falhas - 1, 5))),
+      () => unawaited(_reabrir()),
+    );
+  }
+
+  Future<void> _reabrir() async {
+    // Sem usuário a regra recusa de novo: espera o login anônimo chegar.
+    await FirebaseAuth.instance.authStateChanges().firstWhere(
+      (user) => user != null,
+    );
+    if (!_cancelada) iniciar();
+  }
+
+  void cancelar() {
+    _cancelada = true;
+    _espera?.cancel();
+    unawaited(_sub?.cancel());
   }
 }
 
