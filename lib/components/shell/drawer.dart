@@ -391,19 +391,65 @@ class _AppDrawerState extends State<AppDrawer> {
 
 /// Seletor de tema no rodapé do drawer: Claro / Escuro / Mais.
 ///
-/// As duas primeiras respondem "quão claro"; "Mais" abre a lista de temas
-/// únicos (Cassino, Meia-noite, Cyber, Papel, Bilhete) e o "Auto".
+/// As duas primeiras respondem "quão claro"; "Mais" abre, ali mesmo no
+/// drawer, a lista de temas únicos (Cassino, Meia-noite, Cyber, Papel,
+/// Bilhete) e o "Auto".
 ///
-/// "Auto" saiu do pill e foi para dentro do diálogo — e não por ser menos
+/// "Auto" saiu do pill e foi para dentro da lista — e não por ser menos
 /// importante (continua sendo o padrão de fábrica), mas porque com oito temas
 /// no total o pill precisa carregar só a decisão do dia a dia. Quem configura
 /// "seguir o sistema" faz isso uma vez; quem escurece a tela faz toda noite.
 ///
+/// A lista abre embaixo do pill e não num diálogo: o rodapé cresce e empurra
+/// o pill para cima, encolhendo a lista de navegação acima dele (que rola).
+/// Assim a pessoa vê a prévia de cada tema sem perder o drawer de vista, e
+/// cada toque aplica o tema no app inteiro, por trás.
+///
 /// O botão "Mais" fica ACESO quando o tema atual é um dos de dentro: sem
 /// isso, quem estivesse no Cassino veria os três botões apagados e o pill
 /// pareceria quebrado.
-class _AlternadorTema extends StatelessWidget {
+class _AlternadorTema extends StatefulWidget {
   const _AlternadorTema();
+
+  @override
+  State<_AlternadorTema> createState() => _AlternadorTemaState();
+}
+
+class _AlternadorTemaState extends State<_AlternadorTema>
+    with SingleTickerProviderStateMixin {
+  // Controller explícito em vez de AnimatedSize: abrir e fechar têm curvas
+  // diferentes (desacelera chegando, acelera saindo), e com o valor em mãos
+  // dá para nem montar a lista enquanto ela está fechada.
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+    reverseDuration: const Duration(milliseconds: 220),
+  );
+  late final Animation<double> _abertura = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+
+  bool get _aberto =>
+      _controller.status == AnimationStatus.forward ||
+      _controller.status == AnimationStatus.completed;
+
+  void _alternar() {
+    setState(() {
+      if (_aberto) {
+        _controller.reverse();
+      } else {
+        _controller.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -462,16 +508,45 @@ class _AlternadorTema extends StatelessWidget {
                       onTap: () => salvarTema(TemaApp.escuro),
                     ),
                     _OpcaoTema(
-                      // Quando um tema de dentro está ativo, o botão mostra o
-                      // ícone DELE em vez do genérico: o pill vira o indicador
-                      // do que está valendo, sem precisar abrir o diálogo.
-                      icone: noMais ? tema.icone : Icons.more_horiz,
-                      rotulo: 'Mais',
+                      // Aberta, a lista já mostra qual tema vale, e o botão
+                      // passa a dizer como fechá-la. Fechada, quando um tema
+                      // de dentro está ativo, o botão mostra o ícone DELE em
+                      // vez do genérico: o pill vira o indicador do que está
+                      // valendo.
+                      icone: _aberto
+                          ? Icons.expand_more
+                          : noMais
+                          ? tema.icone
+                          : Icons.more_horiz,
+                      rotulo: _aberto ? 'Fechar' : 'Mais',
                       ativo: noMais,
-                      onTap: () => _abrirSeletorDeTemas(context),
+                      onTap: _alternar,
                     ),
                   ],
                 ),
+              ),
+              AnimatedBuilder(
+                animation: _abertura,
+                // A lista é montada uma vez por abertura e só a altura e a
+                // opacidade mudam a cada quadro. Fechada, ela nem existe:
+                // nada a mais para medir no layout do drawer.
+                child: _ListaTemas(atual: tema),
+                builder: (context, lista) {
+                  if (_controller.isDismissed) return const SizedBox.shrink();
+                  return ClipRect(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      heightFactor: _abertura.value,
+                      child: Opacity(
+                        // A opacidade corre na frente da altura: os itens
+                        // já estão legíveis quando terminam de aparecer, e
+                        // somem antes de a moldura acabar de fechar.
+                        opacity: (_abertura.value * 1.5).clamp(0.0, 1.0),
+                        child: lista,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -479,14 +554,6 @@ class _AlternadorTema extends StatelessWidget {
       },
     );
   }
-}
-
-/// Abre a lista de temas únicos + "Auto".
-Future<void> _abrirSeletorDeTemas(BuildContext context) {
-  return showDialog<void>(
-    context: context,
-    builder: (_) => const _DialogoTemas(),
-  );
 }
 
 class _OpcaoTema extends StatelessWidget {
@@ -546,64 +613,54 @@ class _OpcaoTema extends StatelessWidget {
   }
 }
 
-/// Lista dos temas únicos, com prévia da paleta de cada um.
+/// Lista de "Auto" + temas únicos, embaixo do pill.
 ///
 /// A prévia não é enfeite: "Cassino" e "Meia-noite" não dizem nada sobre a
 /// cor da tela, e trocar o tema inteiro só para descobrir como ele é seria um
 /// vaivém. As três bolinhas mostram fundo, superfície e cor de ação — que é o
 /// que muda de verdade entre eles.
-class _DialogoTemas extends StatelessWidget {
-  const _DialogoTemas();
+class _ListaTemas extends StatelessWidget {
+  final TemaApp atual;
+
+  const _ListaTemas({required this.atual});
 
   @override
   Widget build(BuildContext context) {
     final cores = AppCores.de(context);
 
-    return ValueListenableBuilder<TemaApp>(
-      valueListenable: temaGlobal,
-      builder: (context, atual, _) {
-        return AlertDialog(
-          backgroundColor: cores.card,
-          shape: RoundedRectangleBorder(borderRadius: AppRadii.circularMd),
-          title: const Text('Escolha um tema'),
-          contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-          content: SizedBox(
-            width: 380,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ItemTema(tema: TemaApp.seguirSistema, atual: atual),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-                    child: Row(
-                      children: [
-                        Text(
-                          'TEMAS ÚNICOS',
-                          style: TextStyle(
-                            color: cores.textoFraco,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
+    // RepaintBoundary: enquanto a altura anima, só o recorte muda; o
+    // conteúdo vira uma camada pronta em vez de ser repintado por quadro.
+    return RepaintBoundary(
+      child: ConstrainedBox(
+        // Em tela baixa a lista inteira não cabe junto do resto do drawer;
+        // passado o teto ela rola por dentro em vez de estourar o rodapé.
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ItemTema(tema: TemaApp.seguirSistema, atual: atual),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
+                child: Text(
+                  'TEMAS ÚNICOS',
+                  style: TextStyle(
+                    color: cores.textoFraco,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
                   ),
-                  for (final tema in TemaApp.unicos)
-                    _ItemTema(tema: tema, atual: atual),
-                ],
+                ),
               ),
-            ),
+              for (final tema in TemaApp.unicos)
+                _ItemTema(tema: tema, atual: atual),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Fechar', style: TextStyle(color: cores.textoSuave)),
-            ),
-          ],
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -622,61 +679,52 @@ class _ItemTema extends StatelessWidget {
     // informação útil ali, já que o item não tem cor própria.
     final previa = paletaDe(tema, MediaQuery.platformBrightnessOf(context));
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: AppRadii.circularSmd,
-        onTap: () => salvarTema(tema),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: ativo ? cores.fundoAzul : Colors.transparent,
-            borderRadius: AppRadii.circularSmd,
-            border: Border.all(
-              color: ativo ? cores.bordaAzul : Colors.transparent,
+    // Mesma linguagem do pill logo acima: o drawer é escuro em todos os
+    // temas, então o destaque é branco translúcido com borda na cor de ação,
+    // e não os fundo*/borda* calibrados para cima do card.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: AppRadii.circularSm,
+          onTap: () => salvarTema(tema),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: ativo
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              borderRadius: AppRadii.circularSm,
+              border: Border.all(
+                color: ativo ? cores.acaoPrimaria : Colors.transparent,
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              _PreviaPaleta(cores: previa),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tema.rotulo,
-                      style: TextStyle(
-                        color: cores.texto,
-                        fontSize: 14,
-                        fontWeight: ativo ? FontWeight.w700 : FontWeight.w500,
-                      ),
+            child: Row(
+              children: [
+                _PreviaPaleta(cores: previa, borda: cores.drawerBorda),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    tema.rotulo,
+                    style: TextStyle(
+                      color: ativo ? Colors.white : cores.drawerTexto,
+                      fontSize: 13,
+                      fontWeight: ativo ? FontWeight.w700 : FontWeight.w500,
                     ),
-                    if (tema.descricao != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          tema.descricao!,
-                          style: TextStyle(
-                            color: cores.textoSuave,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
-              ),
-              // O ícone do tema fica SEMPRE visível — ele é parte da
-              // identidade do item, e trocá-lo por um check no selecionado
-              // apagava justamente a linha que o usuário acabou de escolher.
-              // A seleção já se lê no fundo tingido, na borda e no negrito do
-              // rótulo; aqui basta a cor de destaque.
-              Icon(
-                tema.icone,
-                size: 20,
-                color: ativo ? cores.azul : cores.textoFraco,
-              ),
-            ],
+                // O ícone do tema fica SEMPRE visível — ele é parte da
+                // identidade do item, e trocá-lo por um check no selecionado
+                // apagava justamente a linha que o usuário acabou de escolher.
+                Icon(
+                  tema.icone,
+                  size: 17,
+                  color: ativo ? cores.acaoPrimaria : cores.textoFraco,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -687,37 +735,36 @@ class _ItemTema extends StatelessWidget {
 /// Três discos sobrepostos com o fundo, a superfície e a ação do tema.
 class _PreviaPaleta extends StatelessWidget {
   final AppCores cores;
+  final Color borda;
 
-  const _PreviaPaleta({required this.cores});
+  const _PreviaPaleta({required this.cores, required this.borda});
 
   @override
   Widget build(BuildContext context) {
-    final bordaPrevia = AppCores.de(context).borda;
-
     return SizedBox(
-      width: 46,
-      height: 26,
+      width: 38,
+      height: 22,
       child: Stack(
         children: [
-          _disco(cores.gradienteFundo.last, 0, bordaPrevia),
-          _disco(cores.card, 10, bordaPrevia),
-          _disco(cores.acaoPrimaria, 20, bordaPrevia),
+          _disco(cores.gradienteFundo.last, 0),
+          _disco(cores.card, 8),
+          _disco(cores.acaoPrimaria, 16),
         ],
       ),
     );
   }
 
-  Widget _disco(Color cor, double esquerda, Color borda) => Positioned(
+  Widget _disco(Color cor, double esquerda) => Positioned(
     left: esquerda,
     top: 0,
     child: Container(
-      width: 26,
-      height: 26,
+      width: 22,
+      height: 22,
       decoration: BoxDecoration(
         color: cor,
         shape: BoxShape.circle,
-        // Borda na cor do tema ATIVO (não do previsto): é o que separa os
-        // discos entre si e do fundo do diálogo quando as cores são próximas.
+        // Borda na cor do drawer (não do tema previsto): é o que separa os
+        // discos entre si e do fundo quando as cores são próximas.
         border: Border.all(color: borda, width: 1.5),
       ),
     ),
