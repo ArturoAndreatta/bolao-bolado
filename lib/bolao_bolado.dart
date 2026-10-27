@@ -1,3 +1,4 @@
+import 'package:bolao_bolado/components/shell/aviso_versao_nova.dart';
 import 'package:bolao_bolado/core/app_tema.dart';
 import 'package:bolao_bolado/core/tema_controller.dart';
 import 'package:bolao_bolado/router/app_router.dart';
@@ -69,7 +70,9 @@ class BolaoBolado extends StatelessWidget {
               // e termina devagar, sem salto no primeiro frame nem parada
               // seca no último.
               curve: Curves.easeInOutCubic,
-              child: child!,
+              // Dentro do AnimatedTheme para o aviso ler a paleta do tema
+              // escolhido, e acima do Navigator para cobrir todas as rotas.
+              child: AvisoVersaoNova(child: child!),
             );
           },
         );

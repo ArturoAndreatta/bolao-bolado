@@ -37,9 +37,10 @@ Future<void> main(List<String> args) async {
   final extrasFirebase = args.where((a) => !flagsLocais.contains(a)).toList();
 
   final steps = Steps(
-    // Passos fixos (repositório, limpeza, dependências, build, poda) + 2 se
-    // não for --rapido (analyze/test) + 1 se não for --sem-deploy (publicar).
-    total: 5 + (rapido ? 0 : 2) + (semDeploy ? 0 : 1),
+    // Passos fixos (repositório, limpeza, dependências, build, poda, service
+    // worker) + 2 se não for --rapido (analyze/test) + 1 se não for
+    // --sem-deploy (publicar).
+    total: 6 + (rapido ? 0 : 2) + (semDeploy ? 0 : 1),
     dryRun: dryRun,
     paint: paint,
   );
@@ -102,12 +103,17 @@ Future<void> main(List<String> args) async {
 
   // --no-web-resources-cdn: serve o CanvasKit do próprio Hosting em vez do
   // gstatic.com. Ver CLAUDE.md (seção Deploy) para o porquê.
+  //
+  // --pwa-strategy=offline-first é o padrão, escrito explícito porque o aviso
+  // de versão nova depende do service worker: trocar por `none` achando que é
+  // otimização deixaria todo mundo preso na versão velha, sem erro nenhum.
   steps.begin('Compilando para web', hint: 'a primeira vez demora');
   await steps.run('flutter', [
     'build',
     'web',
     '--release',
     '--no-web-resources-cdn',
+    '--pwa-strategy=offline-first',
   ]);
   steps.done('build pronto');
 
@@ -116,6 +122,10 @@ Future<void> main(List<String> args) async {
     fail(paint, 'Poda falhou — deploy abortado.');
   }
   steps.done(dryRun ? 'simulado' : 'symbols/skwasm fora do bundle');
+
+  steps.begin('Conferindo o service worker');
+  if (!dryRun) conferirServiceWorker(paint);
+  steps.done(dryRun ? 'simulado' : 'aviso de versão nova garantido');
 
   if (semDeploy) {
     _resumo(
@@ -166,6 +176,55 @@ void _resumo(
       '  ${paint.dim('└─ peso          ${formatBytes(tamanho.bytes)}')}',
     )
     ..writeln('');
+}
+
+/// Barra o deploy quando o build quebraria o aviso de versão nova.
+///
+/// O aviso (lib/components/shell/aviso_versao_nova.dart) depende de duas
+/// coisas que falham caladas:
+///
+/// - **O service worker existir.** Sem ele ninguém descobre versão nova e todo
+///   mundo fica na velha até fechar o app por conta própria.
+/// - **Ele ser registrado num endereço fixo, sem `?v=`.** O registro padrão do
+///   flutter.js usa `?v=`, que muda quando index.html/bootstrap/SDK mudam; aí
+///   o worker é registrado de novo depois do "Atualizar agora" e o aviso
+///   reabre já na versão nova. Volta se `web/flutter_bootstrap.js` sumir ou se
+///   o `index.html` citar o nome inteiro do worker (o build acrescenta o `?v=`).
+void conferirServiceWorker(Paint paint) {
+  final worker = File('build/web/flutter_service_worker.js');
+  if (!worker.existsSync()) {
+    fail(
+      paint,
+      'O build saiu sem o service worker do Flutter.\n'
+      '    Sem ele, quem está com o app aberto nunca vê o aviso de versão nova.\n'
+      '    Confira o --pwa-strategy do build.',
+    );
+  }
+
+  // Só a chamada do fim: o flutter.js embutido antes dela cita
+  // `serviceWorkerSettings` no próprio código.
+  final bootstrap = File('build/web/flutter_bootstrap.js');
+  final fonte = bootstrap.existsSync() ? bootstrap.readAsStringSync() : '';
+  final chamada = fonte.lastIndexOf('_flutter.loader.load(');
+  if (chamada < 0 ||
+      fonte.substring(chamada).contains('serviceWorkerSettings')) {
+    fail(
+      paint,
+      'O flutter_bootstrap.js do build registra o service worker com ?v=.\n'
+      '    Com isso, Atualizar agora reabre o aviso já na versão nova.\n'
+      '    Confira se web/flutter_bootstrap.js existe.',
+    );
+  }
+
+  final index = File('build/web/index.html');
+  if (!index.existsSync() ||
+      index.readAsStringSync().contains('service_worker.js?v=')) {
+    fail(
+      paint,
+      'O index.html do build registra o service worker com ?v=.\n'
+      '    O nome no register precisa vir em dois pedaços.',
+    );
+  }
 }
 
 /// Quantos arquivos e quantos bytes foram publicados.
