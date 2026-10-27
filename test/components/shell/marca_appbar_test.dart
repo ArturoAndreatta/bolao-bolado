@@ -76,7 +76,8 @@ void main() {
   double alturaDaBola(WidgetTester tester) =>
       tester.getSize(find.byType(Image)).height;
 
-  final nome = find.text(DefaultLayout.nomeApp);
+  // O nome é montado em duas linhas (BOLÃO em cima, Bolado embaixo).
+  final nome = find.text('Bolado');
 
   testWidgets('no desktop a barra mostra bola e nome sem crescer', (
     tester,

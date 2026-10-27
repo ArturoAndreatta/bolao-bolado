@@ -106,7 +106,7 @@ class DefaultLayout extends StatelessWidget {
                 // fazia nascer scroll no painel admin.
                 toolbarHeight: ehDesktop ? alturaAppBar(context) : null,
                 title: showLogo
-                    ? _MarcaAppBar(mostrarNome: mostrarNome, cor: cores.texto)
+                    ? _MarcaAppBar(mostrarNome: mostrarNome, cores: cores)
                     : null,
               )
             : null,
@@ -148,9 +148,9 @@ class DefaultLayout extends StatelessWidget {
 /// ao lado de um texto comum ela lia como ícone de sistema.
 class _MarcaAppBar extends StatefulWidget {
   final bool mostrarNome;
-  final Color cor;
+  final AppCores cores;
 
-  const _MarcaAppBar({required this.mostrarNome, required this.cor});
+  const _MarcaAppBar({required this.mostrarNome, required this.cores});
 
   @override
   State<_MarcaAppBar> createState() => _MarcaAppBarState();
@@ -236,60 +236,68 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
           ),
         );
       },
-      child: DecoratedBox(
-        // Sombra curta embaixo da bola para ela pousar na barra em vez de
-        // flutuar recortada; preta e fraca funciona nos fundos claros e
-        // escuros, já que a barra é transparente sobre o gradiente.
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Image.asset(
-          // As variantes 2.0x/3.0x ao lado do arquivo é que resolvem o
-          // tamanho: o Flutter escolhe sozinho pelo DPR e cada tela desenha
-          // perto de 1:1. Foram reduzidas do icone.png em Lanczos com
-          // unsharp leve; ao mexer em `alturaBola`, regere as três (1×, 2×
-          // e 3× a caixa).
-          'images/bola_appbar.png',
-          height: DefaultLayout.alturaBola,
-          width: DefaultLayout.alturaBola,
-          // medium (bilinear) e não high (cúbico): perto de 1:1, que é onde
-          // as variantes deixam o desenho, o cúbico amolece.
-          filterQuality: FilterQuality.medium,
-        ),
+      // Sem sombra de propósito, nem na arte nem aqui: a bola original
+      // vinha com uma sombra projetada embaixo que, na barra transparente,
+      // lia como mancha escura grudada nela. A arte foi recortada no
+      // círculo exato da bola (images/icone.png e tudo gerado dele).
+      child: Image.asset(
+        // As variantes 2.0x/3.0x ao lado do arquivo é que resolvem o
+        // tamanho: o Flutter escolhe sozinho pelo DPR e cada tela desenha
+        // perto de 1:1. Foram reduzidas do icone.png em Lanczos com unsharp
+        // leve; ao mexer em `alturaBola`, regere as três (1×, 2× e 3× a
+        // caixa).
+        'images/bola_appbar.png',
+        height: DefaultLayout.alturaBola,
+        width: DefaultLayout.alturaBola,
+        // medium (bilinear) e não high (cúbico): perto de 1:1, que é onde as
+        // variantes deixam o desenho, o cúbico amolece.
+        filterQuality: FilterQuality.medium,
       ),
     );
 
-    // Duas espessuras no mesmo nome dão o desenho de marca que um texto de
-    // peso único não tem, sem precisar de fonte nova nem de cor extra (a
-    // cor saturada do tema já é do botão principal).
-    final nome = Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: 'Bolão ',
-            style: TextStyle(fontWeight: FontWeight.w500),
+    // O nome é montado como marca, não como frase: "BOLÃO" pequeno e
+    // espaçado em cima, "Bolado" grande embaixo na cor de ação do tema. As
+    // duas linhas juntas têm a altura da bola, e o conjunto fecha num bloco
+    // só. Em uma linha, com o mesmo peso e a cor do texto, ele lia como
+    // título de tela qualquer.
+    //
+    // A cor de ação é a única cor saturada de cada tema (botão Confirmar),
+    // então usá-la aqui não acrescenta cor nova: amarra a marca ao tema
+    // escolhido. Em tamanho grande e peso 900 vale o mínimo de 3:1 de texto
+    // grande, e todas as paletas passam sobre o topo do gradiente; o claro
+    // é o mais justo (azul sobre amarelo, 3.04:1). Ao mexer no `acaoPrimaria`
+    // ou no gradiente do claro, remeça.
+    final nome = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'BOLÃO',
+          maxLines: 1,
+          softWrap: false,
+          style: TextStyle(
+            color: widget.cores.textoSuave,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 3.2,
+            height: 1,
           ),
-          TextSpan(
-            text: 'Bolado',
-            style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Bolado',
+          maxLines: 1,
+          softWrap: false,
+          style: TextStyle(
+            color: widget.cores.acaoPrimaria,
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+            fontStyle: FontStyle.italic,
+            letterSpacing: -0.6,
+            height: 1,
           ),
-        ],
-      ),
-      maxLines: 1,
-      softWrap: false,
-      style: TextStyle(
-        color: widget.cor,
-        fontSize: 22,
-        letterSpacing: -0.3,
-        height: 1,
-      ),
+        ),
+      ],
     );
 
     // Um rótulo só para o conjunto: sem isso o leitor de tela anunciaria a
