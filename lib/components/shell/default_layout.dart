@@ -342,6 +342,15 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
       blurRadius: 4 * intensidade,
     );
 
+    final estiloBolado = TextStyle(
+      color: acao,
+      fontSize: 26,
+      fontWeight: FontWeight.w900,
+      fontStyle: FontStyle.italic,
+      letterSpacing: -0.6,
+      height: 1,
+    );
+
     final nome = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,27 +373,38 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
         // (embaixo): dá o volume de letreiro que a cor chapada não tem. Desce
         // para o escuro, e não sobe para o claro, porque o claro é o tema mais
         // justo em contraste e escurecer só aumenta a folga.
-        ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (area) => LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [acao, acaoFundo],
-          ).createShader(area),
-          child: Text(
-            'Bolado',
-            maxLines: 1,
-            softWrap: false,
-            style: TextStyle(
-              color: acao,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              fontStyle: FontStyle.italic,
-              letterSpacing: -0.6,
-              height: 1,
-              shadows: [sombraTexto(1)],
+        // Sombra e degradê em camadas SEPARADAS. O ShaderMask pinta tudo
+        // que o filho desenha, inclusive a sombra do texto: com os dois
+        // juntos a sombra virava uma névoa da cor do tema em volta das
+        // letras, que no escuro (sombra mais forte) aparecia como um
+        // borrão rosa/dourado. Embaixo vai só a sombra (texto
+        // transparente), em cima só o degradê.
+        Stack(
+          children: [
+            Text(
+              'Bolado',
+              maxLines: 1,
+              softWrap: false,
+              style: estiloBolado.copyWith(
+                color: acao.withValues(alpha: 0),
+                shadows: [sombraTexto(1)],
+              ),
             ),
-          ),
+            ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (area) => LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [acao, acaoFundo],
+              ).createShader(area),
+              child: Text(
+                'Bolado',
+                maxLines: 1,
+                softWrap: false,
+                style: estiloBolado,
+              ),
+            ),
+          ],
         ),
       ],
     );
