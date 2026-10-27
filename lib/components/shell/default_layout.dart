@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:bolao_bolado/components/shell/gradient_decoration.dart';
+import 'package:bolao_bolado/components/shell/truques_bola.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/responsive.dart';
 import 'package:flutter/material.dart';
@@ -144,7 +145,8 @@ class DefaultLayout extends StatelessWidget {
 /// Bola do "7" com o nome do app ao lado (o nome some no celular).
 ///
 /// Não é só imagem e texto: a bola entra rolando na primeira vez que a barra
-/// aparece e gira quando o mouse passa por cima. É a marca do app, e parada
+/// aparece e, a cada passada do mouse, faz um truque diferente
+/// ([truquesBola], sempre na mesma ordem). É a marca do app, e parada
 /// ao lado de um texto comum ela lia como ícone de sistema.
 class _MarcaAppBar extends StatefulWidget {
   final bool mostrarNome;
@@ -168,10 +170,13 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
     vsync: this,
     duration: const Duration(milliseconds: 750),
   );
-  late final AnimationController _giro = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 650),
-  );
+  late final AnimationController _truque = AnimationController(vsync: this);
+
+  // Próximo truque da fila. Estático pelo mesmo motivo de `_jaEntrou`: cada
+  // tela monta a sua AppBar, e sem isto a fila recomeçaria do primeiro a
+  // cada navegação, e quem passa o mouse só veria os primeiros truques.
+  static int _proximo = 0;
+  TruqueBola _atual = truquesBola.first;
 
   @override
   void initState() {
@@ -196,13 +201,18 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
   @override
   void dispose() {
     _entrada.dispose();
-    _giro.dispose();
+    _truque.dispose();
     super.dispose();
   }
 
-  void _girar() {
-    if (_giro.isAnimating || MediaQuery.disableAnimationsOf(context)) return;
-    unawaited(_giro.forward(from: 0));
+  // Passar o mouse de novo no meio de um truque não corta nem enfileira:
+  // o truque termina, e a próxima passada já pega o seguinte.
+  void _fazerTruque() {
+    if (_truque.isAnimating || MediaQuery.disableAnimationsOf(context)) return;
+    _atual = truquesBola[_proximo];
+    _proximo = (_proximo + 1) % truquesBola.length;
+    _truque.duration = _atual.duracao;
+    unawaited(_truque.forward(from: 0));
   }
 
   @override
@@ -219,7 +229,6 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
       parent: _entrada,
       curve: const Interval(0.45, 1, curve: Curves.easeOutCubic),
     );
-    final girar = CurvedAnimation(parent: _giro, curve: Curves.easeOutCubic);
 
     final imagemBola = Image.asset(
       // As variantes 2.0x/3.0x ao lado do arquivo é que resolvem o tamanho:
@@ -253,13 +262,23 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
     );
 
     final bola = AnimatedBuilder(
-      animation: Listenable.merge([rolar, girar]),
+      animation: Listenable.merge([rolar, _truque]),
       builder: (context, filho) {
         final t = rolar.value;
-        // Pulo curto durante o giro do hover: sobe e volta no mesmo
-        // movimento, e é ele que faz a sombra parecer chão e não adesivo.
-        final pulo = math.sin(girar.value * math.pi) * 4;
-        final alturaSombra = 1 - pulo / 10;
+        // Fora de truque a pose é a de repouso. Não basta confiar em
+        // `pose(1)`: o controller parado em 1 de um truque antigo não pode
+        // deixar a bola torta.
+        final pose = _truque.isAnimating
+            ? _atual.pose(_truque.value)
+            : const PoseBola();
+        // A sombra encolhe e clareia com a altura: é ela que faz o pulo
+        // parecer pulo, e não a bola deslizando para cima.
+        final alturaSombra =
+            (1 - pose.altura / 22).clamp(0.35, 1.0) *
+            (0.4 + 0.6 * pose.opacidade);
+        // Giro de lado (moeda) com perspectiva. O ângulo é dobrado para
+        // dentro de ±90°: de costas o "7" apareceria espelhado.
+        final giroY = (pose.giroY + math.pi / 2) % math.pi - math.pi / 2;
         return Opacity(
           opacity: _entrada.value.clamp(0, 0.25) * 4,
           child: Transform.translate(
@@ -276,12 +295,12 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
                   // Degradê e não BoxShadow porque o desfoque do BoxShadow
                   // muda de um renderizador para outro e saía duro.
                   Positioned(
-                    left: 0,
-                    right: 0,
+                    left: pose.dx,
+                    right: -pose.dx,
                     top: DefaultLayout.alturaBola - 18,
                     height: 36,
                     child: Transform.scale(
-                      scaleX: alturaSombra,
+                      scaleX: alturaSombra * pose.escalaX.clamp(0.6, 1.4),
                       scaleY: 0.28 * alturaSombra,
                       child: DecoratedBox(
                         decoration: BoxDecoration(
@@ -299,10 +318,40 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
                     ),
                   ),
                   Transform.translate(
-                    offset: Offset(0, -pulo),
-                    child: Transform.rotate(
-                      angle: (t - 1) * 3 * math.pi + girar.value * 2 * math.pi,
-                      child: filho,
+                    offset: Offset(pose.dx, -pose.altura),
+                    child: CustomPaint(
+                      // Anel e faíscas atrás da bola, na posição dela.
+                      painter: EfeitosBolaPainter(
+                        anel: pose.anel,
+                        faiscas: pose.faiscas,
+                        cor: widget.cores.acaoPrimaria,
+                        corAlternada: widget.cores.azul,
+                      ),
+                      child: Opacity(
+                        opacity: pose.opacidade.clamp(0.0, 1.0),
+                        child: Transform.rotate(
+                          angle: pose.inclinacao,
+                          alignment: Alignment.bottomCenter,
+                          child: Transform.scale(
+                            scaleX: pose.escalaX,
+                            scaleY: pose.escalaY,
+                            alignment: Alignment.bottomCenter,
+                            child: CustomPaint(
+                              foregroundPainter: BrilhoBolaPainter(pose.brilho),
+                              child: Transform(
+                                alignment: Alignment.center,
+                                transform: Matrix4.identity()
+                                  ..setEntry(3, 2, 0.0025)
+                                  ..rotateY(giroY),
+                                child: Transform.rotate(
+                                  angle: (t - 1) * 3 * math.pi + pose.angulo,
+                                  child: filho,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -416,9 +465,9 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
       header: true,
       child: ExcludeSemantics(
         child: MouseRegion(
-          onEnter: (_) => _girar(),
+          onEnter: (_) => _fazerTruque(),
           child: GestureDetector(
-            onTap: _girar,
+            onTap: _fazerTruque,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
