@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:bolao_bolado/components/shared/buttons.dart';
-import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/atualizacao_app.dart';
@@ -198,21 +197,36 @@ class _CaixaVersaoNova extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // A bola do 7 da barra de cima, e não um ícone
-                            // numa caixa tingida: o aviso é do app, e a marca
-                            // diz isso sem texto. Ícone do Material numa
-                            // caixa azul lia como peça solta de outro app (e,
-                            // com a fonte de ícones ainda chegando, como um
-                            // quadrado vazio). Na altura EXATA da barra: as
-                            // variantes 2.0x/3.0x foram geradas para ela, e
-                            // outra caixa amolece o desenho (ver
-                            // DefaultLayout.alturaBola).
-                            Image.asset(
-                              'images/bola_appbar.png',
-                              height: DefaultLayout.alturaBola,
-                              width: DefaultLayout.alturaBola,
-                              filterQuality: FilterQuality.medium,
-                              excludeFromSemantics: true,
+                            // Bloco de ícone na cor de AÇÃO do tema, a mesma
+                            // do botão logo abaixo. Com o par azul da paleta
+                            // (fundoAzul/bordaAzul) ele destoava nos temas
+                            // cujo CTA não é azul: no Cyber virava um
+                            // quadrado azul apagado ao lado de um botão
+                            // magenta. A bola do 7 também foi tentada aqui e
+                            // repetia a marca que já está na barra de cima.
+                            // Tinta a 18% e borda a 45%: a faixa em que o
+                            // alphaBlend ainda recorta sobre o card nos
+                            // temas escuros (ver CLAUDE.md, cores).
+                            Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: Color.alphaBlend(
+                                  cores.acaoPrimaria.withValues(alpha: 0.18),
+                                  cores.card,
+                                ),
+                                borderRadius: AppRadii.circularLg,
+                                border: Border.all(
+                                  color: cores.acaoPrimaria.withValues(
+                                    alpha: 0.45,
+                                  ),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.download_rounded,
+                                size: 28,
+                                color: cores.acaoPrimaria,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             Text(
