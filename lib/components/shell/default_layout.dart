@@ -5,6 +5,7 @@ import 'package:bolao_bolado/components/shell/gradient_decoration.dart';
 import 'package:bolao_bolado/components/shell/truques_bola.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/responsive.dart';
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 
 class DefaultLayout extends StatelessWidget {
@@ -29,12 +30,16 @@ class DefaultLayout extends StatelessWidget {
   // body, e quem está por baixo precisa descontar esse valor.
   final bool extendBody;
   // Toque em qualquer ponto do body (inclusive o gradiente em volta dos
-  // cards), mas NÃO na AppBar nem no Drawer. Serve para fechar painel
-  // sobreposto clicando fora dele: quem quer ficar de fora do gesto (o
-  // próprio painel) se cobre com um GestureDetector opaco, que ganha a
-  // disputa do toque por estar mais fundo na árvore. `null` não monta
-  // reconhecedor nenhum.
-  final VoidCallback? onToqueNoCorpo;
+  // cards), mas NÃO na AppBar nem no Drawer, com a posição global do toque.
+  // Serve para fechar painel sobreposto clicando fora dele; quem recebe
+  // decide pela posição o que conta como "dentro" (o próprio painel, o botão
+  // que o abre).
+  //
+  // Ouve o ponteiro cru ([_ToqueNoCorpo]) e não um GestureDetector: um
+  // detector aqui disputa o toque com tudo que é clicável embaixo, e perde
+  // para todos eles — clicar numa linha da tabela, que tem toque próprio, não
+  // fechava nada.
+  final ValueChanged<Offset>? onToqueNoCorpo;
   const DefaultLayout({
     super.key,
     required this.child,
@@ -124,11 +129,7 @@ class DefaultLayout extends StatelessWidget {
         // tamanho do conteúdo e deixava sobrar gradiente de fundo embaixo.
         // Por isso ele também fica de fora do respiro abaixo: ali encostar na
         // AppBar é o efeito pretendido, não descuido.
-        body: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: onToqueNoCorpo,
-          child: _corpo(esticar),
-        ),
+        body: _ToqueNoCorpo(aoTocar: onToqueNoCorpo, child: _corpo(esticar)),
       ),
     );
   }
@@ -155,6 +156,43 @@ class DefaultLayout extends StatelessWidget {
               ),
             ],
           );
+  }
+}
+
+/// Avisa toque (apertar e soltar quase no mesmo ponto) em qualquer lugar do
+/// filho, sem entrar na disputa de gestos: o que está embaixo continua
+/// recebendo o clique normalmente.
+///
+/// Arrastar além de [kTouchSlop] não conta — rolar a tabela não é clicar
+/// fora.
+class _ToqueNoCorpo extends StatefulWidget {
+  final ValueChanged<Offset>? aoTocar;
+  final Widget child;
+
+  const _ToqueNoCorpo({required this.aoTocar, required this.child});
+
+  @override
+  State<_ToqueNoCorpo> createState() => _ToqueNoCorpoState();
+}
+
+class _ToqueNoCorpoState extends State<_ToqueNoCorpo> {
+  final Map<int, Offset> _inicios = {};
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (e) => _inicios[e.pointer] = e.position,
+      onPointerCancel: (e) => _inicios.remove(e.pointer),
+      onPointerUp: (e) {
+        final inicio = _inicios.remove(e.pointer);
+        final aoTocar = widget.aoTocar;
+        if (inicio == null || aoTocar == null) return;
+        if ((e.position - inicio).distance > kTouchSlop) return;
+        aoTocar(e.position);
+      },
+      child: widget.child,
+    );
   }
 }
 
