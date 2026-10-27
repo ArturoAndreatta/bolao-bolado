@@ -533,7 +533,6 @@ class _ChatSalaState extends State<ChatSala> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Puxe o assunto: palpite, zoeira, figurinha…\n'
                         'Use @ para chamar alguém.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
