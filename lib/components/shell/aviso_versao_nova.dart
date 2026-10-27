@@ -222,21 +222,20 @@ class _CaixaVersaoNova extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              // `file_download_rounded`, e não o
-                              // `download_rounded` (mesmo desenho): trocar o
-                              // glifo muda o arquivo da fonte de ícones, e só
-                              // assim o service worker baixa ela de novo.
-                              // Quem atualizou enquanto o Hosting ainda
-                              // deixava `assets/` em cache de 1h guardou a
-                              // fonte ANTIGA (sem o ícone deste aviso) sob o
-                              // hash da nova, e o quadrado aparecia vazio; com
-                              // o hash igual, o worker nunca a buscaria outra
-                              // vez. Hoje `assets/` é no-cache (CLAUDE.md, aviso
-                              // de versão nova), então isso não se repete.
-                              child: Icon(
-                                Icons.file_download_rounded,
-                                size: 28,
-                                color: cores.acaoPrimaria,
+                              // Desenhado à mão, e não com `Icon`: o ícone do
+                              // Material vem de uma fonte que o build monta só
+                              // com os glifos usados, e este aviso é
+                              // justamente o que aparece na fronteira entre
+                              // duas versões. O código velho na tela pode
+                              // acabar com a fonte de outro build (cópia velha
+                              // no cache, ou a do worker novo que assumiu no
+                              // meio da subida), e aí o glifo some e sobra o
+                              // quadrado vazio, uma vez sim, outra não. Um
+                              // desenho no próprio código não depende de
+                              // arquivo nenhum.
+                              child: CustomPaint(
+                                size: const Size.square(28),
+                                painter: _SetaDownload(cores.acaoPrimaria),
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -289,4 +288,43 @@ class _CaixaVersaoNova extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A seta de download (seta para baixo sobre uma bandeja), no traço do
+/// `download_rounded` do Material: linhas de ponta redonda numa caixa de 24,
+/// escalada para o tamanho pedido. Ver o comentário em [_CaixaVersaoNova] para
+/// o porquê de não usar a fonte de ícones aqui.
+class _SetaDownload extends CustomPainter {
+  const _SetaDownload(this.cor);
+
+  final Color cor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final escala = size.shortestSide / 24;
+    canvas.scale(escala);
+    final traco = Paint()
+      ..color = cor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas
+      // Haste da seta.
+      ..drawLine(const Offset(12, 4), const Offset(12, 15), traco)
+      // Ponta.
+      ..drawPath(
+        Path()
+          ..moveTo(7, 10.5)
+          ..lineTo(12, 15.5)
+          ..lineTo(17, 10.5),
+        traco,
+      )
+      // Bandeja.
+      ..drawLine(const Offset(5.5, 19.5), const Offset(18.5, 19.5), traco);
+  }
+
+  @override
+  bool shouldRepaint(_SetaDownload antigo) => antigo.cor != cor;
 }
