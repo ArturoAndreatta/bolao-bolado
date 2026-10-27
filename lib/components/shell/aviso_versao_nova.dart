@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bolao_bolado/components/shared/buttons.dart';
+import 'package:bolao_bolado/components/shell/default_layout.dart';
 import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/atualizacao_app.dart';
@@ -197,21 +198,21 @@ class _CaixaVersaoNova extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Mesmo bloco de ícone do CustomConfirmDialog,
-                            // para as caixas do app lerem como uma família.
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: cores.fundoAzul,
-                                borderRadius: AppRadii.circularLg,
-                                border: Border.all(color: cores.bordaAzul),
-                              ),
-                              child: Icon(
-                                Icons.system_update_alt_rounded,
-                                size: 26,
-                                color: cores.textoAzul,
-                              ),
+                            // A bola do 7 da barra de cima, e não um ícone
+                            // numa caixa tingida: o aviso é do app, e a marca
+                            // diz isso sem texto. Ícone do Material numa
+                            // caixa azul lia como peça solta de outro app (e,
+                            // com a fonte de ícones ainda chegando, como um
+                            // quadrado vazio). Na altura EXATA da barra: as
+                            // variantes 2.0x/3.0x foram geradas para ela, e
+                            // outra caixa amolece o desenho (ver
+                            // DefaultLayout.alturaBola).
+                            Image.asset(
+                              'images/bola_appbar.png',
+                              height: DefaultLayout.alturaBola,
+                              width: DefaultLayout.alturaBola,
+                              filterQuality: FilterQuality.medium,
+                              excludeFromSemantics: true,
                             ),
                             const SizedBox(height: 16),
                             Text(
