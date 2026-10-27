@@ -222,8 +222,19 @@ class _CaixaVersaoNova extends StatelessWidget {
                                   ),
                                 ),
                               ),
+                              // `file_download_rounded`, e não o
+                              // `download_rounded` (mesmo desenho): trocar o
+                              // glifo muda o arquivo da fonte de ícones, e só
+                              // assim o service worker baixa ela de novo.
+                              // Quem atualizou enquanto o Hosting ainda
+                              // deixava `assets/` em cache de 1h guardou a
+                              // fonte ANTIGA (sem o ícone deste aviso) sob o
+                              // hash da nova, e o quadrado aparecia vazio; com
+                              // o hash igual, o worker nunca a buscaria outra
+                              // vez. Hoje `assets/` é no-cache (CLAUDE.md, aviso
+                              // de versão nova), então isso não se repete.
                               child: Icon(
-                                Icons.download_rounded,
+                                Icons.file_download_rounded,
                                 size: 28,
                                 color: cores.acaoPrimaria,
                               ),
