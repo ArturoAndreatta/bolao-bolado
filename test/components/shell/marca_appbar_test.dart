@@ -76,7 +76,9 @@ void main() {
   double alturaDaBola(WidgetTester tester) =>
       tester.getSize(find.byType(Image)).height;
 
-  // O nome é montado em duas linhas (BOLÃO em cima, Bolado embaixo).
+  // O nome é montado em duas linhas (BOLÃO em cima, Bolado embaixo), e o
+  // Bolado aparece duas vezes: uma camada só com a sombra e outra com o
+  // degradê.
   final nome = find.text('Bolado');
 
   testWidgets('no desktop a barra mostra bola e nome sem crescer', (
@@ -84,7 +86,7 @@ void main() {
   ) async {
     final appBar = await appBarEm(tester, 1440);
     expect(alturaDaBola(tester), DefaultLayout.alturaBola);
-    expect(nome, findsOneWidget);
+    expect(nome, findsWidgets);
     expect(
       appBar.toolbarHeight,
       greaterThan(DefaultLayout.alturaBola),
