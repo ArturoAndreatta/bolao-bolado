@@ -239,10 +239,9 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
       // Sem sombra de propósito, nem na arte nem aqui: a bola original
       // vinha com uma sombra projetada embaixo que, na barra transparente,
       // lia como mancha escura grudada nela. A arte foi recortada no
-      // círculo exato da bola, e a metade de baixo, que vinha pintada quase
-      // preta e continuava lendo como sombra em 40px, foi clareada no
-      // vermelho (brilhos e o 7 branco intactos). Vale para images/icone.png
-      // e tudo gerado dele.
+      // círculo exato da bola (images/icone.png e tudo gerado dele). O
+      // sombreado escuro DENTRO da bola é do desenho e fica: clarear ele foi
+      // tentado e a bola perdeu volume e detalhe.
       child: Image.asset(
         // As variantes 2.0x/3.0x ao lado do arquivo é que resolvem o
         // tamanho: o Flutter escolhe sozinho pelo DPR e cada tela desenha
