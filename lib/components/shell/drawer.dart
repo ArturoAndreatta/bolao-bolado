@@ -389,25 +389,23 @@ class _AppDrawerState extends State<AppDrawer> {
   }
 }
 
-/// Seletor de tema no rodapé do drawer: Claro / Escuro / Mais.
+/// Seletor de tema no rodapé do drawer: Claro / Escuro / Auto, e embaixo a
+/// linha "Ver mais temas".
 ///
-/// As duas primeiras respondem "quão claro"; "Mais" abre, ali mesmo no
-/// drawer, a lista de temas únicos (Cassino, Meia-noite, Cyber, Papel,
-/// Bilhete) e o "Auto".
+/// O pill carrega a decisão do dia a dia ("quão claro"); a linha de baixo
+/// abre, ali mesmo no drawer, os temas únicos (Cassino, Meia-noite, Cyber,
+/// Papel, Bilhete). Ela é uma linha baixa, e não um quarto botão do pill: um
+/// botão do mesmo tamanho dos outros dizia que "mais" era uma opção de tema
+/// como Claro e Escuro, quando é só uma porta para outras.
 ///
-/// "Auto" saiu do pill e foi para dentro da lista — e não por ser menos
-/// importante (continua sendo o padrão de fábrica), mas porque com oito temas
-/// no total o pill precisa carregar só a decisão do dia a dia. Quem configura
-/// "seguir o sistema" faz isso uma vez; quem escurece a tela faz toda noite.
+/// A lista abre embaixo da linha e não num diálogo: o rodapé cresce e empurra
+/// o seletor para cima, encolhendo a lista de navegação acima dele (que
+/// rola). Assim a pessoa vê a prévia de cada tema sem perder o drawer de
+/// vista, e cada toque aplica o tema no app inteiro, por trás.
 ///
-/// A lista abre embaixo do pill e não num diálogo: o rodapé cresce e empurra
-/// o pill para cima, encolhendo a lista de navegação acima dele (que rola).
-/// Assim a pessoa vê a prévia de cada tema sem perder o drawer de vista, e
-/// cada toque aplica o tema no app inteiro, por trás.
-///
-/// O botão "Mais" fica ACESO quando o tema atual é um dos de dentro: sem
-/// isso, quem estivesse no Cassino veria os três botões apagados e o pill
-/// pareceria quebrado.
+/// Com um tema único ativo, o pill fica todo apagado; quem indica o que está
+/// valendo é a linha, que ganha o ícone e o nome do tema na cor de ação. Sem
+/// isso, quem estivesse no Cassino veria o seletor parecendo quebrado.
 class _AlternadorTema extends StatefulWidget {
   const _AlternadorTema();
 
@@ -458,7 +456,7 @@ class _AlternadorTemaState extends State<_AlternadorTema>
     return ValueListenableBuilder<TemaApp>(
       valueListenable: temaGlobal,
       builder: (context, tema, _) {
-        final noMais = tema != TemaApp.claro && tema != TemaApp.escuro;
+        final unico = tema.unico;
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -508,22 +506,20 @@ class _AlternadorTemaState extends State<_AlternadorTema>
                       onTap: () => salvarTema(TemaApp.escuro),
                     ),
                     _OpcaoTema(
-                      // Aberta, a lista já mostra qual tema vale, e o botão
-                      // passa a dizer como fechá-la. Fechada, quando um tema
-                      // de dentro está ativo, o botão mostra o ícone DELE em
-                      // vez do genérico: o pill vira o indicador do que está
-                      // valendo.
-                      icone: _aberto
-                          ? Icons.expand_more
-                          : noMais
-                          ? tema.icone
-                          : Icons.more_horiz,
-                      rotulo: _aberto ? 'Fechar' : 'Mais',
-                      ativo: noMais,
-                      onTap: _alternar,
+                      icone: TemaApp.seguirSistema.icone,
+                      rotulo: TemaApp.seguirSistema.rotulo,
+                      ativo: tema == TemaApp.seguirSistema,
+                      onTap: () => salvarTema(TemaApp.seguirSistema),
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 4),
+              _LinhaMaisTemas(
+                aberto: _aberto,
+                abertura: _abertura,
+                temaUnico: unico ? tema : null,
+                onTap: _alternar,
               ),
               AnimatedBuilder(
                 animation: _abertura,
@@ -613,7 +609,83 @@ class _OpcaoTema extends StatelessWidget {
   }
 }
 
-/// Lista de "Auto" + temas únicos, embaixo do pill.
+/// Linha baixa que abre e fecha a lista de temas únicos.
+class _LinhaMaisTemas extends StatelessWidget {
+  final bool aberto;
+  final Animation<double> abertura;
+
+  /// O tema único em vigor, ou `null` quando o tema é Claro/Escuro/Auto.
+  final TemaApp? temaUnico;
+  final VoidCallback onTap;
+
+  const _LinhaMaisTemas({
+    required this.aberto,
+    required this.abertura,
+    required this.temaUnico,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = AppCores.de(context);
+    final unico = temaUnico;
+    // Fechada e com um tema único valendo, a linha vira o indicador dele.
+    // Aberta, a própria lista já marca o ativo, e a linha volta ao neutro.
+    final destaque = unico != null && !aberto;
+    final cor = destaque ? cores.acaoPrimaria : cores.textoFraco;
+    final estilo = TextStyle(
+      color: cor,
+      fontSize: 10.5,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.8,
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadii.circularSm,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 150),
+                child: Row(
+                  // A chave muda junto com o texto para o AnimatedSwitcher
+                  // cruzar os dois em vez de trocar de uma vez.
+                  key: ValueKey((aberto, unico)),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (destaque) ...[
+                      Icon(unico.icone, size: 14, color: cor),
+                      const SizedBox(width: 6),
+                      Text('${unico.rotulo.toUpperCase()} · ', style: estilo),
+                    ],
+                    Text(
+                      aberto ? 'OCULTAR TEMAS' : 'VER MAIS TEMAS',
+                      style: estilo,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Gira junto com a abertura da lista, no mesmo controller:
+              // a seta nunca fica fora de compasso com a altura.
+              RotationTransition(
+                turns: Tween<double>(begin: 0, end: 0.5).animate(abertura),
+                child: Icon(Icons.expand_more, size: 16, color: cor),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lista dos temas únicos, embaixo da linha "Ver mais temas".
 ///
 /// A prévia não é enfeite: "Cassino" e "Meia-noite" não dizem nada sobre a
 /// cor da tela, e trocar o tema inteiro só para descobrir como ele é seria um
@@ -626,8 +698,6 @@ class _ListaTemas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cores = AppCores.de(context);
-
     // RepaintBoundary: enquanto a altura anima, só o recorte muda; o
     // conteúdo vira uma camada pronta em vez de ser repintado por quadro.
     return RepaintBoundary(
@@ -638,23 +708,10 @@ class _ListaTemas extends StatelessWidget {
           maxHeight: MediaQuery.sizeOf(context).height * 0.45,
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ItemTema(tema: TemaApp.seguirSistema, atual: atual),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
-                child: Text(
-                  'TEMAS ÚNICOS',
-                  style: TextStyle(
-                    color: cores.textoFraco,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
               for (final tema in TemaApp.unicos)
                 _ItemTema(tema: tema, atual: atual),
             ],

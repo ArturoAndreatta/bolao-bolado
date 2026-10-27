@@ -309,10 +309,12 @@ escolhido.
 - A chave do SharedPreferences continua `tema_modo`, e `_paraTema` ainda
   reconhece os valores antigos `light`/`dark`/`system` — quem já tinha tema
   salvo não é jogado de volta ao padrão ao atualizar.
-- **Seletor:** o rodapé do Drawer tem Claro / Escuro / **Mais**; "Mais" abre um
-  diálogo com "Auto" e os temas únicos, cada um com prévia de três discos
-  (fundo, card, ação). "Auto" saiu do pill não por ser menos importante, mas
-  porque com 7 temas o pill precisa carregar só a decisão do dia a dia.
+- **Seletor:** o rodapé do Drawer tem o pill Claro / Escuro / Auto e, embaixo,
+  uma linha baixa "Ver mais temas" que desliza a lista dos temas únicos ali
+  mesmo no drawer (sem diálogo), cada um com prévia de três discos (fundo,
+  card, ação). A linha não é um quarto botão do pill de propósito: "mais" é
+  porta para outras opções, não uma opção. Com tema único ativo o pill fica
+  apagado e a linha mostra o ícone e o nome dele na cor de ação.
 - Os `ThemeData` são montados sob demanda em `AppTema.de(cores)`
   ([app_tema.dart](lib/core/app_tema.dart)), **memoizados por paleta** — o
   `AnimatedTheme` compara `data` por `!=`, então devolver instância nova a cada
