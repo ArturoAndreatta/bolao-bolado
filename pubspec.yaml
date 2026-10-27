@@ -101,7 +101,7 @@ flutter:
   #
   # Ao adicionar uma imagem nova, lembre de listá-la aqui.
   #
-  # `images/2.0x/bola_appbar.png` e `images/3.0x/bola_appbar.png` NÃO entram na
+  # `images/2.0x/bola7.png` e `images/3.0x/bola7.png` NÃO entram na
   # lista de propósito: variante de resolução é achada sozinha a partir do
   # arquivo principal já declarado. Listá-las à mão duplicaria as entradas.
   #
@@ -112,7 +112,7 @@ flutter:
   # web/icons/, que o index.html e o manifest usam já reduzidos.
   assets:
     - images/logo4.png
-    - images/bola_appbar.png
+    - images/bola7.png
     - images/pix_logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
