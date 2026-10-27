@@ -221,45 +221,97 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
     );
     final girar = CurvedAnimation(parent: _giro, curve: Curves.easeOutCubic);
 
+    final imagemBola = Image.asset(
+      // As variantes 2.0x/3.0x ao lado do arquivo é que resolvem o tamanho:
+      // o Flutter escolhe sozinho pelo DPR e cada tela desenha perto de 1:1.
+      // Foram reduzidas do icone.png em Lanczos com unsharp leve; ao mexer
+      // em `alturaBola`, regere as três (1×, 2× e 3× a caixa).
+      //
+      // O nome mudou de bola_appbar.png para bola7.png quando a sombra da
+      // arte saiu: navegadores que já tinham o arquivo antigo guardado
+      // continuaram mostrando a bola com sombra mesmo depois do deploy.
+      // Imagem nova com desenho diferente pede nome novo.
+      'images/bola7.png',
+      height: DefaultLayout.alturaBola,
+      width: DefaultLayout.alturaBola,
+      // medium (bilinear) e não high (cúbico): perto de 1:1, que é onde as
+      // variantes deixam o desenho, o cúbico amolece.
+      filterQuality: FilterQuality.medium,
+    );
+
+    // A sombra vive FORA da imagem e fora do giro. A arte original trazia a
+    // sombra pintada dentro do PNG, e aí ela girava junto com a bola (e lia
+    // como mancha grudada nela); por isso foi recortada da arte
+    // (images/icone.png e tudo gerado dele). Aqui ela é uma elipse borrada
+    // embaixo, de contato com o "chão" da barra: acompanha a bola quando ela
+    // rola para o lugar, mas não roda, e encolhe quando a bola pula.
+    //
+    // O sombreado escuro DENTRO da bola é do desenho e fica: clarear ele foi
+    // tentado e a bola perdeu volume e detalhe.
+    final corSombra = widget.cores.sombra.withValues(
+      alpha: widget.cores.escuro ? 0.9 : 0.6,
+    );
+
     final bola = AnimatedBuilder(
       animation: Listenable.merge([rolar, girar]),
       builder: (context, filho) {
         final t = rolar.value;
+        // Pulo curto durante o giro do hover: sobe e volta no mesmo
+        // movimento, e é ele que faz a sombra parecer chão e não adesivo.
+        final pulo = math.sin(girar.value * math.pi) * 4;
+        final alturaSombra = 1 - pulo / 10;
         return Opacity(
           opacity: _entrada.value.clamp(0, 0.25) * 4,
           child: Transform.translate(
             offset: Offset((t - 1) * 28, 0),
-            child: Transform.rotate(
-              angle: (t - 1) * 3 * math.pi + girar.value * 2 * math.pi,
-              child: filho,
+            child: SizedBox.square(
+              dimension: DefaultLayout.alturaBola,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  // Círculo com degradê radial achatado na vertical: vira
+                  // uma elipse de borda macia, centrada na base
+                  // da bola para ficar colada nela (sombra de contato).
+                  // Degradê e não BoxShadow porque o desfoque do BoxShadow
+                  // muda de um renderizador para outro e saía duro.
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: DefaultLayout.alturaBola - 18,
+                    height: 36,
+                    child: Transform.scale(
+                      scaleX: alturaSombra,
+                      scaleY: 0.28 * alturaSombra,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              corSombra.withValues(
+                                alpha: corSombra.a * alturaSombra,
+                              ),
+                              corSombra.withValues(alpha: 0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: Offset(0, -pulo),
+                    child: Transform.rotate(
+                      angle: (t - 1) * 3 * math.pi + girar.value * 2 * math.pi,
+                      child: filho,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
       },
-      // Sem sombra de propósito, nem na arte nem aqui: a bola original
-      // vinha com uma sombra projetada embaixo que, na barra transparente,
-      // lia como mancha escura grudada nela. A arte foi recortada no
-      // círculo exato da bola (images/icone.png e tudo gerado dele). O
-      // sombreado escuro DENTRO da bola é do desenho e fica: clarear ele foi
-      // tentado e a bola perdeu volume e detalhe.
-      child: Image.asset(
-        // As variantes 2.0x/3.0x ao lado do arquivo é que resolvem o
-        // tamanho: o Flutter escolhe sozinho pelo DPR e cada tela desenha
-        // perto de 1:1. Foram reduzidas do icone.png em Lanczos com unsharp
-        // leve; ao mexer em `alturaBola`, regere as três (1×, 2× e 3× a
-        // caixa).
-        //
-        // O nome mudou de bola_appbar.png para bola7.png quando a sombra
-        // saiu: navegadores que já tinham o arquivo antigo guardado
-        // continuaram mostrando a bola com sombra mesmo depois do deploy.
-        // Imagem nova com desenho diferente pede nome novo.
-        'images/bola7.png',
-        height: DefaultLayout.alturaBola,
-        width: DefaultLayout.alturaBola,
-        // medium (bilinear) e não high (cúbico): perto de 1:1, que é onde as
-        // variantes deixam o desenho, o cúbico amolece.
-        filterQuality: FilterQuality.medium,
-      ),
+      child: imagemBola,
     );
 
     // O nome é montado como marca, não como frase: "BOLÃO" pequeno e
@@ -274,6 +326,22 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
     // grande, e todas as paletas passam sobre o topo do gradiente; o claro
     // é o mais justo (azul sobre amarelo, 3.04:1). Ao mexer no `acaoPrimaria`
     // ou no gradiente do claro, remeça.
+    final acao = widget.cores.acaoPrimaria;
+    final hslAcao = HSLColor.fromColor(acao);
+    final acaoFundo = hslAcao
+        .withLightness((hslAcao.lightness - 0.12).clamp(0.0, 1.0))
+        .toColor();
+    // Sombra curta e mais forte no escuro (lá a sombra fraca some no fundo);
+    // é o que tira o texto de "impresso no fundo" e o põe na mesma camada
+    // da bola.
+    Shadow sombraTexto(double intensidade) => Shadow(
+      color: widget.cores.sombra.withValues(
+        alpha: (widget.cores.escuro ? 0.7 : 0.3) * intensidade,
+      ),
+      offset: Offset(0, 2 * intensidade),
+      blurRadius: 4 * intensidade,
+    );
+
     final nome = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,20 +356,34 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
             fontWeight: FontWeight.w800,
             letterSpacing: 3.2,
             height: 1,
+            shadows: [sombraTexto(0.5)],
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          'Bolado',
-          maxLines: 1,
-          softWrap: false,
-          style: TextStyle(
-            color: widget.cores.acaoPrimaria,
-            fontSize: 26,
-            fontWeight: FontWeight.w900,
-            fontStyle: FontStyle.italic,
-            letterSpacing: -0.6,
-            height: 1,
+        // Degradê do tom do tema (em cima) para uma versão mais escura dele
+        // (embaixo): dá o volume de letreiro que a cor chapada não tem. Desce
+        // para o escuro, e não sobe para o claro, porque o claro é o tema mais
+        // justo em contraste e escurecer só aumenta a folga.
+        ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (area) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [acao, acaoFundo],
+          ).createShader(area),
+          child: Text(
+            'Bolado',
+            maxLines: 1,
+            softWrap: false,
+            style: TextStyle(
+              color: acao,
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              fontStyle: FontStyle.italic,
+              letterSpacing: -0.6,
+              height: 1,
+              shadows: [sombraTexto(1)],
+            ),
           ),
         ),
       ],
