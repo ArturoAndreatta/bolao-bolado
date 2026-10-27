@@ -35,56 +35,45 @@ class DefaultLayout extends StatelessWidget {
     this.extendBody = false,
   });
 
-  // A arte do logo tem 52px de altura EXATOS (images/logo_appbar.png, com as
-  // variantes 2.0x/3.0x geradas em cima disso). Caixa menor que 52 faz o
-  // Flutter reduzir a imagem na hora de desenhar, e o traço fino do "7", do
-  // "13" e do trevo volta a borrar — que é o problema que este par
-  // altura-da-caixa + variantes resolve. Mexer aqui obriga a regerar as três.
+  // A marca da barra é a bola do "7" (a mesma do ícone da aba e do app
+  // instalado), com o nome escrito ao lado fora do celular. A logo ilustrada
+  // completa (logo4.png) saiu daqui: com texto curvo, bolinhas e contorno,
+  // espremida na altura de uma AppBar ela virava mancha e o nome não se lia.
+  // Ela continua no splash e na tela inicial, onde tem espaço.
   //
-  // Foi 72 até aqui, e encolher a arte SEM regerar as variantes é justamente
-  // o que traria o borrão de volta: a nitidez vem de a caixa bater com o
-  // tamanho do arquivo, não de filtro.
-  static const double alturaLogoDesktop = 52;
-  static const double alturaLogoCompacto = 44;
+  // A bola tem 32px de altura EXATOS (images/bola_appbar.png, com as
+  // variantes 2.0x/3.0x geradas em cima disso a partir de images/icone.png).
+  // Caixa diferente faz o Flutter reescalar a arte na hora de desenhar e o
+  // brilho e o traço do "7" amolecem. Mexer aqui obriga a regerar as três.
+  static const double alturaBola = 32;
 
-  // Folga vertical entre o logo e as bordas da barra, no desktop.
-  //
-  // Ela é o SALDO de encolher a arte, não margem nova: a barra continua com
-  // a mesma altura total de antes (alturaLogoDesktop + folgaVerticalLogo),
-  // então a página não cresce um pixel e o scroll de poucos pixels que já
-  // apareceu em tela de notebook não volta. Ao mexer no logo, mexa aqui na
-  // direção contrária para manter a soma.
-  static const double folgaVerticalLogo = 22;
+  // Altura da barra no desktop. Fica nos 74 da logo antiga mesmo com a bola
+  // menor: as telas de altura calculada já foram acertadas contra esse
+  // número, e o respiro sobra em volta da marca em vez de mexer no resto da
+  // página.
+  static const double alturaBarraDesktop = 74;
+
+  static const String nomeApp = 'Bolão Bolado';
 
   /// Altura REAL da AppBar montada por este layout, na faixa de tela atual.
   ///
   /// Quem calcula altura de conteúdo na mão — o painel admin trava a altura
   /// do card na tela, por exemplo — precisa descontar ESTE valor e nunca
-  /// `kToolbarHeight`: no desktop a barra tem 74px para caber o logo, não os
-  /// 56 do padrão do Material, e descontar o valor errado sobra conteúdo
-  /// para fora da janela e faz nascer scroll na página.
+  /// `kToolbarHeight`: no desktop a barra tem 74px, não os 56 do padrão do
+  /// Material, e descontar o valor errado sobra conteúdo para fora da janela
+  /// e faz nascer scroll na página.
   static double alturaAppBar(BuildContext context) =>
-      Responsive.isDesktop(context)
-      ? alturaLogoDesktop + folgaVerticalLogo
-      : kToolbarHeight;
+      Responsive.isDesktop(context) ? alturaBarraDesktop : kToolbarHeight;
 
   @override
   Widget build(BuildContext context) {
     final esticar = esticarLarguraCompact && Responsive.isCompact(context);
     final cores = AppCores.de(context);
-
-    // Nitidez de arte bitmap é orçamento de pixel, não filtro: o que chega na
-    // tela é `altura × devicePixelRatio`. No celular o DPR 3 rende 132 pixels
-    // reais a partir de 44 e a arte aparece inteira; num monitor comum (DPR 1)
-    // os mesmos 44 viram 44, e o "7", o "13" e o trevo borram. Era o sintoma
-    // relatado — nítido no celular e no emulador de dispositivo do Chrome (que
-    // força DPR alto), borrado no desktop. Filtro nenhum resolve, só altura, e
-    // por isso a caixa cresce onde há espaço.
-    //
-    // Só o desktop cresce: no celular a barra é estreita, e lá o logo nunca
-    // foi o problema.
     final ehDesktop = Responsive.isDesktop(context);
-    final alturaLogo = ehDesktop ? alturaLogoDesktop : alturaLogoCompacto;
+    // No celular o nome não cabe com folga entre o menu e a borda, e a bola
+    // sozinha já é reconhecível (é o ícone do app). Do tablet para cima
+    // sobra largura, e quem chega pela primeira vez lê onde está.
+    final mostrarNome = !Responsive.isMobile(context);
 
     return Container(
       decoration: GradientDecoration.backgroundGradient(context),
@@ -102,10 +91,8 @@ class DefaultLayout extends StatelessWidget {
                 automaticallyImplyLeading: true,
                 iconTheme: IconThemeData(color: cores.texto),
                 centerTitle: true,
-                // O título é posicionado DENTRO do toolbarHeight, então uma
-                // caixa maior que ele sai recortada em cima e embaixo. No
-                // celular fica `null` de propósito: 44 cabe no padrão (56), e
-                // passar altura ali engordava a barra do celular à toa.
+                // No celular fica `null` de propósito: a bola cabe no padrão
+                // (56), e passar altura ali engordava a barra do celular à toa.
                 //
                 // O valor sai de `alturaAppBar` e não de uma conta local: é o
                 // mesmo número que as telas de altura calculada descontam da
@@ -113,30 +100,7 @@ class DefaultLayout extends StatelessWidget {
                 // fazia nascer scroll no painel admin.
                 toolbarHeight: ehDesktop ? alturaAppBar(context) : null,
                 title: showLogo
-                    ? SizedBox(
-                        height: alturaLogo,
-                        child: Image.asset(
-                          // As variantes 2.0x/3.0x ao lado do arquivo é que
-                          // resolvem o tamanho: o Flutter escolhe sozinho pelo
-                          // DPR e cada tela desenha perto de 1:1, em vez de o
-                          // app encolher a maior na hora de exibir. As três
-                          // foram reduzidas do logo3.png em Lanczos com
-                          // unsharp leve, porque o resample de passe único do
-                          // decodificador amassa traço fino nessa faixa de
-                          // redução e offline dá pra escolher filtro melhor.
-                          //
-                          // Ao mexer em `alturaLogo` ou na arte, regere as
-                          // três: a de baixo tem a altura da MAIOR caixa (52,
-                          // do desktop), as outras 2× e 3× isso. Menos que
-                          // isso e o Flutter amplia a arte no desktop.
-                          'images/logo_appbar.png',
-                          fit: BoxFit.contain,
-                          // medium (bilinear) e não high (cúbico): perto de
-                          // 1:1, que é onde as variantes deixam o desenho, o
-                          // cúbico amolece em vez de ajudar.
-                          filterQuality: FilterQuality.medium,
-                        ),
-                      )
+                    ? _MarcaAppBar(mostrarNome: mostrarNome, cor: cores.texto)
                     : null,
               )
             : null,
@@ -166,6 +130,71 @@ class DefaultLayout extends StatelessWidget {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+/// Bola do "7" com o nome do app ao lado (o nome some no celular).
+class _MarcaAppBar extends StatelessWidget {
+  final bool mostrarNome;
+  final Color cor;
+
+  const _MarcaAppBar({required this.mostrarNome, required this.cor});
+
+  @override
+  Widget build(BuildContext context) {
+    // Um rótulo só para o conjunto: sem isso o leitor de tela anunciaria a
+    // imagem e depois o mesmo nome em texto.
+    return Semantics(
+      label: DefaultLayout.nomeApp,
+      header: true,
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              // As variantes 2.0x/3.0x ao lado do arquivo é que resolvem o
+              // tamanho: o Flutter escolhe sozinho pelo DPR e cada tela
+              // desenha perto de 1:1. Foram reduzidas do icone.png em
+              // Lanczos com unsharp leve; ao mexer em `alturaBola`, regere as
+              // três (1×, 2× e 3× a caixa).
+              'images/bola_appbar.png',
+              height: DefaultLayout.alturaBola,
+              width: DefaultLayout.alturaBola,
+              // medium (bilinear) e não high (cúbico): perto de 1:1, que é
+              // onde as variantes deixam o desenho, o cúbico amolece.
+              filterQuality: FilterQuality.medium,
+            ),
+            // Ao redimensionar a janela pela fronteira do celular o nome
+            // entra e sai deslizando, em vez de saltar e arrastar a bola de
+            // uma vez para o lado.
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: mostrarNome
+                    ? Padding(
+                        key: const ValueKey('nome'),
+                        padding: const EdgeInsets.only(left: 10),
+                        child: Text(
+                          DefaultLayout.nomeApp,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(
+                            color: cor,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('sem-nome')),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
