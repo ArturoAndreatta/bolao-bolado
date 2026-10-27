@@ -5,6 +5,7 @@ import 'package:bolao_bolado/core/app_cores.dart';
 import 'package:bolao_bolado/pages/participants/participants_reordenacao.dart';
 import 'package:bolao_bolado/pages/participants/participants_tabela.dart'
     show LinhaEntrandoAnimada;
+import 'package:bolao_bolado/pages/participants/participants_texto_alterado.dart';
 import 'package:bolao_bolado/services/avatar/avatar_service.dart';
 import 'package:flutter/material.dart';
 
@@ -91,19 +92,32 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
   // as duas telas repetiam campo por campo.
   final RastreadorDeLinhas _rastreador = RastreadorDeLinhas();
 
+  // Índice de cada linha no build atual, pela chave. É o que o
+  // `findChildIndexCallback` do ListView consulta.
+  Map<String, int> _indicePorChave = const {};
+
   @override
   Widget build(BuildContext context) {
     final rows = widget.rows;
 
     // A ordem é registrada no build, ANTES do layout: o deslocamento já sai
     // pronto no mesmo quadro em que a linha muda de lugar.
+    final chaves = [
+      for (var i = 0; i < rows.length; i++)
+        rows[i]['uid']?.toString() ?? 'linha-$i',
+    ];
     _rastreador.registrarBuild(
       rowsCompletas: widget.rowsCompletas ?? rows,
-      chavesEmOrdem: [
-        for (var i = 0; i < rows.length; i++)
-          rows[i]['uid']?.toString() ?? 'linha-$i',
-      ],
+      chavesEmOrdem: chaves,
     );
+    // Os eventos (quem chegou, quem foi editado, quem andou) valem só para
+    // este quadro — ver RastreadorDeLinhas.
+    if (_rastreador.temEventos) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _rastreador.descartarEventosDoQuadro(),
+      );
+    }
+    _indicePorChave = {for (var i = 0; i < chaves.length; i++) chaves[i]: i};
 
     // ListView.builder monta só as linhas visíveis (~10-15 de uma tela),
     // não as N da sala inteira — DESDE QUE ele tenha viewport própria, isto
@@ -118,12 +132,24 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
           : null,
       itemExtent: kAlturaLinhaLista,
       itemCount: rows.length,
+      // Cada linha montada SEGUE a sua chave quando a ordem muda, em vez de
+      // ficar presa à posição. Sem isto, aposta nova entrando no topo
+      // remontava todas as linhas da tela e cortava no meio a entrada de
+      // outra que ainda estivesse chegando (ver a tabela desktop, que tem o
+      // mesmo ajuste).
+      findChildIndexCallback: (chave) =>
+          chave is ValueKey<String> ? _indicePorChave[chave.value] : null,
       itemBuilder: (context, index) {
         final item = rows[index];
         final chave = item['uid']?.toString() ?? 'linha-$index';
         final uid = item['uid']?.toString();
-        final valorAtual = item['valor'];
-        final isNova = _rastreador.isNovaOuAlterada(uid, valorAtual);
+        final valor = (item['valor'] as num?)?.toDouble() ?? 0;
+        // Chegada anima a linha inteira; edição, só o nome ou o valor.
+        final mudanca = _rastreador.mudancaDe(uid);
+        final isNova = mudanca?.nova ?? false;
+        final valorAnterior = (mudanca?.valorMudou ?? false)
+            ? (mudanca!.valorAnterior as num?)?.toDouble() ?? 0
+            : null;
         final andou = _rastreador.deslocamentoDe(chave);
 
         return LinhaDeslizante(
@@ -131,6 +157,7 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
           // deslize) acompanharem a LINHA, não a posição na lista.
           key: ValueKey(chave),
           deslocamento: andou * kAlturaLinhaLista,
+          geracao: _rastreador.geracao,
           child: LinhaEntrandoAnimada(
             animar: isNova,
             corBase: Colors.transparent,
@@ -145,9 +172,14 @@ class _ListaParticipantesState extends State<ListaParticipantes> {
               children: [
                 LinhaParticipante(
                   nome: item['nome']?.toString() ?? '—',
-                  valor: Formatters.moeda.format(
-                    (item['valor'] as num?)?.toDouble() ?? 0,
-                  ),
+                  valor: Formatters.moeda.format(valor),
+                  nomeAnterior: (mudanca?.nomeMudou ?? false)
+                      ? mudanca!.nomeAnterior?.toString() ?? '—'
+                      : null,
+                  valorAnterior: valorAnterior == null
+                      ? null
+                      : Formatters.moeda.format(valorAnterior),
+                  valorSubiu: valorAnterior == null || valor >= valorAnterior,
                   cotas: (item['cotas'] as num?)?.toInt() ?? 0,
                   premio: Formatters.moeda.format(
                     (item['premio'] as num?)?.toDouble() ?? 0,
@@ -186,6 +218,14 @@ class LinhaParticipante extends StatelessWidget {
   final int cotas;
   final String premio;
 
+  /// Nome e valor de antes da edição que acabou de chegar. Não-nulos só no
+  /// quadro da edição: é o que faz a troca ser animada (ver TextoAlterado).
+  final String? nomeAnterior;
+  final String? valorAnterior;
+
+  /// Sentido da troca do valor: falso quando ele desceu.
+  final bool valorSubiu;
+
   /// Uid do participante, usado para resolver o avatar sob demanda. Nulo em
   /// aposta manual lançada pelo admin, que não tem usuário por trás — aí o
   /// avatar cai no derivado do nome.
@@ -204,6 +244,9 @@ class LinhaParticipante extends StatelessWidget {
     required this.valor,
     required this.cotas,
     required this.premio,
+    this.nomeAnterior,
+    this.valorAnterior,
+    this.valorSubiu = true,
     this.uid,
     this.corAvatar,
     this.emojiAvatar,
@@ -276,16 +319,20 @@ class LinhaParticipante extends StatelessWidget {
                     // Flexible (não Expanded): o nome encolhe com reticências
                     // para o selo caber, em vez de empurrá-lo para fora.
                     Flexible(
-                      child: Text(
-                        nome,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: destacado
-                              ? FontWeight.w700
-                              : FontWeight.w400,
-                          color: cores.texto,
+                      child: TextoAlterado(
+                        texto: nome,
+                        anterior: nomeAnterior,
+                        construir: (t) => Text(
+                          t,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: destacado
+                                ? FontWeight.w700
+                                : FontWeight.w400,
+                            color: cores.texto,
+                          ),
                         ),
                       ),
                     ),
@@ -327,12 +374,17 @@ class LinhaParticipante extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                valor,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: cores.textoVerde,
+              TextoAlterado(
+                texto: valor,
+                anterior: valorAnterior,
+                subindo: valorSubiu,
+                construir: (t) => Text(
+                  t,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: cores.textoVerde,
+                  ),
                 ),
               ),
               const SizedBox(height: 2),

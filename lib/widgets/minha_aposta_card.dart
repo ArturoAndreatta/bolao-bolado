@@ -776,11 +776,26 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
     setState(() => _saving = true);
 
     try {
+      // Confirmar era lento porque tudo aqui rodava EM FILA: nome no Auth,
+      // nome no perfil, releitura da aposta direto do servidor, consulta de
+      // admin e só então a gravação — até cinco idas e voltas antes de a
+      // tabela sequer mudar. Agora:
+      //
+      // - O nome do perfil não interfere na aposta e é gravado EM PARALELO
+      //   com ela, em vez de na frente.
+      // - Admin sai do perfil já carregado nesta sessão (só vai à rede se
+      //   ainda não foi lido).
+      // - O estado da aposta (verificada? já marcada como editada?) sai da
+      //   própria `streamBets()`, que este card já escuta ao vivo, em vez de
+      //   uma leitura extra no servidor. Ver _gravarAposta para o caso raro
+      //   de a stream estar um passo atrás.
+      //
+      // Resultado: a gravação local sai na hora (a tabela já mostra a
+      // edição) e o botão espera uma única confirmação do servidor.
       final salaId = _salaId ?? await buscarSalaPrincipalId();
-
-      if (nome != (user.displayName ?? '')) {
-        await _authService.atualizarNome(nome);
-      }
+      final isAdmin =
+          AuthService.isAdminConhecido(user.uid) ??
+          await _authService.isAdmin(user.uid);
 
       final apostaRef = _firestore
           .collection('Salas')
@@ -788,36 +803,25 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           .collection('Participantes')
           .doc(user.uid);
 
-      final apostaAnterior = await apostaRef.get(
-        const GetOptions(source: Source.server),
-      );
-      final jaEstavaVerificada = apostaAnterior.data()?['verificado'] == true;
-      // Aposta que já perdeu a aprovação por edição continua marcada nas
-      // edições seguintes: sem isto a segunda edição gravava `false`, e o
-      // admin via uma aposta "nova" em vez de uma alterada depois de aprovada
-      // (a regra agora também recusa tirar a marca).
-      final jaEstavaMarcada =
-          apostaAnterior.data()?['editadoAposVerificacao'] == true;
-      final isAdmin = await _authService.isAdmin(user.uid);
+      final nomeMudou = nome != (user.displayName ?? '');
+      final (situacaoAnterior, _) = await (
+        _gravarAposta(
+          apostaRef,
+          nome: nome,
+          valor: valorEditado,
+          uid: user.uid,
+          isAdmin: isAdmin,
+        ),
+        nomeMudou ? _authService.atualizarNome(nome) : Future<void>.value(),
+      ).wait;
 
-      await apostaRef.set({
-        'nome': nome,
-        'valor': valorEditado,
-        'uid': user.uid,
-        'data-hora': FieldValue.serverTimestamp(),
-        'verificado': isAdmin ? true : false,
-        'editadoAposVerificacao': isAdmin
-            ? false
-            : jaEstavaVerificada || jaEstavaMarcada,
-        'jogos': jogosParaDados(_jogos),
-      });
-
-      final eraEdicao = apostaAnterior.exists;
+      final eraEdicao = situacaoAnterior != _Situacao.semAposta;
       // Editar aposta JÁ verificada zera a aprovação (campo
-      // `editadoAposVerificacao` acima) e ela sai do rateio até o admin
+      // `editadoAposVerificacao`, ver _gravarAposta) e ela sai do rateio até o admin
       // revisar de novo. Isso era totalmente silencioso: o usuário mexia no
       // valor e não tinha como saber que tinha perdido a verificação.
-      final perdeuVerificacao = jaEstavaVerificada && !isAdmin;
+      final perdeuVerificacao =
+          situacaoAnterior == _Situacao.confirmada && !isAdmin;
 
       _apostaExistente = true;
       _valorOriginal = valueController.text;
@@ -849,6 +853,60 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Grava a aposta e devolve a situação em que ela estava ANTES.
+  ///
+  /// A situação vem da `streamBets()` que o card já escuta, sem leitura
+  /// extra. Ela decide a marca `editadoAposVerificacao`, e a regra do
+  /// Firestore é quem garante que essa decisão não seja burlada: se a stream
+  /// estiver um passo atrás (o admin aprovou a aposta segundos antes e o
+  /// evento ainda não chegou), a gravação sem a marca é RECUSADA. Nesse caso
+  /// — e quando a stream ainda não emitiu nada mas a aposta já existe — a
+  /// situação é relida do servidor e a gravação, refeita. Esse é o caminho
+  /// antigo, com uma ida e volta a mais, mas só no caso raro.
+  Future<_Situacao> _gravarAposta(
+    DocumentReference<Map<String, dynamic>> apostaRef, {
+    required String nome,
+    required String valor,
+    required String uid,
+    required bool isAdmin,
+  }) async {
+    Future<void> gravar(_Situacao anterior) => apostaRef.set({
+      'nome': nome,
+      'valor': valor,
+      'uid': uid,
+      'data-hora': FieldValue.serverTimestamp(),
+      'verificado': isAdmin,
+      // Aposta que já perdeu a aprovação por edição continua marcada nas
+      // edições seguintes: sem isto a segunda edição gravava `false`, e o
+      // admin via uma aposta "nova" em vez de uma alterada depois de aprovada
+      // (a regra também recusa tirar a marca).
+      'editadoAposVerificacao':
+          !isAdmin &&
+          (anterior == _Situacao.confirmada || anterior == _Situacao.alterada),
+      'jogos': jogosParaDados(_jogos),
+    });
+
+    Future<_Situacao> lerDoServidor() async {
+      final doc = await apostaRef.get(const GetOptions(source: Source.server));
+      return _Situacao.de(doc.data());
+    }
+
+    // Stream ainda sem emissão para uma aposta que o carregamento inicial
+    // já encontrou: não há base local para decidir a marca.
+    final semBaseLocal = _situacao == _Situacao.semAposta && _apostaExistente;
+    final anterior = semBaseLocal ? await lerDoServidor() : _situacao;
+
+    try {
+      await gravar(anterior);
+      return anterior;
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied' || semBaseLocal) rethrow;
+      final atual = await lerDoServidor();
+      await gravar(atual);
+      return atual;
     }
   }
 }
