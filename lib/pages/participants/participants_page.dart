@@ -257,7 +257,7 @@ class _ParticipantsState extends State<Participants> {
       // (o menu tem que abrir sem derrubar o painel). Era só dentro do card de
       // Participantes, e clicar no fundo da página não fazia nada.
       onToqueNoCorpo: !isCompact && _chatAbertoDesktop
-          ? _fecharChatDesktop
+          ? _toqueForaDoChat
           : null,
       child: isCompact
           ? _layoutMobile(currentUid)
@@ -331,12 +331,10 @@ class _ParticipantsState extends State<Participants> {
                         setState(() => _chatVisivelDesktop = false);
                       }
                     },
-                    // Opaco e com onTap vazio: segura o clique dentro do
-                    // chat para ele não chegar ao onToqueNoCorpo da página,
-                    // que fecharia o painel.
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {},
+                    // A chave marca a área que conta como "dentro do chat"
+                    // para o toque fora (ver _toqueForaDoChat).
+                    child: KeyedSubtree(
+                      key: _chaveChat,
                       child: _loading
                           ? const SkeletonChatSala()
                           : ChatOuConvite(
@@ -397,9 +395,28 @@ class _ParticipantsState extends State<Participants> {
     if (widget.abaInicial == 'chat') context.replace(AppRoutes.participants);
   }
 
+  final _chaveChat = GlobalKey();
+  final _chaveBotaoChat = GlobalKey();
+
+  /// Fecha o chat se o toque caiu fora do painel.
+  ///
+  /// O botão Chat também conta como dentro: ele mesmo alterna o painel, e
+  /// fechar aqui antes faria o clique dele reabrir o chat na mesma hora.
+  void _toqueForaDoChat(Offset posicao) {
+    bool contem(GlobalKey chave) {
+      final caixa = chave.currentContext?.findRenderObject() as RenderBox?;
+      if (caixa == null || !caixa.hasSize) return false;
+      return (caixa.localToGlobal(Offset.zero) & caixa.size).contains(posicao);
+    }
+
+    if (contem(_chaveChat) || contem(_chaveBotaoChat)) return;
+    _fecharChatDesktop();
+  }
+
   Widget _botaoChatDesktop() {
     final cores = AppCores.de(context);
     return MouseRegion(
+      key: _chaveBotaoChat,
       cursor: SystemMouseCursors.click,
       child: OutlinedButton.icon(
         onPressed: _alternarChatDesktop,
