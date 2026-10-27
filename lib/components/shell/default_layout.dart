@@ -44,7 +44,7 @@ class DefaultLayout extends StatelessWidget {
   // espremida na altura de uma AppBar ela virava mancha e o nome não se lia.
   // Ela continua no splash e na tela inicial, onde tem espaço.
   //
-  // A bola tem 40px de altura EXATOS (images/bola_appbar.png, com as
+  // A bola tem 40px de altura EXATOS (images/bola7.png, com as
   // variantes 2.0x/3.0x geradas em cima disso a partir de images/icone.png).
   // Caixa diferente faz o Flutter reescalar a arte na hora de desenhar e o
   // brilho e o traço do "7" amolecem. Mexer aqui obriga a regerar as três.
@@ -248,7 +248,12 @@ class _MarcaAppBarState extends State<_MarcaAppBar>
         // perto de 1:1. Foram reduzidas do icone.png em Lanczos com unsharp
         // leve; ao mexer em `alturaBola`, regere as três (1×, 2× e 3× a
         // caixa).
-        'images/bola_appbar.png',
+        //
+        // O nome mudou de bola_appbar.png para bola7.png quando a sombra
+        // saiu: navegadores que já tinham o arquivo antigo guardado
+        // continuaram mostrando a bola com sombra mesmo depois do deploy.
+        // Imagem nova com desenho diferente pede nome novo.
+        'images/bola7.png',
         height: DefaultLayout.alturaBola,
         width: DefaultLayout.alturaBola,
         // medium (bilinear) e não high (cúbico): perto de 1:1, que é onde as

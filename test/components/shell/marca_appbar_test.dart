@@ -22,7 +22,7 @@ const double _alturaCaixa = DefaultLayout.alturaBola;
 /// uma pra cada DPR.
 ///
 /// O que este teste protege é o elo fácil de quebrar sem perceber: apagar ou
-/// renomear um `Nx/bola_appbar.png` não quebra build nem análise — o Flutter
+/// renomear um `Nx/bola7.png` não quebra build nem análise — o Flutter
 /// só cai calado numa variante menor, e a tela volta a borrar.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +42,7 @@ void main() {
   for (final dpr in <double>[1.0, 1.25, 1.5, 2.0, 3.0]) {
     test('em dpr $dpr a variante escolhida cobre a caixa da bola', () async {
       final chave = await const AssetImage(
-        'images/bola_appbar.png',
+        'images/bola7.png',
       ).obtainKey(ImageConfiguration(devicePixelRatio: dpr));
 
       final necessario = (_alturaCaixa * dpr).ceil();
