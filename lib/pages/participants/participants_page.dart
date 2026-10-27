@@ -252,6 +252,13 @@ class _ParticipantsState extends State<Participants> {
       // A barra flutua sobre o conteúdo (ver BarraSecoesMobile); cada seção
       // desconta a altura dela em [_secao].
       extendBody: isCompact,
+      // Chat aberto no desktop fecha com clique em qualquer ponto fora dele:
+      // tabela, card da aposta e o gradiente em volta. A AppBar fica de fora
+      // (o menu tem que abrir sem derrubar o painel). Era só dentro do card de
+      // Participantes, e clicar no fundo da página não fazia nada.
+      onToqueNoCorpo: !isCompact && _chatAbertoDesktop
+          ? _fecharChatDesktop
+          : null,
       child: isCompact
           ? _layoutMobile(currentUid)
           : _layoutDesktop(currentUid, isLoggedIn),
@@ -283,71 +290,67 @@ class _ParticipantsState extends State<Participants> {
     // HeaderCard, no mesmo ponto da árvore que MinhaApostaCard usa.
     const double chatHeight = 538;
 
-    return GestureDetector(
-      // Fecha o chat clicando em qualquer lugar do card pai (cabeçalho,
-      // estatísticas, tabela) fora do próprio painel do chat — que tem seu
-      // próprio GestureDetector opaco para não propagar o clique até aqui.
-      behavior: HitTestBehavior.translucent,
-      onTap: _chatAbertoDesktop ? _fecharChatDesktop : null,
-      child: HeaderCard(
-        text: 'Participantes',
-        subtitle: 'Visualize quem está participando',
-        maxWidth: 937,
-        height: chatHeight,
-        trailing: _botoesTrailingDesktop(),
-        // Participants é sempre acessada via context.go (login ou
-        // "Visualizar" na Home), nunca empilhada. Usuário logado não tem
-        // para onde voltar; visitante (deslogado ou sessão anônima) veio da Home.
-        showBackButton: !isLoggedIn,
-        onBack: () => context.go(AppRoutes.home),
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                PainelParticipantes(
-                  currentUid: currentUid,
-                  loading: _loading,
-                  rowsData: _rowsData,
-                  isAdmin: _isAdmin,
-                  sorteio: _sorteio,
-                  dataSorteio: _dataSorteio,
-                  premioSala: _premioSala,
-                  onEditarSala: _botaoEditarSala,
-                  mobile: false,
-                  expandirConteudo: true,
-                  mostrarCabecalho: false,
-                ),
-                if (_chatVisivelDesktop)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
-                    width: 360,
-                    child: _PainelChatAnimado(
-                      aberto: _chatAbertoDesktop,
-                      onFechado: () {
-                        if (mounted) {
-                          setState(() => _chatVisivelDesktop = false);
-                        }
-                      },
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {},
-                        child: _loading
-                            ? const SkeletonChatSala()
-                            : ChatOuConvite(
-                                salaId: _salaId!,
-                                mostrarCabecalho: false,
-                                flutuante: true,
-                              ),
-                      ),
+    return HeaderCard(
+      text: 'Participantes',
+      subtitle: 'Visualize quem está participando',
+      maxWidth: 937,
+      height: chatHeight,
+      trailing: _botoesTrailingDesktop(),
+      // Participants é sempre acessada via context.go (login ou
+      // "Visualizar" na Home), nunca empilhada. Usuário logado não tem
+      // para onde voltar; visitante (deslogado ou sessão anônima) veio da Home.
+      showBackButton: !isLoggedIn,
+      onBack: () => context.go(AppRoutes.home),
+      children: [
+        Expanded(
+          child: Stack(
+            children: [
+              PainelParticipantes(
+                currentUid: currentUid,
+                loading: _loading,
+                rowsData: _rowsData,
+                isAdmin: _isAdmin,
+                sorteio: _sorteio,
+                dataSorteio: _dataSorteio,
+                premioSala: _premioSala,
+                onEditarSala: _botaoEditarSala,
+                mobile: false,
+                expandirConteudo: true,
+                mostrarCabecalho: false,
+              ),
+              if (_chatVisivelDesktop)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: 360,
+                  child: _PainelChatAnimado(
+                    aberto: _chatAbertoDesktop,
+                    onFechado: () {
+                      if (mounted) {
+                        setState(() => _chatVisivelDesktop = false);
+                      }
+                    },
+                    // Opaco e com onTap vazio: segura o clique dentro do
+                    // chat para ele não chegar ao onToqueNoCorpo da página,
+                    // que fecharia o painel.
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {},
+                      child: _loading
+                          ? const SkeletonChatSala()
+                          : ChatOuConvite(
+                              salaId: _salaId!,
+                              mostrarCabecalho: false,
+                              flutuante: true,
+                            ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
