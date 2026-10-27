@@ -28,6 +28,13 @@ class DefaultLayout extends StatelessWidget {
   // isso o Scaffold soma a altura da barra ao MediaQuery.padding.bottom do
   // body, e quem está por baixo precisa descontar esse valor.
   final bool extendBody;
+  // Toque em qualquer ponto do body (inclusive o gradiente em volta dos
+  // cards), mas NÃO na AppBar nem no Drawer. Serve para fechar painel
+  // sobreposto clicando fora dele: quem quer ficar de fora do gesto (o
+  // próprio painel) se cobre com um GestureDetector opaco, que ganha a
+  // disputa do toque por estar mais fundo na árvore. `null` não monta
+  // reconhecedor nenhum.
+  final VoidCallback? onToqueNoCorpo;
   const DefaultLayout({
     super.key,
     required this.child,
@@ -37,6 +44,7 @@ class DefaultLayout extends StatelessWidget {
     this.esticarLarguraCompact = false,
     this.bottomNavigationBar,
     this.extendBody = false,
+    this.onToqueNoCorpo,
   });
 
   // A marca da barra é a bola do "7" (a mesma do ícone da aba e do app
@@ -116,29 +124,37 @@ class DefaultLayout extends StatelessWidget {
         // tamanho do conteúdo e deixava sobrar gradiente de fundo embaixo.
         // Por isso ele também fica de fora do respiro abaixo: ali encostar na
         // AppBar é o efeito pretendido, não descuido.
-        body: esticar
-            ? SizedBox.expand(child: child)
-            : Stack(
-                children: [
-                  SingleChildScrollView(
-                    // Sem respiro entre a AppBar e o primeiro card: no desktop
-                    // a soma barra + card passava da altura da janela por
-                    // poucos pixels e a página inteira ganhava scroll — um
-                    // scroll de ~7px, que não rola nada de útil e só suja a
-                    // tela com a barrinha na lateral. Estes 8px eram o único
-                    // corte disponível que não encolhe o logo (a arte tem 72px
-                    // de altura exatos) nem a altura dos cards.
-                    //
-                    // A separação entre barra e conteúdo agora vem só do
-                    // contraste: a AppBar é transparente sobre o gradiente e o
-                    // card é uma superfície clara com sombra.
-                    padding: EdgeInsets.zero,
-                    child: Center(child: Column(children: [child])),
-                  ),
-                ],
-              ),
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: onToqueNoCorpo,
+          child: _corpo(esticar),
+        ),
       ),
     );
+  }
+
+  Widget _corpo(bool esticar) {
+    return esticar
+        ? SizedBox.expand(child: child)
+        : Stack(
+            children: [
+              SingleChildScrollView(
+                // Sem respiro entre a AppBar e o primeiro card: no desktop
+                // a soma barra + card passava da altura da janela por
+                // poucos pixels e a página inteira ganhava scroll — um
+                // scroll de ~7px, que não rola nada de útil e só suja a
+                // tela com a barrinha na lateral. Estes 8px eram o único
+                // corte disponível que não encolhe o logo (a arte tem 72px
+                // de altura exatos) nem a altura dos cards.
+                //
+                // A separação entre barra e conteúdo agora vem só do
+                // contraste: a AppBar é transparente sobre o gradiente e o
+                // card é uma superfície clara com sombra.
+                padding: EdgeInsets.zero,
+                child: Center(child: Column(children: [child])),
+              ),
+            ],
+          );
   }
 }
 
