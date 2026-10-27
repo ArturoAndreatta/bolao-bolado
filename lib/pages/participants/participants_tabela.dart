@@ -330,6 +330,13 @@ class _TabelaApostasState extends State<TabelaApostas> {
     String dataFormatada = '—';
     if (dataHora != null && dataHora is Timestamp) {
       dataFormatada = Formatters.dataHoraAno2.format(dataHora.toDate());
+    } else if (item['pendente'] == true) {
+      // Aposta recém-gravada: a hora é carimbada pelo servidor
+      // (`serverTimestamp`), e até ele responder o cache local traz `null`.
+      // Mostrar o traço nesse intervalo fazia a data "sumir" a cada aposta
+      // confirmada. A hora local é a estimativa do que o servidor vai
+      // gravar — e com precisão de minuto, quase sempre o mesmo texto.
+      dataFormatada = Formatters.dataHoraAno2.format(DateTime.now());
     }
 
     // Chegada anima a linha inteira; edição, só a célula que mudou.

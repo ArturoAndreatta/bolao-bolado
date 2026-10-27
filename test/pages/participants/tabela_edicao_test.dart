@@ -82,6 +82,50 @@ void main() {
   }
 
   group('edição na tabela', () {
+    testWidgets('o valor troca alinhado à direita, como fica parado', (
+      tester,
+    ) async {
+      // Durante a troca o texto encolhia para o próprio tamanho e encostava
+      // à esquerda da célula; só voltava para a direita no fim.
+      await preparar(tester);
+      await tester.pumpWidget(tabela([aposta('ana', 30), aposta('bia', 20)]));
+      await assentar(tester);
+      final direitaParado = tester.getTopRight(find.text(moeda(20))).dx;
+
+      // Valor CURTO de propósito: a fonte de teste é larga, e um texto que
+      // já ocupa a célula inteira fica alinhado de qualquer jeito.
+      await tester.pumpWidget(tabela([aposta('ana', 6), aposta('bia', 20)]));
+      await pump(tester);
+      await pump(tester, const Duration(milliseconds: 300));
+
+      expect(
+        tester.getTopRight(find.text(moeda(6))).dx,
+        closeTo(direitaParado, 0.5),
+        reason: 'o valor novo entrou fora da coluna alinhada à direita',
+      );
+      await assentar(tester);
+    });
+
+    testWidgets(
+      'aposta gravada e ainda sem hora do servidor não mostra traço',
+      (tester) async {
+        await preparar(tester);
+        await tester.pumpWidget(tabela([aposta('ana', 30)]));
+        await assentar(tester);
+
+        // Escrita local: `data-hora` ainda é null até o servidor carimbar.
+        await tester.pumpWidget(
+          tabela([
+            {...aposta('ana', 42), 'data-hora': null, 'pendente': true},
+          ]),
+        );
+        await pump(tester);
+
+        expect(find.text('—'), findsNothing);
+        await assentar(tester);
+      },
+    );
+
     testWidgets('mudar o VALOR troca só a célula, sem entrada da linha', (
       tester,
     ) async {

@@ -132,7 +132,12 @@ class _TextoAlteradoState extends State<TextoAlterado>
             : 1 - Curves.easeInOutCubic.transform((t - 0.1) / 0.9);
         final passo = semMovimento ? 0.0 : 0.7 * sentido;
 
+        // `passthrough` nas duas pilhas: repassa ao texto a MESMA largura
+        // que a célula daria a ele parado. Com o `loose` padrão o texto
+        // encolhia para o próprio tamanho e encostava à esquerda durante a
+        // troca — o valor, alinhado à direita, entrava no lado errado.
         return Stack(
+          fit: StackFit.passthrough,
           clipBehavior: Clip.none,
           children: [
             Positioned(
@@ -154,6 +159,7 @@ class _TextoAlteradoState extends State<TextoAlterado>
             // baixo.
             ClipRect(
               child: Stack(
+                fit: StackFit.passthrough,
                 children: [
                   // O novo é quem dá o tamanho; o antigo corre por cima dele.
                   FractionalTranslation(
