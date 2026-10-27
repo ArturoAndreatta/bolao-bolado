@@ -781,8 +781,8 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
       // admin e só então a gravação — até cinco idas e voltas antes de a
       // tabela sequer mudar. Agora:
       //
-      // - O nome do perfil não interfere na aposta e é gravado EM PARALELO
-      //   com ela, em vez de na frente.
+      // - O nome da conta não interfere na aposta e é gravado em segundo
+      //   plano, em vez de na frente (ver abaixo).
       // - Admin sai do perfil já carregado nesta sessão (só vai à rede se
       //   ainda não foi lido).
       // - O estado da aposta (verificada? já marcada como editada?) sai da
@@ -803,17 +803,29 @@ class _MinhaApostaCardState extends State<MinhaApostaCard> {
           .collection('Participantes')
           .doc(user.uid);
 
-      final nomeMudou = nome != (user.displayName ?? '');
-      final (situacaoAnterior, _) = await (
-        _gravarAposta(
-          apostaRef,
-          nome: nome,
-          valor: valorEditado,
-          uid: user.uid,
-          isAdmin: isAdmin,
-        ),
-        nomeMudou ? _authService.atualizarNome(nome) : Future<void>.value(),
-      ).wait;
+      // O nome da CONTA (Auth + perfil) segue em segundo plano, sem segurar
+      // o aviso de confirmação. O nome que aparece na tabela é o da aposta,
+      // gravado logo abaixo; esperar o Auth — a chamada mais lenta de todo o
+      // fluxo — fazia a troca de nome parecer travada mesmo com a aposta já
+      // salva. Se falhar, a próxima confirmação tenta de novo: o displayName
+      // continua diferente do nome digitado.
+      if (nome != (user.displayName ?? '')) {
+        unawaited(
+          _authService
+              .atualizarNome(nome)
+              .catchError(
+                (Object e) => debugPrint('Erro ao atualizar nome da conta: $e'),
+              ),
+        );
+      }
+
+      final situacaoAnterior = await _gravarAposta(
+        apostaRef,
+        nome: nome,
+        valor: valorEditado,
+        uid: user.uid,
+        isAdmin: isAdmin,
+      );
 
       final eraEdicao = situacaoAnterior != _Situacao.semAposta;
       // Editar aposta JÁ verificada zera a aprovação (campo
