@@ -7,6 +7,7 @@ import 'package:bolao_bolado/core/app_radii.dart';
 import 'package:bolao_bolado/core/debug_flags.dart';
 import 'package:bolao_bolado/pages/participants/participants_estilo_entrada.dart';
 import 'package:bolao_bolado/pages/participants/participants_reordenacao.dart';
+import 'package:bolao_bolado/pages/participants/participants_texto_alterado.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -116,6 +117,24 @@ class _TabelaApostasState extends State<TabelaApostas> {
   // porque as duas telas repetiam campo por campo.
   final RastreadorDeLinhas _rastreador = RastreadorDeLinhas();
 
+  // Índice de cada linha no build atual, pela chave. É o que o
+  // `findChildIndexCallback` do ListView consulta — ver _corpoRolavel.
+  Map<String, int> _indicePorChave = const {};
+
+  /// Registra a emissão atual no rastreador e agenda o fim dos eventos dela
+  /// para depois deste quadro (ver [RastreadorDeLinhas]).
+  void _registrar({List<Object>? chavesEmOrdem}) {
+    _rastreador.registrarBuild(
+      rowsCompletas: widget.rowsCompletas ?? rows,
+      chavesEmOrdem: chavesEmOrdem,
+    );
+    if (_rastreador.temEventos) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _rastreador.descartarEventosDoQuadro(),
+      );
+    }
+  }
+
   List<Map<String, dynamic>> get rows => widget.rows;
   int get colunaOrdenada => widget.colunaOrdenada;
   bool get ascendente => widget.ascendente;
@@ -199,13 +218,12 @@ class _TabelaApostasState extends State<TabelaApostas> {
     // A ordem é registrada no build, ANTES do layout: o deslocamento já sai
     // pronto no mesmo quadro em que a linha muda de lugar, sem depender de
     // um callback pós-frame.
-    _rastreador.registrarBuild(
-      rowsCompletas: widget.rowsCompletas ?? rows,
-      chavesEmOrdem: [
-        for (var i = 0; i < rows.length; i++)
-          rows[i]['uid']?.toString() ?? 'linha-$i',
-      ],
-    );
+    final chaves = [
+      for (var i = 0; i < rows.length; i++)
+        rows[i]['uid']?.toString() ?? 'linha-$i',
+    ];
+    _registrar(chavesEmOrdem: chaves);
+    _indicePorChave = {for (var i = 0; i < chaves.length; i++) chaves[i]: i};
 
     return SelectionArea(
       // A tabela fica dentro de um SingleChildScrollView horizontal (para
@@ -228,6 +246,18 @@ class _TabelaApostasState extends State<TabelaApostas> {
           // Ver `_reservaAlturaFixa` em LinhaEntrandoAnimada.
           itemExtent: kAlturaLinhaTabela,
           itemCount: rows.length,
+          // Faz cada linha montada SEGUIR a sua chave quando a ordem muda.
+          //
+          // Sem isto o ListView casa os elementos pela POSIÇÃO: aposta nova
+          // entrando no topo deixava cada índice visível com uma chave
+          // diferente da que tinha, e TODAS as linhas na tela eram
+          // descartadas e montadas de novo (estado, avatar, animação). Era
+          // assim que uma segunda aposta chegando cortava no meio a entrada
+          // da primeira — a primeira descia um índice e nascia de novo, já
+          // sem animação — e que uma edição que mudava a linha de lugar
+          // reencenava a entrada.
+          findChildIndexCallback: (chave) =>
+              chave is ValueKey<String> ? _indicePorChave[chave.value] : null,
           itemBuilder: (context, index) {
             final item = rows[index];
             final chave = item['uid']?.toString() ?? 'linha-$index';
@@ -239,6 +269,7 @@ class _TabelaApostasState extends State<TabelaApostas> {
               // outra linha ao reciclar.
               key: ValueKey(chave),
               deslocamento: andou * kAlturaLinhaTabela,
+              geracao: _rastreador.geracao,
               child: _linha(
                 context,
                 formatoMoeda,
@@ -257,10 +288,9 @@ class _TabelaApostasState extends State<TabelaApostas> {
     // Este corpo (usado quando `alturaFixa` é falso — hoje só como fallback
     // genérico, não no caminho real da tela) não recicla, então quem cuida do
     // deslize é o próprio ColunaReordenavel abaixo (mede posições sozinho) em
-    // vez do RastreadorDeIndices interno de _rastreador. Só a poda de uids
-    // que saíram é necessária aqui, senão um participante removido e
-    // recriado não voltaria a animar a entrada.
-    _rastreador.esquecerQuemSaiu(widget.rowsCompletas ?? rows);
+    // vez do RastreadorDeIndices interno de _rastreador. Do rastreador sai
+    // só quem chegou e quem foi editado.
+    _registrar();
     return SelectionArea(
       child: ColunaReordenavel(
         children: [
@@ -302,7 +332,12 @@ class _TabelaApostasState extends State<TabelaApostas> {
       dataFormatada = Formatters.dataHoraAno2.format(dataHora.toDate());
     }
 
-    final isNova = _rastreador.isNovaOuAlterada(uid, valor);
+    // Chegada anima a linha inteira; edição, só a célula que mudou.
+    final mudanca = _rastreador.mudancaDe(uid);
+    final isNova = mudanca?.nova ?? false;
+    final valorAnterior = (mudanca?.valorMudou ?? false)
+        ? (mudanca!.valorAnterior as num?)?.toDouble() ?? 0
+        : null;
 
     // Prioridade visual: edição pós-verificação > verificado > zebra
     // (par/ímpar). No escuro o estado não pinta o fundo — vira a
@@ -358,11 +393,20 @@ class _TabelaApostasState extends State<TabelaApostas> {
                   alinhamento: TextAlign.left,
                   negrito: isUsuarioLogado,
                   sufixo: isManual ? const SeloManual(tamanhoFonte: 9) : null,
+                  trocaAnimada: true,
+                  textoAnterior: (mudanca?.nomeMudou ?? false)
+                      ? mudanca!.nomeAnterior?.toString() ?? '—'
+                      : null,
                 ),
                 CelulaLinha(
                   texto: formatoMoeda.format(valor),
                   width: wValor,
                   alinhamento: TextAlign.right,
+                  trocaAnimada: true,
+                  textoAnterior: valorAnterior == null
+                      ? null
+                      : formatoMoeda.format(valorAnterior),
+                  subindo: valorAnterior == null || valor >= valorAnterior,
                 ),
                 CelulaLinha(
                   texto: cotas.toString(),
@@ -552,7 +596,7 @@ class _LinhaEntrandoAnimadaState extends State<LinhaEntrandoAnimada>
     // Sem essa distinção a animação era cortada na aba que ESTÁ simulando.
     // Ali cada aposta chega duas vezes — o cache local pinta na hora e a
     // confirmação do servidor emite de novo — e no segundo build
-    // `detectarLinhaNova` já conhece o valor, devolvendo `animar: false`.
+    // a aposta já não é novidade, e `animar` chega como false.
     // O widget então trocava para o conteúdo estático, e o deslize morria
     // aos ~30ms de 1150ms. (Na aba que só observa isso não acontecia: lá
     // chega uma emissão só, já confirmada.)
@@ -1091,6 +1135,17 @@ class CelulaLinha extends StatelessWidget {
   /// manual). Fica dentro da célula para herdar borda e padding dela.
   final Widget? sufixo;
 
+  /// A célula pode ser editada (nome e valor) e anima a troca do texto via
+  /// [TextoAlterado]. Fica SEMPRE embrulhada quando verdadeiro, editada ou
+  /// não, para o State da troca sobreviver entre os builds da linha.
+  final bool trocaAnimada;
+
+  /// Texto anterior à edição que acabou de chegar — dispara a troca.
+  final String? textoAnterior;
+
+  /// Sentido da troca: falso quando o valor desceu.
+  final bool subindo;
+
   const CelulaLinha({
     super.key,
     required this.texto,
@@ -1103,6 +1158,9 @@ class CelulaLinha extends StatelessWidget {
     this.paddingVertical = 7,
     this.fontSize = 13,
     this.sufixo,
+    this.trocaAnimada = false,
+    this.textoAnterior,
+    this.subindo = true,
   });
 
   @override
@@ -1117,27 +1175,36 @@ class CelulaLinha extends StatelessWidget {
               border: Border(right: BorderSide(color: cores.borda, width: 1)),
             ),
       child: _comSufixo(
-        Text(
-          texto,
-          textAlign: alinhamento,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: destaque
-                ? FontWeight.w600
-                : negrito
-                ? FontWeight.w700
-                : FontWeight.w400,
-            color: destaque
-                ? cores.textoVerde
-                : subTexto
-                ? cores.textoFraco
-                : cores.texto,
-          ),
-        ),
+        trocaAnimada
+            ? TextoAlterado(
+                texto: texto,
+                anterior: textoAnterior,
+                subindo: subindo,
+                construir: (t) => _texto(t, cores),
+              )
+            : _texto(texto, cores),
       ),
     );
   }
+
+  Widget _texto(String valor, AppCores cores) => Text(
+    valor,
+    textAlign: alinhamento,
+    overflow: TextOverflow.ellipsis,
+    style: TextStyle(
+      fontSize: fontSize,
+      fontWeight: destaque
+          ? FontWeight.w600
+          : negrito
+          ? FontWeight.w700
+          : FontWeight.w400,
+      color: destaque
+          ? cores.textoVerde
+          : subTexto
+          ? cores.textoFraco
+          : cores.texto,
+    ),
+  );
 
   /// Sem sufixo devolve o texto puro, preservando o comportamento de largura
   /// fixa das demais colunas. Com sufixo, o texto passa a ser Flexible para

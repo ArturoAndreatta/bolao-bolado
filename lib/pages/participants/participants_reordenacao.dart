@@ -1,32 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-/// Um valor com o rótulo "é uma linha nova?" já resolvido — o par que
-/// controla a animação de ENTRADA de uma linha (ver [LinhaEntrandoAnimada] em
-/// participants_tabela.dart).
+/// O que aconteceu com uma linha na emissão de dados mais recente.
 ///
-/// Comparar por valor (não por timestamp) evita animar de novo quando o
-/// usuário só reabre/reenvia o formulário sem mudar a quantia.
-bool detectarLinhaNova(
-  Map<String, Object?> conhecidos,
-  String? uid,
-  Object? valorAtual,
-) {
-  if (uid == null) return false;
-  final valorConhecido = conhecidos[uid];
-  final isNova = !conhecidos.containsKey(uid) || valorConhecido != valorAtual;
-  conhecidos[uid] = valorAtual;
-  return isNova;
+/// Separar CHEGADA de EDIÇÃO é a razão de existir desta classe. A versão
+/// anterior guardava só o valor de cada uid e tratava "valor diferente" como
+/// linha nova: editar a própria aposta disparava a animação de ENTRADA
+/// inteira, como se a pessoa tivesse acabado de entrar no bolão. Edição tem
+/// encenação própria e bem menor — só o texto que mudou (nome ou valor) troca,
+/// na própria célula (ver `TextoAlterado`).
+class MudancaLinha {
+  /// Uid que não estava na lista: anima a entrada da linha inteira.
+  final bool nova;
+
+  final bool nomeMudou;
+  final bool valorMudou;
+
+  /// O que a célula mostrava antes da edição. Só tem sentido quando o
+  /// respectivo `*Mudou` é verdadeiro.
+  final Object? nomeAnterior;
+  final Object? valorAnterior;
+
+  const MudancaLinha.nova()
+    : nova = true,
+      nomeMudou = false,
+      valorMudou = false,
+      nomeAnterior = null,
+      valorAnterior = null;
+
+  const MudancaLinha.edicao({
+    required this.nomeMudou,
+    required this.valorMudou,
+    this.nomeAnterior,
+    this.valorAnterior,
+  }) : nova = false;
 }
+
+/// Nome e valor de um uid na última emissão vista: é contra isso que a
+/// emissão seguinte é comparada para saber o que foi editado.
+typedef _Assinatura = ({Object? nome, Object? valor});
 
 /// Descarta de `conhecidos` os uids que não estão mais em `rows`.
 ///
 /// Sem isso o mapa só cresce, e — pior — um participante removido e recriado
-/// com o mesmo valor não voltaria a animar, porque seu uid continuaria
-/// registrado com o valor antigo. Aparece na prática com o simulador de
-/// apostas, que remove e recria participantes fake o tempo todo.
-void podarConhecidos(
-  Map<String, Object?> conhecidos,
+/// não voltaria a animar a entrada, porque seu uid continuaria registrado.
+/// Aparece na prática com o simulador de apostas, que remove e recria
+/// participantes fake o tempo todo.
+void podarConhecidos<T>(
+  Map<String, T> conhecidos,
   List<Map<String, dynamic>> rows,
 ) {
   if (conhecidos.isEmpty) return;
@@ -34,96 +55,118 @@ void podarConhecidos(
       .map((row) => row['uid']?.toString())
       .whereType<String>()
       .toSet();
-  conhecidos.keys.toList().forEach((uid) {
-    if (!presentes.contains(uid)) conhecidos.remove(uid);
-  });
+  conhecidos.removeWhere((uid, _) => !presentes.contains(uid));
 }
 
-/// Junta os TRÊS pedaços de estado que uma lista reciclada (tabela desktop e
-/// lista mobile) precisa manter para animar entrada e reordenação de linhas:
-/// quais uids/valores já foram vistos, em que índice cada um estava, e o
-/// deslocamento resultante do build atual.
+/// Junta o estado que uma lista reciclada (tabela desktop e lista mobile)
+/// precisa para animar entrada, edição e reordenação de linhas: o que cada
+/// uid mostrava na emissão anterior, em que índice cada um estava, e os
+/// EVENTOS do quadro atual (quem chegou, quem foi editado, quem andou).
 ///
-/// Existe porque as duas telas tinham o mesmo trio de campos e a mesma
-/// sequência de chamadas (podar → atualizar índices → ler isNova/deslocamento
-/// por item) copiados lado a lado. O que continua diferente entre elas — a
-/// aparência de cada linha, a largura das colunas, se tem barra de estado —
-/// fica de fora de propósito: esta classe só resolve "essa linha é nova?" e
-/// "quantos pixels ela andou?", não desenha nada.
+/// Existe porque as duas telas tinham os mesmos campos e a mesma sequência de
+/// chamadas copiados lado a lado. O que continua diferente entre elas — a
+/// aparência de cada linha, a largura das colunas — fica de fora de
+/// propósito: esta classe só responde "o que aconteceu com esta linha?", não
+/// desenha nada.
 ///
-/// Uso típico dentro do `build()` de um `ListView.builder`:
-/// ```dart
-/// final chave = item['uid']?.toString() ?? 'linha-$index';
-/// final isNova = _controle.registrarBuild(rowsCompletas ?? rows)
-///     .isNovaOuAlterada(chave, item['uid']?.toString(), item['valor']);
-/// ```
-/// (ver o uso completo em participants_tabela.dart e participants_lista.dart)
+/// **Os eventos valem por UM quadro.** São calculados em [registrarBuild]
+/// sobre a lista COMPLETA, no instante em que os dados chegam, e descartados
+/// por [descartarEventosDoQuadro] no fim desse mesmo quadro (o widget agenda
+/// isso num callback pós-frame). Duas falhas antigas morrem com isso:
+///
+/// - Decidir a novidade dentro do `itemBuilder` fazia ela depender de quando
+///   a linha era MONTADA, não de quando os dados chegaram: uma aposta antiga
+///   fora da viewport era vista pela primeira vez ao rolar até ela e entrava
+///   animando — a rolagem "criava" apostas.
+/// - Um evento que sobrevivesse ao quadro seria consumido por uma linha
+///   montada depois, na rolagem, e a animação tocaria atrasada, longe do
+///   momento em que algo aconteceu.
 class RastreadorDeLinhas {
-  final Map<String, Object?> _valoresConhecidos = {};
+  final Map<String, _Assinatura> _conhecidas = {};
   final RastreadorDeIndices _indices = RastreadorDeIndices();
+
+  Map<String, MudancaLinha> _mudancas = const {};
   Map<Object, int> _deslocamentos = const {};
 
-  /// `false` só até o primeiro [registrarBuild]. Existe para resolver um bug
-  /// bem específico da RECICLAGEM (`ListView.builder`): [isNovaOuAlterada] só
-  /// era chamado dentro do `itemBuilder`, que só roda para as linhas que o
-  /// ListView decide MONTAR — e ele monta sob demanda, conforme a viewport e
-  /// o scroll, não conforme os dados chegam.
-  ///
-  /// Resultado: uma aposta que já existia desde a primeira carga da tela, mas
-  /// estava fora da área visível, só entrava em `_valoresConhecidos` quando o
-  /// usuário rolava até ela pela primeira vez — e nesse instante
-  /// `detectarLinhaNova` a via como inédita e disparava a animação de
-  /// entrada. A rolagem em si passou a "criar" apostas novas.
+  /// Sobe a cada [registrarBuild] que produz algum deslocamento. Vai para a
+  /// [LinhaDeslizante], que reaproveita o State entre quadros: sem isto, uma
+  /// linha que andasse a MESMA distância em duas emissões seguidas não
+  /// perceberia a segunda (o `deslocamento` do widget não mudaria).
+  int _geracao = 0;
+  int get geracao => _geracao;
+
+  /// `false` só até o primeiro [registrarBuild]: o que já está na lista
+  /// quando a tela abre é estado, não acontecimento — nada anima.
   bool _primeiraCarga = true;
 
-  /// Chamado uma vez por build, ANTES de montar os itens: esquece quem saiu
-  /// da lista e recalcula os deslocamentos de quem reordenou.
+  /// Há algo a descartar no fim do quadro? Evita agendar callback à toa.
+  bool get temEventos => _mudancas.isNotEmpty || _deslocamentos.isNotEmpty;
+
+  /// Chamado uma vez por build, ANTES de montar os itens: compara a emissão
+  /// nova com a anterior, esquece quem saiu e recalcula os deslocamentos.
   ///
   /// [rowsCompletas] pode ser diferente de [chavesEmOrdem] quando a tela tem
-  /// filtro de busca — a poda usa a lista SEM filtro (o widget recebe as
-  /// linhas completas separadamente), senão filtrar esconderia uids que
-  /// "esqueceriam" e reanimariam ao a busca ser limpa.
+  /// filtro de busca — a comparação usa a lista SEM filtro, senão filtrar
+  /// esqueceria quem ficou escondido e limpar a busca reanimaria todo mundo.
   ///
-  /// Na PRIMEIRA chamada, [rowsCompletas] é registrada inteira como já
-  /// conhecida — mesmo a parte fora da viewport, que ainda não passou (e
-  /// pode nunca passar, se o usuário não rolar até lá) pelo `itemBuilder`.
-  /// É isso que fecha o bug: a novidade passa a depender de quando os dados
-  /// chegaram, não de quando o widget foi desenhado. Builds seguintes não
-  /// repetem isso — aí sim só quem realmente for inédito (ou mudou de valor)
-  /// deve animar, e isso continua decidido por [isNovaOuAlterada].
+  /// [chavesEmOrdem] nulo pula o deslize por índice: é o caso do corpo
+  /// não-reciclado da tabela, que mede posições sozinho via
+  /// [ColunaReordenavel].
   void registrarBuild({
     required List<Map<String, dynamic>> rowsCompletas,
-    required List<Object> chavesEmOrdem,
+    List<Object>? chavesEmOrdem,
   }) {
-    if (_primeiraCarga) {
-      _primeiraCarga = false;
-      for (final row in rowsCompletas) {
-        final uid = row['uid']?.toString();
-        if (uid != null) _valoresConhecidos[uid] = row['valor'];
+    final mudancas = <String, MudancaLinha>{};
+
+    for (final row in rowsCompletas) {
+      final uid = row['uid']?.toString();
+      if (uid == null) continue;
+      final atual = (nome: row['nome'], valor: row['valor']);
+      final anterior = _conhecidas[uid];
+      _conhecidas[uid] = atual;
+
+      if (_primeiraCarga) continue;
+      if (anterior == null) {
+        mudancas[uid] = const MudancaLinha.nova();
+        continue;
+      }
+      final nomeMudou = anterior.nome != atual.nome;
+      final valorMudou = anterior.valor != atual.valor;
+      if (nomeMudou || valorMudou) {
+        mudancas[uid] = MudancaLinha.edicao(
+          nomeMudou: nomeMudou,
+          valorMudou: valorMudou,
+          nomeAnterior: anterior.nome,
+          valorAnterior: anterior.valor,
+        );
       }
     }
+    _primeiraCarga = false;
 
-    podarConhecidos(_valoresConhecidos, rowsCompletas);
-    _deslocamentos = _indices.atualizar(chavesEmOrdem);
+    podarConhecidos(_conhecidas, rowsCompletas);
+    _mudancas = mudancas;
+
+    if (chavesEmOrdem != null) {
+      _deslocamentos = _indices.atualizar(chavesEmOrdem);
+      if (_deslocamentos.isNotEmpty) _geracao++;
+    }
   }
 
-  /// Esta linha deve animar a ENTRADA (uid inédito, ou valor mudou desde a
-  /// última vez)? Precisa ser chamado uma vez por linha, na ordem do build —
-  /// ele também é quem ATUALIZA o registro do uid.
-  bool isNovaOuAlterada(String? uid, Object? valorAtual) =>
-      detectarLinhaNova(_valoresConhecidos, uid, valorAtual);
+  /// O que aconteceu com [uid] neste quadro, ou null se nada.
+  MudancaLinha? mudancaDe(String? uid) => uid == null ? null : _mudancas[uid];
 
-  /// Quantas posições esta linha andou desde o build anterior (ver
+  /// Esta linha acabou de chegar e deve animar a ENTRADA?
+  bool isNova(String? uid) => mudancaDe(uid)?.nova ?? false;
+
+  /// Quantas posições esta linha andou neste quadro (ver
   /// [RastreadorDeIndices.atualizar]) — 0 se ela não reordenou.
   int deslocamentoDe(Object chave) => _deslocamentos[chave] ?? 0;
 
-  /// Só a poda de [podarConhecidos], para quem usa [isNovaOuAlterada] mas não
-  /// tem deslize por índice — o corpo não-reciclado da tabela, que mede
-  /// posições sozinho via `ColunaReordenavel` em vez de usar o índice interno
-  /// desta classe. Chamar [registrarBuild] nesse caso limparia o histórico de
-  /// índices sem necessidade.
-  void esquecerQuemSaiu(List<Map<String, dynamic>> rowsCompletas) {
-    podarConhecidos(_valoresConhecidos, rowsCompletas);
+  /// Encerra os eventos do quadro. Chamado num callback pós-frame pelo
+  /// widget dono, depois que todas as linhas visíveis já foram montadas.
+  void descartarEventosDoQuadro() {
+    _mudancas = const {};
+    _deslocamentos = const {};
   }
 }
 
@@ -244,6 +287,12 @@ class LinhaDeslizante extends StatefulWidget {
   /// (estava num índice maior), então entra deslocada para baixo e sobe.
   final double deslocamento;
 
+  /// [RastreadorDeLinhas.geracao] do quadro em que [deslocamento] foi
+  /// calculado. Com a lista seguindo as linhas pela chave, o State sobrevive
+  /// entre emissões, e é a geração que distingue "andou de novo a mesma
+  /// distância" de "continua o mesmo deslize de antes".
+  final int geracao;
+
   final Duration duracao;
   final Curve curva;
 
@@ -251,6 +300,7 @@ class LinhaDeslizante extends StatefulWidget {
     super.key,
     required this.child,
     required this.deslocamento,
+    this.geracao = 0,
     this.duracao = const Duration(milliseconds: 550),
     this.curva = Curves.easeOutCubic,
   });
@@ -281,7 +331,8 @@ class _LinhaDeslizanteState extends State<LinhaDeslizante>
   @override
   void didUpdateWidget(covariant LinhaDeslizante oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.deslocamento != oldWidget.deslocamento) {
+    if (widget.deslocamento != oldWidget.deslocamento ||
+        widget.geracao != oldWidget.geracao) {
       _iniciar(widget.deslocamento);
     }
   }
