@@ -328,10 +328,14 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null || user.isAnonymous) return;
 
-    await user.updateDisplayName(novoNome);
-    await _firestore.collection('usuarios').doc(user.uid).update({
-      'nome': novoNome,
-    });
+    // Auth e perfil são independentes: saem juntos em vez de um esperar o
+    // outro (o Auth sozinho já é a chamada mais lenta do fluxo).
+    await (
+      user.updateDisplayName(novoNome),
+      _firestore.collection('usuarios').doc(user.uid).update({
+        'nome': novoNome,
+      }),
+    ).wait;
     mesclarNoCache(user.uid, {'nome': novoNome});
   }
 
