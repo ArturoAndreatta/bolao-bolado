@@ -385,6 +385,12 @@ ignora e a pessoa segue gravando dado pela versão velha.
   com o `index.html`. "App na tela" é o mesmo `bolao-app-pronto` do splash.
 - Página e worker precisam de `Cache-Control: no-cache` no `firebase.json`
   (inclusive `/`, não só `/index.html`).
+- `assets/`, `icons/` e `canvaskit/` também ficam em `no-cache`: têm nome
+  fixo, e o padrão do Firebase (`max-age=3600`) fazia o service worker, ao
+  baixar a versão nova, pegar a imagem velha do cache do navegador e
+  guardá-la de novo. Foi assim que a bola da AppBar continuou a antiga
+  depois de um deploy enquanto o ícone da aba já tinha trocado. `no-cache`
+  só confere com o servidor (304 vazio quando nada mudou), não rebaixa nada.
 
 ## Firebase / Firestore — modelo de dados
 
