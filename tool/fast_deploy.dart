@@ -10,6 +10,8 @@
 
 import 'dart:io';
 
+import 'cli.dart';
+import 'deploy.dart' show conferirServiceWorker;
 import 'enxugar_build_web.dart';
 
 Future<void> main(List<String> args) async {
@@ -26,6 +28,7 @@ Future<void> main(List<String> args) async {
     'web',
     '--release',
     '--no-web-resources-cdn',
+    '--pwa-strategy=offline-first',
   ], 'Build web');
 
   stdout.writeln('\n▶ Enxugando o build');
@@ -33,6 +36,10 @@ Future<void> main(List<String> args) async {
     stderr.writeln('Poda falhou — deploy abortado.');
     exit(1);
   }
+
+  // Sem o service worker (ou com ele registrado com ?v=) o aviso de versão
+  // nova para de funcionar calado. Ver conferirServiceWorker em deploy.dart.
+  conferirServiceWorker(Paint(enabled: true));
 
   // Só hosting: pula a publicação de firestore.rules/indexes, que não
   // costumam mudar entre um deploy rápido e outro.

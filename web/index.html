@@ -303,6 +303,122 @@
     </div>
   </div>
 
+  <!--
+    Detecção de versão nova (skill aviso-nova-versao). Antes do
+    flutter_bootstrap.js de propósito: é aqui que o service worker do Flutter
+    é registrado, num endereço fixo, e o evento de versão nova pode chegar
+    antes de o app existir — por isso as marcas globais, lidas pelo
+    `AvisoVersaoNova` (lib/components/shell/aviso_versao_nova.dart) ao nascer.
+
+    Emite em `window`:
+      'bolao-update-found' + window.bolaoUpdateFound: achou, ainda baixando.
+      'bolao-update-ready' + window.bolaoUpdateReady: baixou e assumiu.
+    Os nomes são combinados com lib/core/atualizacao_app_web.dart.
+
+    O navegador compara o service worker do Flutter byte a byte (o nome
+    inteiro do arquivo não pode aparecer neste HTML: o build acrescentaria
+    `?v=` nele), e o worker traz o
+    hash de cada arquivo do build: todo deploy que muda o app muda o worker.
+    O worker do Flutter já faz skipWaiting/clients.claim, então o "pronto"
+    chega sem esperar as abas fecharem.
+  -->
+  <script>
+    (function () {
+      // O app avisa que está na tela pelo mesmo evento que tira o splash
+      // HTML (lib/core/splash_web_web.dart). Antes dele não há aviso para
+      // abrir: quem resolve é o recarregar de `anunciarPronta`.
+      var EVENTO_APP_PRONTO = 'bolao-app-pronto';
+      // Conta o preload também: ele baixa o código velho antes de a tag
+      // existir.
+      var SELETOR_CODIGO_APP =
+        'script[src*="main.dart.js"], link[rel="preload"][href*="main.dart.js"]';
+      // Em dois pedaços porque o build acrescenta `?v=` onde achar o nome
+      // inteiro neste arquivo.
+      var ENDERECO_SW = 'flutter_service_worker' + '.js';
+      var CONFERIR_A_CADA_MS = 30 * 1000;
+
+      var appPronto = false;
+      window.bolaoUpdateFound = false;
+      window.bolaoUpdateReady = false;
+
+      window.addEventListener(EVENTO_APP_PRONTO, function () {
+        appPronto = true;
+      });
+
+      // Se o main.dart.js velho já começou a subir. Antes disso, o app ainda
+      // vai ser baixado e já virá do worker novo: recarregar seria espera à
+      // toa.
+      function codigoAppCarregado() {
+        return !!document.querySelector(SELETOR_CODIGO_APP);
+      }
+
+      function anunciarEncontrada() {
+        if (!appPronto) return;
+        window.bolaoUpdateFound = true;
+        window.dispatchEvent(new Event('bolao-update-found'));
+      }
+
+      function anunciarPronta() {
+        if (!appPronto && !codigoAppCarregado()) return;
+        if (!appPronto) {
+          // Só há splash na tela: recarrega sozinho, uma vez a cada 30s no
+          // máximo (dois deploys se atropelando não viram recarga em círculo).
+          var chave = 'bolao-sw-recarregado-em';
+          var ultima = 0;
+          try { ultima = Number(sessionStorage.getItem(chave)) || 0; } catch (_) {}
+          if (Date.now() - ultima > 30000) {
+            try { sessionStorage.setItem(chave, String(Date.now())); } catch (_) {}
+            location.reload();
+            return;
+          }
+        }
+        window.bolaoUpdateReady = true;
+        window.dispatchEvent(new Event('bolao-update-ready'));
+      }
+
+      if (!('serviceWorker' in navigator)) return;
+      navigator.serviceWorker
+        .register(ENDERECO_SW, { updateViaCache: 'none' })
+        .catch(function () {});
+      navigator.serviceWorker.ready.then(function (registro) {
+        function acompanhar(worker) {
+          // Sem worker ativo antes, é a primeira visita: não há versão velha.
+          if (!worker || !registro.active || worker === registro.active) return;
+          // Endereço diferente do ativo é o mesmo app registrado de novo, não
+          // versão nova: acontece uma vez, na migração do `?v=` antigo para o
+          // endereço fixo.
+          if (worker.scriptURL !== registro.active.scriptURL) return;
+          anunciarEncontrada();
+          worker.addEventListener('statechange', function () {
+            if (worker.state === 'activated') anunciarPronta();
+          });
+        }
+
+        // Um worker novo pode já estar instalando quando `ready` resolve.
+        acompanhar(registro.installing || registro.waiting);
+        registro.addEventListener('updatefound', function () {
+          acompanhar(registro.installing);
+        });
+
+        // O navegador só confere sozinho a cada navegação, e uma aba aberta o
+        // dia inteiro não navega. Aba escondida não confere (a volta confere).
+        // `focus` porque trocar de janela no computador não esconde a aba.
+        // Mínimo de 2s entre conferências: `visibilitychange` e `focus`
+        // chegam juntos.
+        var ultimaConferencia = 0;
+        function conferir() {
+          if (document.visibilityState !== 'visible') return;
+          if (Date.now() - ultimaConferencia < 2000) return;
+          ultimaConferencia = Date.now();
+          registro.update().catch(function () {});
+        }
+        setInterval(conferir, CONFERIR_A_CADA_MS);
+        document.addEventListener('visibilitychange', conferir);
+        window.addEventListener('focus', conferir);
+        window.addEventListener('online', conferir);
+      });
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
   <script>
     // Rede de segurança para quando o app nunca chega a entrar. O

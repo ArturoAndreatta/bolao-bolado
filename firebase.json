@@ -38,6 +38,10 @@
         "source": "/",
         "headers": [
           {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          },
+          {
             "key": "X-Frame-Options",
             "value": "DENY"
           },
@@ -78,7 +82,7 @@
         ]
       },
       {
-        "source": "/@(index.html|flutter_bootstrap.js|flutter_service_worker.js|version.json|main.dart.js)",
+        "source": "/@(index.html|flutter_bootstrap.js|flutter_service_worker.js|version.json|main.dart.js|manifest.json)",
         "headers": [
           {
             "key": "Cache-Control",

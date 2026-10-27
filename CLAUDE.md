@@ -359,6 +359,33 @@ tela vazia, e é o mais longo da abertura.
   aparece desde o primeiro quadro. E ele fica fora do fluxo, pendurado embaixo
   da barra, para a logo não subir quando ele aparece.
 
+## Aviso de versão nova (web)
+
+Depois de um deploy, quem está com o app aberto recebe em até 30s um pop-up
+obrigatório "Versão nova!" com um único botão, Atualizar agora (skill
+`aviso-nova-versao`). Sem "depois" nem X, de propósito: aviso com saída se
+ignora e a pessoa segue gravando dado pela versão velha.
+
+- **Depende do service worker do Flutter.** Quem descobre a versão nova é o
+  navegador, comparando o `flutter_service_worker.js` (que muda a cada build).
+  Nunca build com `--pwa-strategy=none`.
+- O script de detecção mora em [web/index.html](web/index.html), antes do
+  `flutter_bootstrap.js`, e **é ele quem registra o worker, num endereço fixo**.
+  Por isso existe [web/flutter_bootstrap.js](web/flutter_bootstrap.js) sem
+  `serviceWorkerSettings`: o `?v=` do registro padrão fazia o aviso reabrir
+  depois de atualizar. O nome inteiro do worker não pode aparecer no
+  `index.html` (o build acrescenta `?v=` nele). `conferirServiceWorker` em
+  [tool/deploy.dart](tool/deploy.dart) barra o deploy se qualquer um disso
+  quebrar.
+- O pop-up é o `AvisoVersaoNova`
+  ([aviso_versao_nova.dart](lib/components/shell/aviso_versao_nova.dart)),
+  montado no `builder` do `MaterialApp` para cobrir todas as rotas. A ponte
+  com o JS é [atualizacao_app.dart](lib/core/atualizacao_app.dart); os nomes
+  dos eventos (`bolao-update-found`/`bolao-update-ready`) são combinados
+  com o `index.html`. "App na tela" é o mesmo `bolao-app-pronto` do splash.
+- Página e worker precisam de `Cache-Control: no-cache` no `firebase.json`
+  (inclusive `/`, não só `/index.html`).
+
 ## Firebase / Firestore — modelo de dados
 
 Estrutura das coleções:
