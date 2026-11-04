@@ -57,8 +57,18 @@
   -->
   <link rel="apple-touch-icon" href="icons/icone192.png">
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/icone32.png" />
+  <!--
+    Favicon em 16, 32 e 48px, cada um reduzido direto do icone.png
+    (Lanczos + unsharp leve, o mesmo tratamento da bola da AppBar). Com só
+    o de 32px, a aba em tela 100% (16px) encolhia ele no navegador com
+    filtro bilinear: a borda escura e o brilho sumiam e a bola da aba
+    parecia outra, mais apagada que a da barra de cima. O nome mudou de
+    icone32 para favicon* porque o navegador guarda favicon à parte do
+    cache HTTP e ignora troca de conteúdo no mesmo endereço.
+  -->
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon32.png" />
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon48.png" />
 
   <!--
     Prévia do link (Discord, WhatsApp, Telegram, X). Sem estas tags o Discord
