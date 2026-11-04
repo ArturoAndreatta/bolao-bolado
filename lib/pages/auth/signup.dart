@@ -173,6 +173,12 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     }
   }
 
+  // Links abaixo do campo de senha. O padding padrão do TextButton (12px de
+  // cada lado) era o que impedia os dois rótulos de caberem na mesma linha.
+  static final _estiloLinkCompacto = TextButton.styleFrom(
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+  );
+
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
@@ -242,22 +248,36 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       // procura, sem disputar atenção com Logar e Google.
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 480),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Flexible(
-                              child: TextButton(
+                        // Wrap, e não Row com Flexible: dividir a largura ao
+                        // meio quebrava "Esqueci minha senha" em duas linhas
+                        // no celular. Aqui cada rótulo fica inteiro numa
+                        // linha e, se os dois não couberem lado a lado (fonte
+                        // grande), o segundo desce inteiro em vez de partir.
+                        // O padding horizontal menor é o que faz os dois
+                        // caberem juntos numa tela de ~360px.
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            children: [
+                              TextButton(
+                                style: _estiloLinkCompacto,
                                 onPressed: _entrarComCodigo,
-                                child: const Text('Entrar com código'),
+                                child: const Text(
+                                  'Entrar com código',
+                                  softWrap: false,
+                                ),
                               ),
-                            ),
-                            Flexible(
-                              child: TextButton(
+                              TextButton(
+                                style: _estiloLinkCompacto,
                                 onPressed: _recuperarSenha,
-                                child: const Text('Esqueci minha senha'),
+                                child: const Text(
+                                  'Esqueci minha senha',
+                                  softWrap: false,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
