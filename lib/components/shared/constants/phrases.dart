@@ -45,8 +45,6 @@ const List<String> phrases = [
   "Quem chamou de jogo bobo agora quer entrar no bolão",
   "Prêmio grande, cota pequena: o combo ideal",
   "Quem sai do grupo antes do resultado perde a graça",
-  "Mega-Sena: seis números, mil opiniões",
-  "Lotofácil: quinze números, nove discussões",
   "O sorteio é rápido, o grupo demora uma semana",
   "O resultado sai à noite, o nervosismo começa à tarde",
   "Conferir resultado é esporte de sofá",
